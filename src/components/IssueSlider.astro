@@ -1,0 +1,34 @@
+---
+type ComicIssue = {
+  name: string;
+  issue_number: string;
+  site_detail_url: string;
+  id: number;
+  cover: string;
+};
+
+interface Props {
+  issues: ComicIssue[];
+}
+
+const { issues } = Astro.props;
+---
+
+<ul class="flex py-0 px-4 pl-0 overflow-x-scroll hide-scrollbar">
+  {
+    issues.map((issue) => (
+      <li class="mr-4 flex flex-col-reverse text-center">
+        <a href={`/comic/${issue.id}`}>
+          <img
+            class="rounded-md max-w-40"
+            src={issue.cover}
+            alt={issue.name}
+            loading="lazy"
+            height="246"
+            width="160"
+          />
+        </a>
+      </li>
+    ))
+  }
+</ul>

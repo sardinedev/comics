@@ -1,7 +1,63 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import IssueSlider from "../components/IssueSlider.astro";
+import { thisWeekBookendsDates } from "../util/date";
+
+type ComicIssue = {
+  name: string;
+  issue_number: string;
+  site_detail_url: string;
+  id: number;
+  image: {
+    icon_url: string;
+    medium_url: string;
+    screen_url: string;
+    screen_large_url: string;
+    small_url: string;
+    super_url: string;
+    thumb_url: string;
+    tiny_url: string;
+    original_url: string;
+    image_tags: string;
+  };
+  volume: {
+    api_detail_url: string;
+    id: number;
+    name: string;
+    site_detail_url: string;
+  };
+};
+
+type ComicVineResponse = {
+  number_of_total_results: number;
+  results: ComicIssue[];
+};
+
+const { startOfWeek, endOfWeek } = thisWeekBookendsDates();
+
+const response = await fetch(
+  `https://comicvine.gamespot.com/api/issues?api_key=d1dc24fd2bc230094c37a518cfa7b88aa43443ac&format=json&filter=store_date:${startOfWeek}|${endOfWeek}`
+);
+const data: ComicVineResponse = await response.json();
+const { number_of_total_results, results } = data;
+
+const issues = results.map((issue) => {
+  return {
+    cover: issue.image.small_url,
+    id: issue.id,
+    issue_number: issue.issue_number,
+    name: issue.name,
+    site_detail_url: issue.site_detail_url,
+  };
+});
 ---
 
-<Layout title="New this week" />
+<Layout title="New this week">
+  <h1 class="text-2xl">New this week</h1>
+  <p class="text-sm mb-4">
+    There are {number_of_total_results} new comics this week.
+  </p>
+  <IssueSlider issues={issues} />
+</Layout>
 
 <style></style>
