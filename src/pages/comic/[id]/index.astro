@@ -2,17 +2,12 @@
 import Layout from "../../../layouts/Layout.astro";
 const { id } = Astro.params;
 const response = await fetch(
-  `https://comicvine.gamespot.com/api/issue/4000-${id}?api_key=d1dc24fd2bc230094c37a518cfa7b88aa43443ac&format=json`
+  `https://comicvine.gamespot.com/api/issue/4000-${id}?api_key=d1dc24fd2bc230094c37a518cfa7b88aa43443ac&format=json`,
+  { headers: { "User-Agent": "marabyte.com" } }
 );
 const { results } = await response.json();
 console.log(results);
 const title = `${results.volume.name} #${results.issue_number} - ${results.name}`;
-
-const issueResponse = await fetch(
-  `${results.volume.api_detail_url}?api_key=d1dc24fd2bc230094c37a518cfa7b88aa43443ac&format=json`
-);
-const { results: volume } = await issueResponse.json();
-console.log(volume);
 ---
 
 <Layout title={title}>
