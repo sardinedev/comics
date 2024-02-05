@@ -1,11 +1,5 @@
 ---
-type ComicIssue = {
-  name: string;
-  issue_number: string;
-  site_detail_url: string;
-  id: number;
-  cover: string;
-};
+import type { ComicIssue } from "../pages/api/comicvine";
 
 interface Props {
   issues: ComicIssue[];

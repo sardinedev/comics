@@ -1,4 +1,4 @@
-type ComicIssue = {
+type ComicvineIssue = {
   name: string;
   issue_number: string;
   site_detail_url: string;
@@ -23,19 +23,69 @@ type ComicIssue = {
   };
 };
 
-type ComicVineResponse = {
+type ComicvineIssuesResponse = {
   number_of_total_results: number;
-  results: ComicIssue[];
+  results: ComicvineIssue[];
 };
+
+export type ComicIssue = {
+  name: string;
+  issueNumber: string;
+  id: number;
+  cover: string;
+  volume: {
+    id: number;
+    name: string;
+  };
+};
+
+export type WeeklyComics = {
+  totalResults: number;
+  issues: ComicIssue[];
+};
+
+const COMICVINE_API_KEY = "d1dc24fd2bc230094c37a518cfa7b88aa43443ac";
+
+const COMICVINE_URL = "https://comicvine.gamespot.com/api";
+
+async function comicvine<T>(
+  endpoint: string,
+  params: string
+): Promise<T | undefined> {
+  try {
+    const response = await fetch(
+      `${COMICVINE_URL}/${endpoint}/?api_key=${COMICVINE_API_KEY}&format=json&${params}`,
+      { headers: { "User-Agent": "marabyte.com" } }
+    );
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching comicvine", error);
+  }
+}
 
 export async function getWeeklyComics(startOfWeek: string, endOfWeek: string) {
   try {
-    const response = await fetch(
-      `https://comicvine.gamespot.com/api/issues?api_key=d1dc24fd2bc230094c37a518cfa7b88aa43443ac&format=json&filter=store_date:${startOfWeek}|${endOfWeek}`,
-      { headers: { "User-Agent": "marabyte.com" } }
+    const data = await comicvine<ComicvineIssuesResponse>(
+      "issues",
+      `filter=store_date:${startOfWeek}|${endOfWeek}`
     );
-    const data: ComicVineResponse = await response.json();
-    return data;
+    if (data) {
+      const issues: ComicIssue[] = data.results.map((issue) => ({
+        name: issue.name,
+        issueNumber: issue.issue_number,
+        id: issue.id,
+        cover: issue.image.medium_url,
+        volume: {
+          id: issue.volume.id,
+          name: issue.volume.name,
+        },
+      }));
+      return {
+        totalResults: data.number_of_total_results,
+        issues,
+      };
+    }
   } catch (error) {
     console.error("Error fetching weekly comics", error);
   }
