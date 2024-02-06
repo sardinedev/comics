@@ -1,26 +1,41 @@
 ---
 import Layout from "../../../layouts/Layout.astro";
+import { kvGetComicIssue } from "../../api/kv";
+
+const kv = Astro.locals.runtime.env.COMICS;
 const { id } = Astro.params;
-const response = await fetch(
-  `https://comicvine.gamespot.com/api/issue/4000-${id}/?api_key=d1dc24fd2bc230094c37a518cfa7b88aa43443ac&format=json`,
-  { headers: { "User-Agent": "marabyte.com" } }
-);
-const { results } = await response.json();
-const title = `${results.volume.name} #${results.issue_number} - ${results.name}`;
+let data;
+try {
+  if (id) {
+    data = await kvGetComicIssue(id, kv);
+  }
+} catch (error) {}
+
+const title = data
+  ? `${data.volume.name} #${data.issueNumber} - ${data.name}`
+  : "Issue not found";
 ---
 
 <Layout title={title}>
-  <h1 class="text-3xl">{results.name}</h1>
-  <h2 class="text-lg mb-4">
-    {`${results.volume.name} #${results.issue_number}`}
-  </h2>
-  <img
-    class="mb-4"
-    src={results.image.small_url}
-    alt={results.name}
-    width="421"
-    height="640"
-    loading="lazy"
-  />
-  <div set:html={results.description} />
+  {
+    data ? (
+      <>
+        <h1 class="text-3xl">{data.name}</h1>
+        <h2 class="text-lg mb-4">
+          {`${data.volume.name} #${data.issueNumber}`}
+        </h2>
+        <img
+          class="mb-4"
+          src={data.cover}
+          alt={data.name}
+          width="421"
+          height="640"
+          loading="lazy"
+        />
+        <div set:html={data.description} />
+      </>
+    ) : (
+      <p>Issue not found</p>
+    )
+  }
 </Layout>
