@@ -1,10 +1,12 @@
 import {
   getComicIssueDetails,
+  getIssuesFromVolume,
   getVolumeDetails,
   getWeeklyComics,
 } from "./comicvine";
 import type { WeeklyComics } from "./comicvine";
 import type {
+  ComicvineIssuesResponse,
   ComicvineSingleIssueResponse,
   ComicvineVolumeResponse,
 } from "./comicvine.types";
@@ -55,7 +57,7 @@ export async function kvGetComicIssue(
 }
 
 export async function kvGetVolume(
-  id: number,
+  id: number | string,
   kv: KVNamespace
 ): Promise<ComicvineVolumeResponse | undefined> {
   try {
@@ -70,6 +72,25 @@ export async function kvGetVolume(
         });
         return response;
       }
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+export async function kvGetIssuesFromVolume(
+  volumeId: number | string,
+  kv: KVNamespace
+): Promise<ComicvineIssuesResponse[] | undefined> {
+  try {
+    const issues = await getIssuesFromVolume(volumeId);
+    if (issues) {
+      for (const issue of issues) {
+        await kv.put(`4000-${issue.id}`, JSON.stringify(issue), {
+          expirationTtl: 60 * 60 * 24 * 7, // 7 days
+        });
+      }
+      return issues;
     }
   } catch (error) {
     console.error(error);

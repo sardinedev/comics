@@ -10,12 +10,19 @@ const kv = Astro.locals.runtime.env.COMICS;
 const { id } = Astro.params;
 let data;
 let issuesInSeries: SingleIssuePreview[] = [];
+let viewVolume;
 try {
   if (id) {
     data = await kvGetComicIssue(id, kv);
     if (data) {
       const volume = await kvGetVolume(data.volume.id, kv);
       if (volume) {
+        if (volume.count_of_issues > 10) {
+          viewVolume = {
+            volumeId: volume.id,
+            cover: volume.image.medium_url,
+          };
+        }
         const issues = volume.issues
           .reverse()
           .slice(0, 10)
@@ -49,8 +56,10 @@ const title = data
       <>
         <h1 class="text-3xl">{data.name}</h1>
         <h2 class="text-lg mb-4">
-          {`${data.volume.name} #${data.issue_number}`}
+          <a href={`/volume/${data.volume.id}`}>{data.volume.name}</a> #
+          {data.issue_number}
         </h2>
+        <p class="mb-4">{data.cover_date}</p>
         <img
           class="mb-4"
           src={data.image.medium_url}
@@ -62,7 +71,7 @@ const title = data
         <div set:html={data.description} />
 
         <h2 class="text-xl mt-8 mb-4">Other issues in series</h2>
-        <IssueSlider issues={issuesInSeries} />
+        <IssueSlider issues={issuesInSeries} showMore={viewVolume} />
       </>
     ) : (
       <p>Issue not found</p>

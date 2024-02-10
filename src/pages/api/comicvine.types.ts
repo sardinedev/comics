@@ -238,7 +238,7 @@ export type ComicvineVolumeResponse = {
   /**
    * Main image of the volume.
    */
-  image: string;
+  image: ComicvineImage;
 
   /** A list of issues part of this volume */
   issues: ShortIssue[];

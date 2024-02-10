@@ -7,15 +7,19 @@ export type SingleIssuePreview = {
 
 interface Props {
   issues: SingleIssuePreview[];
+  showMore?: {
+    cover: string;
+    volumeId: number;
+  };
 }
 
-const { issues } = Astro.props;
+const { issues, showMore } = Astro.props;
 ---
 
-<ul class="flex py-0 px-4 pl-0 overflow-x-scroll hide-scrollbar">
+<ul class="flex overflow-x-scroll hide-scrollbar">
   {
     issues.map((issue) => (
-      <li class="mr-4 flex flex-col-reverse text-center">
+      <li class="mr-4 last:mr-0 flex flex-col-reverse text-center">
         <a href={`/comic/${issue.id}`}>
           <img
             class="rounded-md max-w-40"
@@ -28,5 +32,24 @@ const { issues } = Astro.props;
         </a>
       </li>
     ))
+  }
+  {
+    showMore ? (
+      <li class="mr-4 last:mr-0 flex flex-col-reverse text-center">
+        <a class="relative" href={`/volume/${showMore.volumeId}`}>
+          <span class="absolute inset-0 flex justify-center items-center backdrop-blur-sm bg-black/40">
+            View more
+          </span>
+          <img
+            class="rounded-md max-w-40"
+            src={showMore.cover}
+            alt="View more issues"
+            loading="lazy"
+            height="246"
+            width="160"
+          />
+        </a>
+      </li>
+    ) : null
   }
 </ul>

@@ -55,12 +55,9 @@ export async function getWeeklyComics(startOfWeek: string, endOfWeek: string) {
       `filter=store_date:${startOfWeek}|${endOfWeek}`
     );
     if (data) {
-      const issues = data.results.map((issue) => ({
-        ...issue,
-      }));
       return {
         totalResults: data.number_of_total_results,
-        issues,
+        issues: data.results,
       };
     }
   } catch (error) {
@@ -96,7 +93,7 @@ export async function getComicIssueDetails(
  * @returns The details of the comic issue.
  */
 export async function getVolumeDetails(
-  volumeId: number
+  volumeId: number | string
 ): Promise<ComicvineVolumeResponse | undefined> {
   try {
     const data = await comicvine<ComicvineVolumeResponse>(
@@ -112,17 +109,17 @@ export async function getVolumeDetails(
   }
 }
 
-export async function getIssuesIdFromVolume(
-  volumeId: number,
-  limit: number = 10
-): Promise<number[] | undefined> {
+export async function getIssuesFromVolume(
+  volumeId: number | string,
+  offset: number = 0
+): Promise<ComicvineIssuesResponse[] | undefined> {
   try {
-    const data = await comicvine<ComicvineVolumeResponse>(
-      `volume/4050-${volumeId}`
+    const data = await comicvine<ComicvineIssuesResponse[]>(
+      "issues",
+      `filter=volume:${volumeId}&sort=cover_date:asc`
     );
     if (data) {
-      const issues = data.results.issues.map((issue) => issue.id);
-      return issues.reverse().slice(0, limit);
+      return data.results;
     }
   } catch (error) {
     console.error("Error fetching comic issue details", error);
