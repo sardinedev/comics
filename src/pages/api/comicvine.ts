@@ -33,6 +33,9 @@ async function comicvine<T>(
       { headers: { "User-Agent": "marabyte.com" } }
     );
     const data = await response.json();
+    if (data.status_code !== 1) {
+      throw new Error(data.error);
+    }
     return data;
   } catch (error) {
     console.error("Error fetching comicvine", error);

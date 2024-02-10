@@ -4,14 +4,26 @@ import IssueSlider from "../components/IssueSlider.astro";
 import { thisWeekBookendsDates } from "../util/date";
 import { kvGetWeeklyComics } from "./api/kv";
 
+import type { SingleIssuePreview } from "../components/IssueSlider.astro";
+
 const kv = Astro.locals.runtime.env.COMICS;
 
 const { startOfWeek, endOfWeek } = thisWeekBookendsDates();
 
 let weeklyIssues;
+let issues: SingleIssuePreview[] = [];
 
 try {
   weeklyIssues = await kvGetWeeklyComics(startOfWeek, endOfWeek, kv);
+  if (weeklyIssues) {
+    issues = weeklyIssues.issues.map((issue) => {
+      return {
+        cover: issue.image.medium_url,
+        name: issue.name,
+        id: issue.id,
+      };
+    });
+  }
 } catch (error) {
   console.error(error);
 }
@@ -25,7 +37,7 @@ try {
         <p class="text-sm mb-4">
           There are {weeklyIssues.totalResults} new comics this week.
         </p>
-        <IssueSlider issues={weeklyIssues.issues} />
+        <IssueSlider issues={issues} />
       </>
     ) : (
       <p class="text-sm mb-4">

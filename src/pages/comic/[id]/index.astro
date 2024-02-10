@@ -4,11 +4,12 @@ import Layout from "../../../layouts/Layout.astro";
 import { kvGetComicIssue, kvGetVolume } from "../../api/kv";
 
 import type { ComicvineSingleIssueResponse } from "../../api/comicvine.types";
+import type { SingleIssuePreview } from "../../../components/IssueSlider.astro";
 
 const kv = Astro.locals.runtime.env.COMICS;
 const { id } = Astro.params;
 let data;
-let issuesInSeries: Partial<ComicvineSingleIssueResponse>[] = [];
+let issuesInSeries: SingleIssuePreview[] = [];
 try {
   if (id) {
     data = await kvGetComicIssue(id, kv);
@@ -22,9 +23,16 @@ try {
         const _issuesInSeries = await Promise.all(
           issues.map((issueId) => kvGetComicIssue(issueId, kv))
         );
-        issuesInSeries = _issuesInSeries.filter(
-          (issue): issue is ComicvineSingleIssueResponse => issue !== undefined
-        );
+        issuesInSeries = _issuesInSeries
+          .filter(
+            (issue): issue is ComicvineSingleIssueResponse =>
+              issue !== undefined
+          )
+          .map((issue) => ({
+            id: issue.id,
+            name: issue.name,
+            cover: issue.image.medium_url,
+          }));
       }
     }
   }

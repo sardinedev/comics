@@ -1,6 +1,5 @@
 import {
   getComicIssueDetails,
-  getIssuesIdFromVolume,
   getVolumeDetails,
   getWeeklyComics,
 } from "./comicvine";
@@ -22,7 +21,9 @@ export async function kvGetWeeklyComics(
     } else {
       const response = await getWeeklyComics(startOfWeek, endOfWeek);
       if (response) {
-        await kv.put(`${startOfWeek}-${endOfWeek}`, JSON.stringify(response));
+        await kv.put(`${startOfWeek}-${endOfWeek}`, JSON.stringify(response), {
+          expirationTtl: 60 * 60 * 24, // 1 day
+        });
         return response;
       }
     }
@@ -42,7 +43,9 @@ export async function kvGetComicIssue(
     } else {
       const response = await getComicIssueDetails(id);
       if (response) {
-        await kv.put(`4000-${id}`, JSON.stringify(response));
+        await kv.put(`4000-${id}`, JSON.stringify(response), {
+          expirationTtl: 60 * 60 * 24 * 7, // 7 days
+        });
         return response;
       }
     }
@@ -62,7 +65,9 @@ export async function kvGetVolume(
     } else {
       const response = await getVolumeDetails(id);
       if (response) {
-        await kv.put(`4050-${id}`, JSON.stringify(response));
+        await kv.put(`4050-${id}`, JSON.stringify(response), {
+          expirationTtl: 60 * 60 * 24 * 7, // 7 days
+        });
         return response;
       }
     }
