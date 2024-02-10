@@ -2,29 +2,15 @@ import type {
   ComicvineIssuesResponse,
   ComicvineResponse,
   ComicvineSingleIssueResponse,
+  ComicvineVolumeResponse,
 } from "./comicvine.types";
-
-/**
- * Represents a single comic issue.
- */
-export type ComicIssue = {
-  description?: string;
-  name: string;
-  issueNumber: string;
-  id: number;
-  cover: string;
-  volume: {
-    id: number;
-    name: string;
-  };
-};
 
 /**
  * Represents the weekly comics data.
  */
 export type WeeklyComics = {
   totalResults: number;
-  issues: ComicIssue[];
+  issues: ComicvineIssuesResponse[];
 };
 
 const COMICVINE_API_KEY = "d1dc24fd2bc230094c37a518cfa7b88aa43443ac";
@@ -66,15 +52,8 @@ export async function getWeeklyComics(startOfWeek: string, endOfWeek: string) {
       `filter=store_date:${startOfWeek}|${endOfWeek}`
     );
     if (data) {
-      const issues: ComicIssue[] = data.results.map((issue) => ({
-        name: issue.name,
-        issueNumber: issue.issue_number,
-        id: issue.id,
-        cover: issue.image.medium_url,
-        volume: {
-          id: issue.volume.id,
-          name: issue.volume.name,
-        },
+      const issues = data.results.map((issue) => ({
+        ...issue,
       }));
       return {
         totalResults: data.number_of_total_results,
@@ -91,23 +70,56 @@ export async function getWeeklyComics(startOfWeek: string, endOfWeek: string) {
  * @param issueId - The ID of the comic issue.
  * @returns The details of the comic issue.
  */
-export async function getComicIssueDetails(issueId: string) {
+export async function getComicIssueDetails(
+  issueId: string | number
+): Promise<ComicvineSingleIssueResponse | undefined> {
   try {
     const data = await comicvine<ComicvineSingleIssueResponse>(
       `issue/4000-${issueId}`
     );
     if (data) {
       return {
-        description: data.results.description,
-        name: data.results.name,
-        issueNumber: data.results.issue_number,
-        id: data.results.id,
-        cover: data.results.image.medium_url,
-        volume: {
-          id: data.results.volume.id,
-          name: data.results.volume.name,
-        },
+        ...data.results,
       };
+    }
+  } catch (error) {
+    console.error("Error fetching comic issue details", error);
+  }
+}
+
+/**
+ * Retrieves the details of a volume based on the specified issue ID.
+ * @param volumeId - The ID of the volume issue.
+ * @returns The details of the comic issue.
+ */
+export async function getVolumeDetails(
+  volumeId: number
+): Promise<ComicvineVolumeResponse | undefined> {
+  try {
+    const data = await comicvine<ComicvineVolumeResponse>(
+      `volume/4050-${volumeId}`
+    );
+    if (data) {
+      return {
+        ...data.results,
+      };
+    }
+  } catch (error) {
+    console.error("Error fetching comic volume details", error);
+  }
+}
+
+export async function getIssuesIdFromVolume(
+  volumeId: number,
+  limit: number = 10
+): Promise<number[] | undefined> {
+  try {
+    const data = await comicvine<ComicvineVolumeResponse>(
+      `volume/4050-${volumeId}`
+    );
+    if (data) {
+      const issues = data.results.issues.map((issue) => issue.id);
+      return issues.reverse().slice(0, limit);
     }
   } catch (error) {
     console.error("Error fetching comic issue details", error);

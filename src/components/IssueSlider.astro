@@ -1,8 +1,16 @@
 ---
-import type { ComicIssue } from "../pages/api/comicvine";
+import type { ComicvineSingleIssueResponse } from "../pages/api/comicvine.types";
+
+type SingleIssue = {
+  id: number;
+  name: string;
+  image: {
+    medium_url: string;
+  };
+};
 
 interface Props {
-  issues: ComicIssue[];
+  issues: Partial<ComicvineSingleIssueResponse>[];
 }
 
 const { issues } = Astro.props;
@@ -15,7 +23,7 @@ const { issues } = Astro.props;
         <a href={`/comic/${issue.id}`}>
           <img
             class="rounded-md max-w-40"
-            src={issue.cover}
+            src={issue?.image?.medium_url}
             alt={issue.name}
             loading="lazy"
             height="246"

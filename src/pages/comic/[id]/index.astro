@@ -1,18 +1,37 @@
 ---
+import IssueSlider from "../../../components/IssueSlider.astro";
 import Layout from "../../../layouts/Layout.astro";
-import { kvGetComicIssue } from "../../api/kv";
+import { kvGetComicIssue, kvGetVolume } from "../../api/kv";
+
+import type { ComicvineSingleIssueResponse } from "../../api/comicvine.types";
 
 const kv = Astro.locals.runtime.env.COMICS;
 const { id } = Astro.params;
 let data;
+let issuesInSeries: Partial<ComicvineSingleIssueResponse>[] = [];
 try {
   if (id) {
     data = await kvGetComicIssue(id, kv);
+    if (data) {
+      const volume = await kvGetVolume(data.volume.id, kv);
+      if (volume) {
+        const issues = volume.issues
+          .reverse()
+          .slice(0, 10)
+          .map((issue) => issue.id);
+        const _issuesInSeries = await Promise.all(
+          issues.map((issueId) => kvGetComicIssue(issueId, kv))
+        );
+        issuesInSeries = _issuesInSeries.filter(
+          (issue): issue is ComicvineSingleIssueResponse => issue !== undefined
+        );
+      }
+    }
   }
 } catch (error) {}
 
 const title = data
-  ? `${data.volume.name} #${data.issueNumber} - ${data.name}`
+  ? `${data.volume.name} #${data.issue_number} - ${data.name}`
   : "Issue not found";
 ---
 
@@ -22,17 +41,20 @@ const title = data
       <>
         <h1 class="text-3xl">{data.name}</h1>
         <h2 class="text-lg mb-4">
-          {`${data.volume.name} #${data.issueNumber}`}
+          {`${data.volume.name} #${data.issue_number}`}
         </h2>
         <img
           class="mb-4"
-          src={data.cover}
+          src={data.image.medium_url}
           alt={data.name}
           width="421"
           height="640"
           loading="lazy"
         />
         <div set:html={data.description} />
+
+        <h2 class="text-xl mt-8 mb-4">Other issues in series</h2>
+        <IssueSlider issues={issuesInSeries} />
       </>
     ) : (
       <p>Issue not found</p>
