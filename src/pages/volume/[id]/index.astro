@@ -1,10 +1,6 @@
 ---
 import Layout from "../../../layouts/Layout.astro";
-import {
-  kvGetComicIssue,
-  kvGetVolume,
-  kvGetIssuesFromVolume,
-} from "../../api/kv";
+import { kvGetVolume } from "../../api/kv";
 import type {
   ComicvineIssuesResponse,
   ComicvineVolumeResponse,
@@ -13,18 +9,11 @@ import type {
 const kv = Astro.locals.runtime.env.COMICS;
 const { id } = Astro.params;
 let volume: ComicvineVolumeResponse;
-let covers: string[] = [];
-let issues: ComicvineIssuesResponse[] = [];
 try {
   if (id) {
     const data = await kvGetVolume(id, kv);
     if (data) {
       volume = data;
-      const issuesData = await kvGetIssuesFromVolume(volume.id, kv);
-      if (issuesData) {
-        issues = issuesData;
-        covers = issues.map((issue) => issue.image.thumb_url);
-      }
     }
   }
 } catch (e) {
@@ -36,7 +25,7 @@ try {
   <header class="flex">
     <div class="relative w-28 h-40 mr-4">
       {
-        covers.map((cover, index) => (
+        volume.cover_image.map((cover, index) => (
           <img
             class="absolute"
             class:list={
@@ -67,20 +56,22 @@ try {
   <section>
     <ul class="grid gap-4 grid-cols-3 md:grid-cols-6 mt-8">
       {
-        issues.map(async (issue) => (
-          <li>
-            <a href={"/comic/" + issue.id}>
-              <img
-                src={issue?.image.small_url}
-                loading="lazy"
-                height="320"
-                width="210"
-                alt={issue.name}
-              />
-              <span>Issue #{issue.issue_number}</span>
-            </a>
-          </li>
-        ))
+        volume.issues.map((issue) =>
+          issue?.image?.medium_url ? (
+            <li>
+              <a href={"/comic/" + issue.id}>
+                <img
+                  src={issue?.image.medium_url}
+                  loading="lazy"
+                  height="320"
+                  width="210"
+                  alt={issue.name}
+                />
+                <span>Issue #{issue.issue_number}</span>
+              </a>
+            </li>
+          ) : null
+        )
       }
     </ul>
   </section>

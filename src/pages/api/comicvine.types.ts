@@ -72,6 +72,8 @@ type ShortIssue = {
   site_detail_url: string;
   /** The number assigned to the issue within the volume set. */
   issue_number: string;
+  /** Contains multiple images sizes */
+  image: ComicvineImage;
 };
 
 /**
@@ -287,4 +289,6 @@ export type ComicvineVolumeResponse = {
    * List of teams that appear in this volume.
    */
   team_credits: string[];
+
+  cover_image: string[];
 };
