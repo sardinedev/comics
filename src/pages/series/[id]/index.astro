@@ -1,0 +1,110 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import PageNavigator from "../../../components/PageNavigator.astro";
+import CoverStack from "../../../components/CoverStack.astro";
+import { kvGetVolume } from "../../api/kv";
+
+import type { ComicvineVolumeResponse } from "../../api/comicvine.types";
+
+const kv = Astro.locals.runtime.env.COMICS;
+const { id, page } = Astro.params;
+let volume: ComicvineVolumeResponse | undefined;
+let numberOfPages = 0;
+let currentPage = 1;
+if (page) {
+  currentPage = parseInt(page);
+}
+
+try {
+  if (id) {
+    volume = await kvGetVolume(id, kv);
+    if (volume) {
+      numberOfPages = Math.ceil(volume.count_of_issues / 100);
+    }
+  }
+} catch (e) {
+  console.error(e);
+}
+---
+
+<script>
+  const followButton = document.getElementById("follow-series");
+  if (followButton) {
+    followButton.addEventListener("click", async (event) => {
+      const volumeId = event?.target?.getAttribute("data-volume");
+      if (volumeId) {
+        const response = await fetch("/api/followSeries", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ id: volumeId }),
+        });
+        if (response.ok) {
+          followButton.textContent = "Following series";
+        }
+      }
+    });
+  }
+</script>
+
+<Layout title={volume?.name ?? "Error loading volume"}>
+  {
+    volume ? (
+      <>
+        <header class="flex flex-col">
+          <div>
+            <h1>
+              <span class="text-4xl">{volume.name}</span> ({volume.start_year})
+            </h1>
+            <p>{volume.count_of_issues} issues</p>
+          </div>
+          <div class="flex items-end">
+            <CoverStack covers={volume.cover_image} />
+
+            <button
+              data-volume={volume.id}
+              id="follow-series"
+              type="button"
+              class="inline-flex items-center gap-x-2 h-fit rounded-md bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:bg-white/30"
+            >
+              Follow series
+              <img class="h-5 w-5" src="/icons/heart.svg" alt="Favorite" />
+            </button>
+          </div>
+        </header>
+        <section>
+          <ul class="grid gap-4 grid-cols-2 md:grid-cols-6 mt-8">
+            {volume.issues.map((issue) =>
+              issue?.image?.medium_url ? (
+                <li>
+                  <a href={"/comic/" + issue.id}>
+                    <img
+                      src={issue?.image.medium_url}
+                      loading="lazy"
+                      height="320"
+                      width="210"
+                      alt={issue.name}
+                    />
+                    <span>Issue #{issue.issue_number}</span>
+                  </a>
+                </li>
+              ) : null
+            )}
+          </ul>
+          <div>
+            {numberOfPages > 1 ? (
+              <PageNavigator
+                numberOfPages={numberOfPages}
+                id={volume.id}
+                currentPage={currentPage}
+              />
+            ) : null}
+          </div>
+        </section>
+      </>
+    ) : (
+      <p>Error loading volume</p>
+    )
+  }
+</Layout>
