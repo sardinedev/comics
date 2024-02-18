@@ -2,26 +2,25 @@
 import Layout from "../../../layouts/Layout.astro";
 import CoverStack from "../../../components/CoverStack.astro";
 import { IssueGrid } from "../../../components/IssueGrid/IssueGrid";
-import { kvGetVolume } from "../../api/kv";
+import { SortButton } from "../../../components/SortButton";
+import { kvGetVolume, kvGetFollowSeries } from "../../api/kv";
 
 import type { ComicvineVolumeResponse } from "../../api/comicvine.types";
 
 const kv = Astro.locals.runtime.env.COMICS;
 const { id, slug } = Astro.params;
 let volume: ComicvineVolumeResponse | undefined;
-let numberOfPages = 0;
 let currentPage = 1;
+let isFollowing = false;
 if (slug) {
   currentPage = parseInt(slug);
 }
 
 try {
   if (id) {
+    const followings = await kvGetFollowSeries(kv);
+    isFollowing = followings?.series.includes(id) ?? false;
     volume = await kvGetVolume(id, kv);
-    if (volume) {
-      console.log(volume.count_of_issues);
-      numberOfPages = Math.ceil(volume.count_of_issues / 100);
-    }
   }
 } catch (e) {
   console.error(e);
@@ -67,18 +66,23 @@ try {
               data-volume={volume.id}
               id="follow-series"
               type="button"
-              class="inline-flex items-center gap-x-2 h-fit rounded-md bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:bg-white/30"
+              class="flex flex-col items-center"
             >
-              Follow series
               <img
                 class="h-5 w-5 invert"
-                src="/icons/heart.svg"
+                src={
+                  isFollowing ? "/icons/heart-filled.svg" : "/icons/heart.svg"
+                }
                 alt="Favorite"
               />
+              {isFollowing ? "Following series" : "Follow series"}
             </button>
           </div>
         </header>
-        <section>
+        <section class="mt-8">
+          <div class="border-t-2 border-b-2 py-2">
+            <SortButton client:idle />
+          </div>
           <IssueGrid
             client:load
             seriesId={volume.id}

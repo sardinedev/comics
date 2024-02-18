@@ -1,9 +1,12 @@
 import { useEffect, useState } from "preact/hooks";
+import { useStore } from "@nanostores/preact";
+import { $sort } from "../../stores/sort.store";
 import { PageNavigator } from "../PageNavigator";
 import type {
   ComicvineImage,
   ShortIssue,
 } from "../../pages/api/comicvine.types";
+import type { Sort } from "../../stores/sort.store";
 
 export type Props = {
   seriesId: number;
@@ -17,13 +20,23 @@ function clampIssuesPerPage({
   issuesPerPage,
   currentPage,
   issueList,
+  sortDirection,
 }: {
   issuesPerPage: number;
   currentPage: number;
   issueList: ShortIssue[];
+  sortDirection: Sort;
 }) {
   // sort the issues by issue number
-  issueList.sort((a, b) => parseInt(a.issue_number) - parseInt(b.issue_number));
+  if (sortDirection === "desc") {
+    issueList.sort(
+      (a, b) => parseInt(b.issue_number) - parseInt(a.issue_number)
+    );
+  } else {
+    issueList.sort(
+      (a, b) => parseInt(a.issue_number) - parseInt(b.issue_number)
+    );
+  }
   return issueList.slice(
     (currentPage - 1) * issuesPerPage,
     currentPage * issuesPerPage
@@ -41,7 +54,7 @@ function Issue({ id, name, image, issue_number }: ShortIssue) {
     }
     if (!image) {
       getIssue();
-      console.log("Issue", id, "is missing an image");
+      console.warn("Issue", id, "is missing an image");
     }
   }, [image]);
   return (
@@ -69,9 +82,27 @@ export function IssueGrid({
   totalNumberOfIssues,
   issuesPerPage = 50,
 }: Props) {
+  const $sortDirection = useStore($sort);
+
   const [issues, setIssues] = useState<ShortIssue[] | undefined>(
-    clampIssuesPerPage({ issuesPerPage, currentPage, issueList })
+    clampIssuesPerPage({
+      issuesPerPage,
+      currentPage,
+      issueList,
+      sortDirection: $sortDirection,
+    })
   );
+
+  useEffect(() => {
+    setIssues(
+      clampIssuesPerPage({
+        issuesPerPage,
+        currentPage,
+        issueList,
+        sortDirection: $sortDirection,
+      })
+    );
+  }, [issueList, currentPage, issuesPerPage, $sortDirection]);
   return (
     <>
       <ul class="grid gap-4 grid-cols-2 md:grid-cols-5 mt-8">
