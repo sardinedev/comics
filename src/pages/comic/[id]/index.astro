@@ -43,7 +43,9 @@ try {
       }
     }
   }
-} catch (error) {}
+} catch (error) {
+  console.error(error);
+}
 
 const title = data
   ? `${data.volume.name} #${data.issue_number} - ${data.name}`
@@ -54,11 +56,13 @@ const title = data
   {
     data ? (
       <>
-        <h1 class="text-3xl">{data.name}</h1>
-        <h2 class="text-lg mb-4">
-          <a href={`/volume/${data.volume.id}`}>{data.volume.name}</a> #
-          {data.issue_number}
+        <h2 class="mb-2">
+          <a class="text-3xl" href={`/series/${data.volume.id}`}>
+            {data.volume.name}
+          </a>{" "}
+          #{data.issue_number}
         </h2>
+        <h2 class="text-xl">{data.name}</h2>
         <p class="mb-4">{data.cover_date}</p>
         <img
           class="mb-4"

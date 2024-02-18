@@ -122,3 +122,42 @@ export async function kvGetIssuesFromVolume(
     console.error(error);
   }
 }
+
+export async function kvGetFollowSeries(
+  kv: KVNamespace
+): Promise<{ series: string[] } | undefined> {
+  try {
+    const series = await kv.get("follow-series");
+    if (series) {
+      return JSON.parse(series);
+    } else {
+      const seriesBoilerplate = {
+        series: [],
+      };
+      await kv.put("follow-series", JSON.stringify(seriesBoilerplate), {
+        expirationTtl: 60 * 60 * 24 * 365, // 1 year
+      });
+      return seriesBoilerplate;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+export async function kvAddFollowSeries(
+  series: string,
+  kv: KVNamespace
+): Promise<{ series: string[] } | undefined> {
+  try {
+    const seriesData = await kvGetFollowSeries(kv);
+    if (seriesData) {
+      seriesData.series.push(series);
+      await kv.put("follow-series", JSON.stringify(seriesData), {
+        expirationTtl: 60 * 60 * 24 * 365, // 1 year
+      });
+      return seriesData;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}

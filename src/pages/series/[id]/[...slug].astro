@@ -1,0 +1,99 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import CoverStack from "../../../components/CoverStack.astro";
+import { IssueGrid } from "../../../components/IssueGrid/IssueGrid";
+import { SortButton } from "../../../components/SortButton";
+import { kvGetVolume, kvGetFollowSeries } from "../../api/kv";
+
+import type { ComicvineVolumeResponse } from "../../api/comicvine.types";
+
+const kv = Astro.locals.runtime.env.COMICS;
+const { id, slug } = Astro.params;
+let volume: ComicvineVolumeResponse | undefined;
+let currentPage = 1;
+let isFollowing = false;
+if (slug) {
+  currentPage = parseInt(slug);
+}
+
+try {
+  if (id) {
+    const followings = await kvGetFollowSeries(kv);
+    isFollowing = followings?.series.includes(id) ?? false;
+    volume = await kvGetVolume(id, kv);
+  }
+} catch (e) {
+  console.error(e);
+}
+---
+
+<script>
+  const followButton = document.getElementById("follow-series");
+  if (followButton) {
+    followButton.addEventListener("click", async (event) => {
+      const volumeId = event?.target?.getAttribute("data-volume");
+      if (volumeId) {
+        const response = await fetch("/api/followSeries", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ id: volumeId }),
+        });
+        if (response.ok) {
+          followButton.textContent = "Following series";
+        }
+      }
+    });
+  }
+</script>
+
+<Layout title={volume?.name ?? "Error loading volume"}>
+  {
+    volume ? (
+      <>
+        <header class="flex flex-col">
+          <div>
+            <h1>
+              <span class="text-4xl">{volume.name}</span> ({volume.start_year})
+            </h1>
+            <p>{volume.count_of_issues} issues</p>
+          </div>
+          <div class="flex items-end">
+            <CoverStack covers={volume.cover_image} />
+
+            <button
+              data-volume={volume.id}
+              id="follow-series"
+              type="button"
+              class="flex flex-col items-center"
+            >
+              <img
+                class="h-5 w-5 invert"
+                src={
+                  isFollowing ? "/icons/heart-filled.svg" : "/icons/heart.svg"
+                }
+                alt="Favorite"
+              />
+              {isFollowing ? "Following series" : "Follow series"}
+            </button>
+          </div>
+        </header>
+        <section class="mt-8">
+          <div class="border-t-2 border-b-2 py-2">
+            <SortButton client:idle />
+          </div>
+          <IssueGrid
+            client:load
+            seriesId={volume.id}
+            issueList={volume.issues}
+            totalNumberOfIssues={volume.count_of_issues}
+            currentPage={currentPage}
+          />
+        </section>
+      </>
+    ) : (
+      <p>Error loading volume</p>
+    )
+  }
+</Layout>

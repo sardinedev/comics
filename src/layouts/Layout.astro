@@ -22,10 +22,13 @@ const { title } = Astro.props;
     <section class="p-4">
       <slot />
     </section>
+    <footer class="p-4 text-center text-xs">
+      <p>&copy; 2024 Sardines Reading Comics</p>
+    </footer>
   </body>
+  <style is:global>
+    .hide-scrollbar {
+      scrollbar-width: none;
+    }
+  </style>
 </html>
-<style is:global>
-  .hide-scrollbar {
-    scrollbar-width: none;
-  }
-</style>

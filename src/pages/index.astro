@@ -2,7 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import IssueSlider from "../components/IssueSlider.astro";
 import { thisWeekBookendsDates } from "../util/date";
-import { kvGetWeeklyComics } from "./api/kv";
+import { kvGetFollowSeries, kvGetWeeklyComics } from "./api/kv";
 
 import type { SingleIssuePreview } from "../components/IssueSlider.astro";
 
@@ -12,16 +12,22 @@ const { startOfWeek, endOfWeek } = thisWeekBookendsDates();
 
 let weeklyIssues;
 let issues: SingleIssuePreview[] = [];
+let issuesNewForYou: SingleIssuePreview[] = [];
 
 try {
   weeklyIssues = await kvGetWeeklyComics(startOfWeek, endOfWeek, kv);
   if (weeklyIssues) {
+    const followedSeries = await kvGetFollowSeries(kv);
     issues = weeklyIssues.issues.map((issue) => {
-      return {
+      const shortIssueDetails = {
         cover: issue.image.medium_url,
         name: issue.name,
         id: issue.id,
       };
+      if (followedSeries?.series.includes(issue.volume.id.toString())) {
+        issuesNewForYou.push(shortIssueDetails);
+      }
+      return shortIssueDetails;
     });
   }
 } catch (error) {
@@ -31,9 +37,25 @@ try {
 
 <Layout title="New this week">
   {
+    issuesNewForYou.length > 0 ? (
+      <>
+        <h2 class="text-2xl">New for you</h2>
+        <p class="text-sm mb-4">
+          There are {issuesNewForYou.length} new comics this week from series
+          you follow.
+        </p>
+        <IssueSlider issues={issuesNewForYou} />
+      </>
+    ) : (
+      <p class="text-sm mb-4">
+        There are no new comics this week for series you follow.
+      </p>
+    )
+  }
+  {
     weeklyIssues ? (
       <>
-        <h1 class="text-2xl">New this week</h1>
+        <h2 class="text-2xl">New this week</h2>
         <p class="text-sm mb-4">
           There are {weeklyIssues.totalResults} new comics this week.
         </p>

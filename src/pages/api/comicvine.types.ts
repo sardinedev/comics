@@ -61,7 +61,7 @@ type ShortVolume = {
   site_detail_url: string;
 };
 
-type ShortIssue = {
+export type ShortIssue = {
   /** URL pointing to the issue detail resource. */
   api_detail_url: string;
   /** Unique ID of the issue. */

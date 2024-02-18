@@ -1,0 +1,31 @@
+---
+type Props = {
+  covers: string[];
+};
+const { covers } = Astro.props;
+---
+
+<div class="relative w-28 h-40 mr-4 mt-4">
+  {
+    covers.map((cover, index) => (
+      <img
+        class="absolute"
+        class:list={
+          index === 0
+            ? "-rotate-6"
+            : index === 1
+              ? "rotate-3"
+              : index === 2
+                ? "rotate-6"
+                : index === 3
+                  ? "-rotate-3"
+                  : "rotate-0"
+        }
+        height="160"
+        width="105"
+        loading={index === 4 ? "eager" : "lazy"}
+        src={cover}
+      />
+    ))
+  }
+</div>
