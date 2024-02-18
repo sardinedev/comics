@@ -61,7 +61,7 @@ function Issue({ id, name, image, issue_number }: ShortIssue) {
     <li>
       <a href={"/comic/" + id}>
         <img
-          class="rounded-md"
+          class="rounded-md w-full"
           style={{ aspectRatio: "210/320" }}
           src={cover?.medium_url ?? "/logo.svg"}
           loading="lazy"
@@ -105,7 +105,7 @@ export function IssueGrid({
   }, [issueList, currentPage, issuesPerPage, $sortDirection]);
   return (
     <>
-      <ul class="grid gap-4 grid-cols-2 md:grid-cols-5 mt-8">
+      <ul class="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mt-8">
         {issues?.map((issue) => (
           <Issue key={issue.id} {...issue} />
         ))}
