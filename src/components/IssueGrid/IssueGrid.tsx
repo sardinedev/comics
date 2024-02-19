@@ -2,10 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { $sort } from "../../stores/sort.store";
 import { PageNavigator } from "../PageNavigator";
-import type {
-  ComicvineImage,
-  ShortIssue,
-} from "../../pages/api/comicvine.types";
+import type { ComicvineImage, ShortIssue } from "../../util/comicvine.types";
 import type { Sort } from "../../stores/sort.store";
 
 export type Props = {

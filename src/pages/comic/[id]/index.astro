@@ -1,9 +1,9 @@
 ---
 import IssueSlider from "../../../components/IssueSlider.astro";
 import Layout from "../../../layouts/Layout.astro";
-import { kvGetComicIssue, kvGetVolume } from "../../api/kv";
+import { kvGetComicIssue, kvGetVolume } from "../../../util/kv";
 
-import type { ComicvineSingleIssueResponse } from "../../api/comicvine.types";
+import type { ComicvineSingleIssueResponse } from "../../../util/comicvine.types";
 import type { SingleIssuePreview } from "../../../components/IssueSlider.astro";
 
 const kv = Astro.locals.runtime.env.COMICS;
@@ -82,3 +82,4 @@ const title = data
     )
   }
 </Layout>
+../../../util/comicvine.types

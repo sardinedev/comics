@@ -3,9 +3,9 @@ import Layout from "../../../layouts/Layout.astro";
 import CoverStack from "../../../components/CoverStack.astro";
 import { IssueGrid } from "../../../components/IssueGrid/IssueGrid";
 import { SortButton } from "../../../components/SortButton";
-import { kvGetVolume, kvGetFollowSeries } from "../../api/kv";
+import { kvGetVolume, kvGetFollowSeries } from "../../../util/kv";
 
-import type { ComicvineVolumeResponse } from "../../api/comicvine.types";
+import type { ComicvineVolumeResponse } from "../../../util/comicvine.types";
 
 const kv = Astro.locals.runtime.env.COMICS;
 const { id, slug } = Astro.params;
@@ -97,3 +97,4 @@ try {
     )
   }
 </Layout>
+../../../util/kv ../../../util/comicvine.types
