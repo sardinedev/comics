@@ -4,14 +4,19 @@ import CoverStack from "../../../components/CoverStack.astro";
 import { IssueGrid } from "../../../components/IssueGrid/IssueGrid";
 import { SortButton } from "../../../components/SortButton";
 import { kvGetVolume, kvGetFollowSeries } from "../../../util/kv";
+import { $sort } from "../../../stores/sort.store";
 
 import type { ComicvineVolumeResponse } from "../../../util/comicvine.types";
+
+const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
+$sort.set(sort);
 
 const kv = Astro.locals.runtime.env.COMICS;
 const { id, slug } = Astro.params;
 let volume: ComicvineVolumeResponse | undefined;
 let currentPage = 1;
 let isFollowing = false;
+
 if (slug) {
   currentPage = parseInt(slug);
 }
@@ -97,4 +102,3 @@ try {
     )
   }
 </Layout>
-../../../util/kv ../../../util/comicvine.types

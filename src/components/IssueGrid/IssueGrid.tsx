@@ -34,10 +34,12 @@ function clampIssuesPerPage({
       (a, b) => parseInt(a.issue_number) - parseInt(b.issue_number)
     );
   }
-  return issueList.slice(
+  const trimmedList = issueList.slice(
     (currentPage - 1) * issuesPerPage,
     currentPage * issuesPerPage
   );
+
+  return trimmedList;
 }
 
 function Issue({ id, name, image, issue_number }: ShortIssue) {
@@ -51,9 +53,9 @@ function Issue({ id, name, image, issue_number }: ShortIssue) {
     }
     if (!image) {
       getIssue();
-      console.warn("Issue", id, "is missing an image");
     }
-  }, [image]);
+  }, []);
+
   return (
     <li>
       <a href={"/comic/" + id}>
@@ -80,7 +82,6 @@ export function IssueGrid({
   issuesPerPage = 50,
 }: Props) {
   const $sortDirection = useStore($sort);
-
   const [issues, setIssues] = useState<ShortIssue[] | undefined>(
     clampIssuesPerPage({
       issuesPerPage,
@@ -100,6 +101,7 @@ export function IssueGrid({
       })
     );
   }, [issueList, currentPage, issuesPerPage, $sortDirection]);
+
   return (
     <>
       <ul class="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mt-8">
