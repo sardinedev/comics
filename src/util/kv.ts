@@ -67,35 +67,31 @@ export async function kvGetVolume(
     } else {
       const response = await getVolumeDetails(id);
       if (response) {
-        const issuesFromVolume = await kvGetIssuesFromVolume(id, kv);
         let cover_image: string[] = [];
-        if (issuesFromVolume) {
-          cover_image = issuesFromVolume
-            .reverse()
-            .slice(0, 5)
-            .map((issue) => issue.image.medium_url);
 
-          // sort by issue number
-          response.issues.sort(
-            (a, b) => parseInt(a.issue_number) - parseInt(b.issue_number)
-          );
+        // sort by issue number
+        response.issues.sort(
+          (a, b) => parseInt(a.issue_number) - parseInt(b.issue_number)
+        );
 
-          for (const responseIssue of response.issues) {
-            const issue = issuesFromVolume.find(
-              (issue) => issue.id === responseIssue.id
-            );
-            if (issue) {
-              responseIssue.image = issue.image;
-            }
+        const firstFiveIssues = response.issues.slice(0, 5);
+
+        for (const issue of firstFiveIssues) {
+          const issueDetails = await kvGetComicIssue(issue.id, kv);
+          if (issueDetails) {
+            cover_image.push(issueDetails.image.medium_url);
           }
         }
+
         const fullResponse = {
           ...response,
           cover_image,
         };
+
         await kv.put(`4050-${id}`, JSON.stringify(fullResponse), {
           expirationTtl: 60 * 60 * 24 * 7, // 7 days
         });
+
         return fullResponse;
       }
     }

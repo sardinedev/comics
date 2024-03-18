@@ -2,7 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import IssueSlider from "../components/IssueSlider.astro";
 import { thisWeekBookendsDates } from "../util/date";
-import { kvGetFollowSeries, kvGetWeeklyComics } from "./api/kv";
+import { kvGetFollowSeries, kvGetWeeklyComics } from "../util/kv";
 
 import type { SingleIssuePreview } from "../components/IssueSlider.astro";
 
@@ -68,5 +68,3 @@ try {
     )
   }
 </Layout>
-
-<style></style>

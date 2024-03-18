@@ -1,5 +1,5 @@
 import type { APIRoute, APIContext } from "astro";
-import { kvAddFollowSeries, kvGetFollowSeries } from "./kv";
+import { kvAddFollowSeries, kvGetFollowSeries } from "../../util/kv";
 
 export const GET: APIRoute = async ({ locals }: APIContext) => {
   const kv = locals.runtime.env.COMICS;

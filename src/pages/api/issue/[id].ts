@@ -1,4 +1,4 @@
-import { kvGetComicIssue } from "../kv";
+import { kvGetComicIssue } from "../../../util/kv";
 
 import type { APIContext } from "astro";
 

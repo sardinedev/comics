@@ -1,10 +1,15 @@
+import { $sort } from "../stores/sort.store";
+
 type Props = {
+  /** The series ID is used to compose the URL on the link navigation */
   id: number | string;
   numberOfPages: number;
   currentPage: number;
 };
 export function PageNavigator({ id, numberOfPages, currentPage }: Props) {
+  const sort = $sort.get();
   let pagesArray: (string | number)[] = [];
+
   if (numberOfPages > 8) {
     if (currentPage < 5) {
       pagesArray = [1, 2, 3, 4, 5, "...", numberOfPages];
@@ -41,7 +46,7 @@ export function PageNavigator({ id, numberOfPages, currentPage }: Props) {
               <span>{page}</span>
             ) : (
               <a
-                href={`/series/${id}/${page}`}
+                href={`/series/${id}/${page}?sort=${sort}`}
                 class={page === currentPage ? "underline" : ""}
               >
                 {page}
