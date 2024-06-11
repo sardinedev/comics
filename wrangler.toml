@@ -1,6 +1,0 @@
-name = "comics"
-compatibility_date = "2024-02-04"
-
-kv_namespaces = [
-  { binding = "COMICS", id = "6c36a1fda2074f55ba0835ec8e6e512c" }
-]

@@ -10,4 +10,12 @@ export default defineConfig({
   adapter: node({
     mode: "standalone",
   }),
+  vite: {
+    server: {
+      host: "0.0.0.0",
+      hmr: { clientPort: 3000 },
+      port: 3000,
+      watch: { usePolling: true },
+    },
+  },
 });

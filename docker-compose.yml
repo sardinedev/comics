@@ -7,3 +7,13 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
+  astro:
+    build:
+      context: .
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+    ports:
+      - 4321:4321
+    depends_on:
+      - elasticsearch

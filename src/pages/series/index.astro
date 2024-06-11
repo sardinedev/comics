@@ -1,0 +1,15 @@
+---
+import { SeriesGrid } from "../../components/SeriesGrid/SeriesGrid";
+import Layout from "../../layouts/Layout.astro";
+import { getAllSeries } from "../../util/elastic";
+
+const series = await getAllSeries();
+const title = "Series";
+---
+
+<Layout title={title}>
+  <h1>{title}</h1>
+  <ul>
+    {series ? <SeriesGrid client:load series={series} /> : "No series found"}
+  </ul>
+</Layout>

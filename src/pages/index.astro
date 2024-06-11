@@ -6,33 +6,31 @@ import { kvGetFollowSeries, kvGetWeeklyComics } from "../util/kv";
 
 import type { SingleIssuePreview } from "../components/IssueSlider.astro";
 
-const kv = Astro.locals.runtime.env.COMICS;
-
 const { startOfWeek, endOfWeek } = thisWeekBookendsDates();
 
 let weeklyIssues;
 let issues: SingleIssuePreview[] = [];
 let issuesNewForYou: SingleIssuePreview[] = [];
 
-try {
-  weeklyIssues = await kvGetWeeklyComics(startOfWeek, endOfWeek, kv);
-  if (weeklyIssues) {
-    const followedSeries = await kvGetFollowSeries(kv);
-    issues = weeklyIssues.issues.map((issue) => {
-      const shortIssueDetails = {
-        cover: issue.image.medium_url,
-        name: issue.name,
-        id: issue.id,
-      };
-      if (followedSeries?.series.includes(issue.volume.id.toString())) {
-        issuesNewForYou.push(shortIssueDetails);
-      }
-      return shortIssueDetails;
-    });
-  }
-} catch (error) {
-  console.error(error);
-}
+// try {
+//   weeklyIssues = await kvGetWeeklyComics(startOfWeek, endOfWeek, kv);
+//   if (weeklyIssues) {
+//     const followedSeries = await kvGetFollowSeries(kv);
+//     issues = weeklyIssues.issues.map((issue) => {
+//       const shortIssueDetails = {
+//         cover: issue.image.medium_url,
+//         name: issue.name,
+//         id: issue.id,
+//       };
+//       if (followedSeries?.series.includes(issue.volume.id.toString())) {
+//         issuesNewForYou.push(shortIssueDetails);
+//       }
+//       return shortIssueDetails;
+//     });
+//   }
+// } catch (error) {
+//   console.error(error);
+// }
 ---
 
 <Layout title="New this week">
@@ -63,7 +61,7 @@ try {
       </>
     ) : (
       <p class="text-sm mb-4">
-        There was an error fetching the latest comics. Please try again later.
+        Feels very empty in here. Maybe try again later?
       </p>
     )
   }
