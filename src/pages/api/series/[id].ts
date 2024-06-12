@@ -35,7 +35,6 @@ export async function GET({ params }: APIContext) {
 }
 
 export async function PUT({ params }: APIContext) {
-  const elastic = getElasticClient();
   const { id } = params;
   if (!id) {
     return new Response(null, {
@@ -45,6 +44,7 @@ export async function PUT({ params }: APIContext) {
   }
 
   const response = await syncSeriesDataFromComicVine(id);
+
   return new Response(JSON.stringify(response), {
     status: 200,
     headers: {

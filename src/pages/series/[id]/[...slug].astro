@@ -3,15 +3,14 @@ import Layout from "../../../layouts/Layout.astro";
 import CoverStack from "../../../components/CoverStack.astro";
 import { IssueGrid } from "../../../components/IssueGrid/IssueGrid";
 import { SortButton } from "../../../components/SortButton";
-import { kvGetVolume, kvGetFollowSeries } from "../../../util/kv";
 import { $sort } from "../../../stores/sort.store";
 
 import type { ComicvineVolumeResponse } from "../../../util/comicvine.types";
+import { elasticGetSeries } from "../../../util/elastic";
 
 const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
 $sort.set(sort);
 
-const kv = Astro.locals.runtime.env.COMICS;
 const { id, slug } = Astro.params;
 let volume: ComicvineVolumeResponse | undefined;
 let currentPage = 1;
@@ -23,9 +22,9 @@ if (slug) {
 
 try {
   if (id) {
-    const followings = await kvGetFollowSeries(kv);
-    isFollowing = followings?.series.includes(id) ?? false;
-    volume = await kvGetVolume(id, kv);
+    // const followings = await kvGetFollowSeries(kv);
+    // isFollowing = followings?.series.includes(id) ?? false;
+    volume = await elasticGetSeries(id);
   }
 } catch (e) {
   console.error(e);
@@ -65,7 +64,7 @@ try {
             <p>{volume.count_of_issues} issues</p>
           </div>
           <div class="flex items-end">
-            <CoverStack covers={volume.cover_image} />
+            {/* <CoverStack covers={volume.cover_image} /> */}
 
             <button
               data-volume={volume.id}

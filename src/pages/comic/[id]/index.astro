@@ -5,17 +5,17 @@ import { kvGetComicIssue, kvGetVolume } from "../../../util/kv";
 
 import type { ComicvineSingleIssueResponse } from "../../../util/comicvine.types";
 import type { SingleIssuePreview } from "../../../components/IssueSlider.astro";
+import { elasticGetComicIssue, elasticGetSeries } from "../../../util/elastic";
 
-const kv = Astro.locals.runtime.env.COMICS;
 const { id } = Astro.params;
 let data;
 let issuesInSeries: SingleIssuePreview[] = [];
 let viewVolume;
 try {
   if (id) {
-    data = await kvGetComicIssue(id, kv);
+    data = await elasticGetComicIssue(id);
     if (data) {
-      const volume = await kvGetVolume(data.volume.id, kv);
+      const volume = await elasticGetSeries(data.volume.id.toString());
       if (volume) {
         if (volume.count_of_issues > 10) {
           viewVolume = {
@@ -28,7 +28,7 @@ try {
           .slice(0, 10)
           .map((issue) => issue.id);
         const _issuesInSeries = await Promise.all(
-          issues.map((issueId) => kvGetComicIssue(issueId, kv))
+          issues.map((issueId) => elasticGetComicIssue(issueId.toString()))
         );
         issuesInSeries = _issuesInSeries
           .filter(
