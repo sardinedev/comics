@@ -26,7 +26,7 @@ const COMICVINE_URL = "https://comicvine.gamespot.com/api";
 async function comicvine<T>(
   endpoint: string,
   params?: string
-): Promise<ComicvineResponse<T> | undefined> {
+): Promise<ComicvineResponse<T>> {
   try {
     const response = await fetch(
       `${COMICVINE_URL}/${endpoint}/?api_key=${COMICVINE_API_KEY}&format=json&${params}`,
@@ -39,6 +39,7 @@ async function comicvine<T>(
     return data;
   } catch (error) {
     console.error("Error fetching comicvine", error);
+    throw Error('Error fetching comicvine')
   }
 }
 
@@ -72,18 +73,17 @@ export async function getWeeklyComics(startOfWeek: string, endOfWeek: string) {
  */
 export async function getComicIssueDetails(
   issueId: string | number
-): Promise<ComicvineSingleIssueResponse | undefined> {
+): Promise<ComicvineSingleIssueResponse> {
   try {
     const data = await comicvine<ComicvineSingleIssueResponse>(
       `issue/4000-${issueId}`
     );
-    if (data) {
       return {
         ...data.results,
       };
-    }
   } catch (error) {
     console.error("Error fetching comic issue details", error);
+    throw Error("Error fetching comic issue details")
   }
 }
 
@@ -94,18 +94,17 @@ export async function getComicIssueDetails(
  */
 export async function getVolumeDetails(
   volumeId: number | string
-): Promise<ComicvineVolumeResponse | undefined> {
+): Promise<ComicvineVolumeResponse> {
   try {
     const data = await comicvine<ComicvineVolumeResponse>(
       `volume/4050-${volumeId}`
     );
-    if (data) {
       return {
         ...data.results,
       };
-    }
   } catch (error) {
     console.error("Error fetching comic volume details", error);
+    throw Error("Error fetching comic volume details")
   }
 }
 

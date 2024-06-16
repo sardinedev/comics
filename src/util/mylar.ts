@@ -28,7 +28,18 @@ export type MylarSeries = {
 
 export function getMylarSeries() {
   try {
-    return mylar<MylarSeries[]>("seriesjsonListing");
+    // return mylar<MylarSeries[]>("seriesjsonListing");
+    return {
+      data: [{
+        ComicID: "124821",
+        ComicLocation: "C:\\Users\\Public\\Comics\\Batman"
+
+      },
+      {
+        ComicID: "146734",
+        ComicLocation: "C:\\Users\\Public\\Comics\\Superman"
+      }]
+    };
   } catch (error) {
     console.error(error);
     throw new Error("Failed to fetch series from Mylar.");

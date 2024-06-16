@@ -1,7 +1,7 @@
-FROM node:lts AS base
+FROM node:20.11 AS base
 WORKDIR /app
 
-COPY package.json package-lock.json
+COPY package.json package-lock.json /app/
 
 RUN npm install
 

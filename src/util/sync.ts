@@ -1,3 +1,4 @@
+import pThrottle from 'p-throttle';
 import { getComicIssueDetails, getVolumeDetails } from "./comicvine";
 import type {
   ComicvineSingleIssueResponse,
@@ -11,6 +12,11 @@ import {
 } from "./elastic";
 import { getMylarSeries } from "./mylar";
 
+const throttle = pThrottle({
+	limit: 1,
+	interval: 1000
+});
+
 /*
  * Seeds elasticsearch database.
  * 1- Fetches series data from Mylar.
@@ -21,34 +27,19 @@ import { getMylarSeries } from "./mylar";
  */
 export async function seedElastic() {
   try {
-    const { data } = await getMylarSeries();
-    let series: ComicvineVolumeResponse[] = [];
+    const { data } = getMylarSeries();
+    const throttledSeries = data.map(({ ComicID }) => throttle(() => getVolumeDetails(ComicID)));
+    const series = await Promise.all(throttledSeries.map(fn => fn()));
 
-    for (const { ComicID } of data) {
-      if (!ComicID) {
-        throw "No data found for issue";
-      }
-      console.log("Updating issue", ComicID);
-      const cvSeries = await getVolumeDetails(ComicID);
-      if (cvSeries) {
-        series.push(cvSeries);
-      }
-    }
     await elasticBulkUpdateSeries(series);
 
     const issueIDs = series.flatMap((serie) =>
       serie.issues.map((issue) => issue.id)
     );
 
-    const responses = await Promise.all(
-      issueIDs.map((id) => getComicIssueDetails(id))
-    );
-
-    // removes undefined responses
-    const issues = responses.filter(
-      (response): response is ComicvineSingleIssueResponse => {
-        return response !== undefined;
-      }
+    const throttledIssues = issueIDs.map((id) => throttle(() => getComicIssueDetails(id)));
+    const issues = await Promise.all(
+      throttledIssues.map(fn => fn())
     );
 
     await elasticBulkUpdateIssues(issues);
