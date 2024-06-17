@@ -38,6 +38,10 @@ export function getMylarSeries() {
       {
         ComicID: "146734",
         ComicLocation: "C:\\Users\\Public\\Comics\\Superman"
+      },
+      {
+        ComicID: "91273",
+        ComicLocation: "C:\\Users\\Public\\Comics\\Superman"
       }]
     };
   } catch (error) {

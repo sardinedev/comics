@@ -4,6 +4,7 @@ import IssueSlider from "../components/IssueSlider.astro";
 import { thisWeekBookendsDates } from "../util/date";
 
 import type { SingleIssuePreview } from "../components/IssueSlider.astro";
+import { elasticGetWeeklyComics } from "../util/elastic";
 
 const { startOfWeek, endOfWeek } = thisWeekBookendsDates();
 
@@ -11,25 +12,26 @@ let weeklyIssues;
 let issues: SingleIssuePreview[] = [];
 let issuesNewForYou: SingleIssuePreview[] = [];
 
-// try {
-//   weeklyIssues = await kvGetWeeklyComics(startOfWeek, endOfWeek, kv);
-//   if (weeklyIssues) {
-//     const followedSeries = await kvGetFollowSeries(kv);
-//     issues = weeklyIssues.issues.map((issue) => {
-//       const shortIssueDetails = {
-//         cover: issue.image.medium_url,
-//         name: issue.name,
-//         id: issue.id,
-//       };
-//       if (followedSeries?.series.includes(issue.volume.id.toString())) {
-//         issuesNewForYou.push(shortIssueDetails);
-//       }
-//       return shortIssueDetails;
-//     });
-//   }
-// } catch (error) {
-//   console.error(error);
-// }
+try {
+  weeklyIssues = await elasticGetWeeklyComics(startOfWeek, endOfWeek);
+  console.log(weeklyIssues);
+  if (weeklyIssues) {
+    // const followedSeries = await kvGetFollowSeries(kv);
+    issues = weeklyIssues.issues.map((issue) => {
+      const shortIssueDetails = {
+        cover: issue.image.medium_url,
+        name: issue.name,
+        id: issue.id,
+      };
+      if (followedSeries?.series.includes(issue.volume.id.toString())) {
+        issuesNewForYou.push(shortIssueDetails);
+      }
+      return shortIssueDetails;
+    });
+  }
+} catch (error) {
+  console.error(error);
+}
 ---
 
 <Layout title="New this week">

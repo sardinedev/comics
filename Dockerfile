@@ -1,7 +1,7 @@
 FROM node:20.11 AS base
 WORKDIR /app
 
-COPY package.json package-lock.json /app/
+COPY . .
 
 RUN npm install
 

@@ -34,12 +34,12 @@ async function comicvine<T>(
     );
     const data = await response.json();
     if (data.status_code !== 1) {
-      throw new Error(data.error);
+      throw Error(data.error);
     }
     return data;
   } catch (error) {
     console.error("Error fetching comicvine", error);
-    throw Error('Error fetching comicvine')
+    throw new Error('Error fetching comicvine')
   }
 }
 
@@ -55,14 +55,13 @@ export async function getWeeklyComics(startOfWeek: string, endOfWeek: string) {
       "issues",
       `filter=store_date:${startOfWeek}|${endOfWeek}`
     );
-    if (data) {
-      return {
-        totalResults: data.number_of_total_results,
-        issues: data.results,
-      };
-    }
+    return {
+      totalResults: data.number_of_total_results,
+      issues: data.results,
+    };
   } catch (error) {
     console.error("Error fetching weekly comics", error);
+    throw new Error('Error fetching weekly comics')
   }
 }
 
@@ -78,9 +77,9 @@ export async function getComicIssueDetails(
     const data = await comicvine<ComicvineSingleIssueResponse>(
       `issue/4000-${issueId}`
     );
-      return {
-        ...data.results,
-      };
+    return {
+      ...data.results,
+    };
   } catch (error) {
     console.error("Error fetching comic issue details", error);
     throw Error("Error fetching comic issue details")
@@ -99,9 +98,9 @@ export async function getVolumeDetails(
     const data = await comicvine<ComicvineVolumeResponse>(
       `volume/4050-${volumeId}`
     );
-      return {
-        ...data.results,
-      };
+    return {
+      ...data.results,
+    };
   } catch (error) {
     console.error("Error fetching comic volume details", error);
     throw Error("Error fetching comic volume details")

@@ -1,9 +1,9 @@
 import { Client } from "@elastic/elasticsearch";
-import { syncMylarSeries } from "./sync";
 import type {
   ComicvineSingleIssueResponse,
   ComicvineVolumeResponse,
 } from "./comicvine.types";
+import type { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
 
 let client: Client | null = null;
 
@@ -20,7 +20,22 @@ export function getElasticClient(): Client {
   return client;
 }
 
+
+export async function elasticCreateIndex(index: string, mappings?: MappingTypeMapping) {
+  const elastic = getElasticClient();
+  try {
+    const response = await elastic.indices.create({
+      mappings,
+      index,
+    });
+    console.info(`Created index ${index}:`, response);
+  } catch (error) {
+    console.error(`Error creating index ${index}:`, error);
+  }
+}
+
 export type SeriesProps = {};
+
 export async function getAllSeries(props?: SeriesProps) {
   const elastic = getElasticClient();
   try {
@@ -33,11 +48,8 @@ export async function getAllSeries(props?: SeriesProps) {
     const { hits } = series.hits;
     return hits.map((s: any) => s._source);
   } catch (error) {
-    if (error.meta.statusCode === 404) {
-      console.info("Index not found, creating index");
-      const update = await syncMylarSeries();
-      return update.items;
-    }
+    console.error("Error fetching all series:", error);
+    throw new Error("Failed to fetch series from Elastic.");
   }
 }
 
@@ -119,7 +131,7 @@ export async function elasticBulkUpdateIssues(
 
     const bulkResponse = await elastic.bulk({
       refresh: true,
-      body: operations,
+      operations,
     });
 
     if (bulkResponse.errors) {
@@ -144,5 +156,32 @@ export async function elasticGetComicIssue(id: string) {
     return issue._source;
   } catch (error) {
     console.error(`Error fetching issue ${id}:`, error);
+  }
+}
+
+
+export async function elasticGetWeeklyComics(startOfWeek: string, endOfWeek: string) {
+  console.log("Fetching weekly issues from Elastic");
+  console.log("startOfWeek", startOfWeek);
+  console.log("endOfWeek", endOfWeek);
+  const elastic = getElasticClient();
+  try {
+    const issues = await elastic.search<ComicvineSingleIssueResponse[]>({
+      index: "issues",
+      query: {
+        range: {
+          cover_date: {
+            gte: startOfWeek,
+            lte: endOfWeek,
+          },
+        }
+      },
+    });
+
+    const { hits } = issues.hits;
+    return hits.map((s) => s._source);
+  } catch (error) {
+    console.error("Error fetching weekly issues:", error);
+    throw new Error("Failed to fetch weekly issues from Elastic.");
   }
 }

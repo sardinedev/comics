@@ -52,3 +52,43 @@ export async function PUT({ params }: APIContext) {
     },
   });
 }
+
+export async function DELETE({ params }: APIContext) {
+  const elastic = getElasticClient();
+  const { id } = params;
+  if (!id) {
+    return new Response(null, {
+      status: 404,
+      statusText: "No ID provided",
+    });
+  }
+
+  try {
+    const series = await elastic.delete({
+      index: "series",
+      id,
+    });
+
+    const issues = await elastic.deleteByQuery({
+      index: "issues",
+      query: {
+        match: {
+          "volume.id": id,
+        },
+      },
+    });
+
+    return new Response(JSON.stringify({series, issues}), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return new Response(null, {
+      status: 500,
+      statusText: "Something went wrong",
+    });
+  }
+}
