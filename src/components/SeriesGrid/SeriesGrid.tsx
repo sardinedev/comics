@@ -2,19 +2,13 @@
 import "./SeriesGrid.module.css";
 
 import { useState } from "preact/hooks";
-import type { ComicvineImage } from "../../util/comicvine.types";
+import type { Series } from "../../util/comics.types";
 
 export type SeriesGridProps = {
-  series: IndividualSeriesProps[];
+  series: Series[];
 };
 
-export type IndividualSeriesProps = {
-  id: string;
-  name?: string;
-  start_year?: number;
-  image?: ComicvineImage | undefined;
-};
-function Serie(props: IndividualSeriesProps) {
+function Serie(props: Series) {
   const [data, setData] = useState({ ...props });
 
   // useEffect(() => {
@@ -54,7 +48,7 @@ function Serie(props: IndividualSeriesProps) {
         <img
           class="rounded-md w-full"
           style={{ aspectRatio: "210/320" }}
-          src={data.image?.medium_url ?? "/logo.svg"}
+          src={data.imageURL ?? "/logo.svg"}
           loading="lazy"
           height="320"
           width="210"
@@ -62,7 +56,7 @@ function Serie(props: IndividualSeriesProps) {
         />
         {data.name ? (
           <span>
-            {data.name} ({data.start_year})
+            {data.name} ({data.year})
           </span>
         ) : (
           <span>Series #{data.id} doesn't have any metadata yet!</span>

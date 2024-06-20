@@ -67,13 +67,24 @@ export type ShortIssue = {
   /** Unique ID of the issue. */
   id: number;
   /** Name of the issue. */
-  name: string;
+  name: string | null;
   /** URL pointing to the issue on Comic Vine. */
-  site_detail_url: string;
+  site_detail_url?: string;
   /** The number assigned to the issue within the volume set. */
   issue_number: string;
-  /** Contains multiple images sizes */
-  image: ComicvineImage;
+};
+
+export type ComicvineCredits = {
+  /** URL pointing to the credit detail resource. */
+  api_detail_url: string;
+  /** Name of the person. */
+  name: string;
+  /** Unique ID of the credit. */
+  id: number;
+  /** URL pointing to the person on Comic Vine. */
+  site_detail_url: string;
+  /** Number of occurrences */
+  count?: string;
 };
 
 /**
@@ -181,11 +192,11 @@ export type ComicvineSingleIssueResponse = {
 /**
  * Volume type definition
  */
-export type ComicvineVolumeResponse = {
+export type ComicvineVolume = {
   /**
    * List of aliases the volume is known by. A \n (newline) separates each alias.
    */
-  aliases: string[];
+  aliases: string[] | null;
 
   /**
    * URL pointing to the volume detail resource.
@@ -195,12 +206,12 @@ export type ComicvineVolumeResponse = {
   /**
    * A list of characters that appear in this volume.
    */
-  character_credits: string[];
+  characters: ComicvineCredits[];
 
   /**
    * A list of concepts that appear in this volume.
    */
-  concept_credits: string[];
+  concepts: ComicvineCredits[];
 
   /**
    * Number of issues included in this volume.
@@ -210,17 +221,17 @@ export type ComicvineVolumeResponse = {
   /**
    * Date the volume was added to Comic Vine.
    */
-  date_added: Date;
+  date_added: string;
 
   /**
    * Date the volume was last updated on Comic Vine.
    */
-  date_last_updated: Date;
+  date_last_updated: string;
 
   /**
    * Brief summary of the volume.
    */
-  deck: string;
+  deck: string | null;
 
   /**
    * Description of the volume.
@@ -230,7 +241,7 @@ export type ComicvineVolumeResponse = {
   /**
    * The first issue in this volume.
    */
-  first_issue: string;
+  first_issue: ShortIssue;
 
   /**
    * Unique ID of the volume.
@@ -248,12 +259,12 @@ export type ComicvineVolumeResponse = {
   /**
    * The last issue in this volume.
    */
-  last_issue: string;
+  last_issue: ShortIssue;
 
   /**
    * List of locations that appeared in this volume.
    */
-  location_credits: string[];
+  locations: ComicvineCredits[];
 
   /**
    * Name of the volume.
@@ -263,17 +274,32 @@ export type ComicvineVolumeResponse = {
   /**
    * List of objects that appeared in this volume.
    */
-  object_credits: string[];
+  objects: ComicvineCredits[];
 
   /**
    * List of people that worked on this volume.
    */
-  person_credits: string[];
+  people: ComicvineCredits[];
 
   /**
    * The primary publisher a volume is attached to.
    */
-  publisher: string;
+  publisher: {
+    /**
+     * Name of the publisher.
+     */
+    name: string;
+
+    /**
+     * URL pointing to the publisher detail resource.
+     */
+    api_detail_url: string;
+
+    /**
+     * Unique ID of the publisher.
+     */
+    id: number;
+  };
 
   /**
    * URL pointing to the volume on Giant Bomb.
@@ -283,12 +309,10 @@ export type ComicvineVolumeResponse = {
   /**
    * The first year this volume appeared in comics.
    */
-  start_year: number;
+  start_year: string;
 
   /**
    * List of teams that appear in this volume.
    */
-  team_credits: string[];
-
-  cover_image: string[];
+  teams?: ComicvineCredits[];
 };

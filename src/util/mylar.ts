@@ -1,3 +1,5 @@
+import type { MylarComic, MylarComicWithIssues } from "./mylar.types";
+
 export type MylarResponse<T> = {
   result: string;
   data: T;
@@ -5,8 +7,7 @@ export type MylarResponse<T> = {
 
 export async function mylar<T>(
   endpoint: string,
-  method = "GET",
-  data?: unknown
+  method = "GET"
 ): Promise<MylarResponse<T>> {
   const req = await fetch(
     `http://192.168.50.190:8090/api?cmd=${endpoint}&apikey=933b8cda6b3b1501b26f316b5ecb8efd`,
@@ -21,29 +22,18 @@ export async function mylar<T>(
   return req.json();
 }
 
-export type MylarSeries = {
-  ComicID: string;
-  ComicLocation: string;
-};
-
-export function getMylarSeries() {
+export function mylarGetAllSeries() {
   try {
-    // return mylar<MylarSeries[]>("seriesjsonListing");
-    return {
-      data: [{
-        ComicID: "124821",
-        ComicLocation: "C:\\Users\\Public\\Comics\\Batman"
+    return mylar<MylarComic[]>("getIndex");
+  } catch (error) {
+    console.error(error);
+    throw new Error("Failed to fetch indexer status from Mylar.");
+  }
+}
 
-      },
-      {
-        ComicID: "146734",
-        ComicLocation: "C:\\Users\\Public\\Comics\\Superman"
-      },
-      {
-        ComicID: "91273",
-        ComicLocation: "C:\\Users\\Public\\Comics\\Superman"
-      }]
-    };
+export function mylarGetSeries(id: string) {
+  try {
+    return mylar<MylarComicWithIssues>(`getComic&id=${id}`);
   } catch (error) {
     console.error(error);
     throw new Error("Failed to fetch series from Mylar.");

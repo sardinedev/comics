@@ -1,9 +1,10 @@
 import { Client } from "@elastic/elasticsearch";
 import type {
   ComicvineSingleIssueResponse,
-  ComicvineVolumeResponse,
+  ComicvineVolume,
 } from "./comicvine.types";
 import type { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
+import type { Series } from "./comics.types";
 
 let client: Client | null = null;
 
@@ -20,8 +21,10 @@ export function getElasticClient(): Client {
   return client;
 }
 
-
-export async function elasticCreateIndex(index: string, mappings?: MappingTypeMapping) {
+export async function elasticCreateIndex(
+  index: string,
+  mappings?: MappingTypeMapping
+) {
   const elastic = getElasticClient();
   try {
     const response = await elastic.indices.create({
@@ -40,7 +43,7 @@ export async function getAllSeries(props?: SeriesProps) {
   const elastic = getElasticClient();
   try {
     const series = await elastic.search({
-      index: "series",
+      index: "comics",
       _source: true,
       size: 10000,
     });
@@ -56,8 +59,8 @@ export async function getAllSeries(props?: SeriesProps) {
 export async function elasticGetSeries(id: string) {
   const elastic = getElasticClient();
   try {
-    const series = await elastic.get<ComicvineVolumeResponse>({
-      index: "series",
+    const series = await elastic.get<Series>({
+      index: "comics",
       id,
     });
     return series._source;
@@ -66,12 +69,12 @@ export async function elasticGetSeries(id: string) {
   }
 }
 
-export async function elasticUpdateSeries(data: ComicvineVolumeResponse) {
+export async function elasticUpdateSeries(data: Series) {
   const elastic = getElasticClient();
   try {
     const response = await elastic.index({
-      index: "series",
-      id: data.id.toString(),
+      index: "comics",
+      id: data.id,
       document: data,
     });
     return response;
@@ -80,7 +83,7 @@ export async function elasticUpdateSeries(data: ComicvineVolumeResponse) {
   }
 }
 
-export async function elasticBulkUpdateSeries(data: ComicvineVolumeResponse[]) {
+export async function elasticBulkUpdateSeries(data: ComicvineVolume[]) {
   const elastic = getElasticClient();
   try {
     const operations = data.flatMap((serie) => [
@@ -159,8 +162,10 @@ export async function elasticGetComicIssue(id: string) {
   }
 }
 
-
-export async function elasticGetWeeklyComics(startOfWeek: string, endOfWeek: string) {
+export async function elasticGetWeeklyComics(
+  startOfWeek: string,
+  endOfWeek: string
+) {
   console.log("Fetching weekly issues from Elastic");
   console.log("startOfWeek", startOfWeek);
   console.log("endOfWeek", endOfWeek);
@@ -174,7 +179,7 @@ export async function elasticGetWeeklyComics(startOfWeek: string, endOfWeek: str
             gte: startOfWeek,
             lte: endOfWeek,
           },
-        }
+        },
       },
     });
 

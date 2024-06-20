@@ -1,4 +1,4 @@
-import pThrottle from 'p-throttle';
+import pThrottle from "p-throttle";
 import { getComicIssueDetails, getVolumeDetails } from "./comicvine";
 import {
   elasticBulkUpdateSeries,
@@ -6,17 +6,19 @@ import {
   elasticCreateIndex,
   getElasticClient,
   elasticUpdateIssue,
+  elasticUpdateSeries,
 } from "./elastic";
-import { getMylarSeries } from "./mylar";
+import { mylarGetAllSeries, mylarGetSeries } from "./mylar";
+import type { Series } from "./comics.types";
 
 const throttle = pThrottle({
   limit: 1,
-  interval: 1000
+  interval: 1000,
 });
 
 const issueThrottle = pThrottle({
   limit: 1,
-  interval: 18000 // 1 request every 18 seconds
+  interval: 18000, // 1 request every 18 seconds
 });
 
 /*
@@ -28,36 +30,42 @@ const issueThrottle = pThrottle({
  * 5- Bulk updates the issue data in elasticsearch.
  */
 export async function seedElastic() {
+  let totalSeries = 0;
+  let totalIssues = 0;
   try {
-    const { data } = getMylarSeries();
-    const throttledSeries = data.map(({ ComicID }) => throttle(() => getVolumeDetails(ComicID)));
-    const series = await Promise.all(throttledSeries.map(fn => fn()));
+    try {
+      await elasticCreateIndex("comics", {
+        properties: {
+          year: {
+            type: "date",
+            format: "yyyy",
+          },
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      console.log("Index already exists.");
+    }
 
-    await elasticBulkUpdateSeries(series);
+    const { data } = await mylarGetAllSeries();
+    totalSeries = data.length;
 
-    const issueIDs = series.flatMap((serie) =>
-      serie.issues.map((issue) => issue.id)
-    );
+    for (const serie of data) {
+      console.info(`Adding ${serie.name} (${serie.year}) to Elastic`);
+      const { data } = await mylarGetSeries(serie.id);
+      const { issues } = data;
+      totalIssues = totalIssues + issues.length;
+      const series: Series = {
+        ...serie,
+        issues,
+      };
 
-    const throttledIssues = issueIDs.map((id) => issueThrottle(() => getComicIssueDetails(id)));
-    throttledIssues.map(async fn => {
-      const issue = await fn();
-      console.log("Updating issue", issue.id);
-      await elasticUpdateIssue(issue);
-  })
-
-    await elasticCreateIndex("issues", {
-      properties: {
-        cover_date: {
-          type: "date",
-          format: "yyyy-MM-dd"
-        }
-      }
-    });
+      await elasticUpdateSeries(series);
+    }
 
     return {
-      series: series.length,
-      issues: issueIDs.length,
+      series: totalSeries,
+      issues: totalIssues,
     };
   } catch (error) {
     console.error(error);
@@ -65,24 +73,22 @@ export async function seedElastic() {
   }
 }
 
-export async function syncSeriesDataFromComicVine(id: string) {
-  console.log("Syncing series data from Comic Vine", id);
-  const elastic = getElasticClient();
-  const cvData = await getVolumeDetails(id);
-    await elastic.index({
-      index: "series",
-      id,
-      document: cvData,
-    });
+// export async function syncSeriesDataFromComicVine(id: string) {
+//   console.log("Syncing series data from Comic Vine", id);
+//   const elastic = getElasticClient();
+//   const cvData = await getVolumeDetails(id);
+//   await elastic.index({
+//     index: "series",
+//     id,
+//     document: cvData,
+//   });
 
-    const issueIDs = cvData.issues.map((issue) => issue.id);
+//   const issueIDs = cvData.issues.map((issue) => issue.id);
 
+//   const throttledIssues = issueIDs.map((id) =>
+//     issueThrottle(() => getComicIssueDetails(id))
+//   );
+//   const issues = await Promise.all(throttledIssues.map((fn) => fn()));
 
-    const throttledIssues = issueIDs.map((id) => issueThrottle(() => getComicIssueDetails(id)));
-    const issues = await Promise.all(
-      throttledIssues.map(fn => fn())
-    );
-
-    await elasticBulkUpdateIssues(issues);
-
-}
+//   await elasticBulkUpdateIssues(issues);
+// }

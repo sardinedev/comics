@@ -2,12 +2,12 @@ import { useEffect, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { $sort } from "../../stores/sort.store";
 import { PageNavigator } from "../PageNavigator";
-import type { ComicvineImage, ShortIssue } from "../../util/comicvine.types";
 import type { Sort } from "../../stores/sort.store";
+import type { Issue } from "../../util/comics.types";
 
 export type Props = {
-  seriesId: number;
-  issueList: ShortIssue[];
+  seriesId: string;
+  issueList: Issue[];
   currentPage: number;
   totalNumberOfIssues: number;
   issuesPerPage?: number;
@@ -21,18 +21,14 @@ function clampIssuesPerPage({
 }: {
   issuesPerPage: number;
   currentPage: number;
-  issueList: ShortIssue[];
+  issueList: Issue[];
   sortDirection: Sort;
 }) {
   // sort the issues by issue number
   if (sortDirection === "desc") {
-    issueList.sort(
-      (a, b) => parseInt(b.issue_number) - parseInt(a.issue_number)
-    );
+    issueList.sort((a, b) => parseInt(b.number) - parseInt(a.number));
   } else {
-    issueList.sort(
-      (a, b) => parseInt(a.issue_number) - parseInt(b.issue_number)
-    );
+    issueList.sort((a, b) => parseInt(a.number) - parseInt(b.number));
   }
   const trimmedList = issueList.slice(
     (currentPage - 1) * issuesPerPage,
@@ -42,33 +38,22 @@ function clampIssuesPerPage({
   return trimmedList;
 }
 
-function Issue({ id, name, image, issue_number }: ShortIssue) {
-  const [cover, setCover] = useState<ComicvineImage | undefined>(image);
-
-  useEffect(() => {
-    async function getIssue() {
-      const response = await fetch(`/api/issue/${id}`);
-      const issue = await response.json();
-      setCover(issue.image);
-    }
-    if (!image) {
-      getIssue();
-    }
-  }, []);
-
+function Issue({ id, name, imageURL, number, status }: Issue) {
   return (
     <li>
       <a href={"/comic/" + id}>
         <img
-          class="rounded-md w-full"
+          class={`rounded-md w-full ${
+            status !== "Downloaded" ? "opacity-50" : ""
+          }`}
           style={{ aspectRatio: "210/320" }}
-          src={cover?.medium_url ?? "/logo.svg"}
+          src={imageURL ?? "/logo.svg"}
           loading="lazy"
           height="320"
           width="210"
-          alt={name}
+          alt={name ?? `Cover for issue #${number}`}
         />
-        <span>Issue #{issue_number}</span>
+        <span>Issue #{number}</span>
       </a>
     </li>
   );
@@ -82,7 +67,7 @@ export function IssueGrid({
   issuesPerPage = 50,
 }: Props) {
   const $sortDirection = useStore($sort);
-  const [issues, setIssues] = useState<ShortIssue[] | undefined>(
+  const [issues, setIssues] = useState<Issue[] | undefined>(
     clampIssuesPerPage({
       issuesPerPage,
       currentPage,
