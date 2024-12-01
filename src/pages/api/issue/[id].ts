@@ -1,4 +1,4 @@
-import { elasticGetComicIssue } from "../../../util/elastic";
+import { elasticGetIssue } from "../../../util/elastic";
 
 import type { APIContext } from "astro";
 
@@ -11,7 +11,7 @@ export async function GET({ params }: APIContext) {
       statusText: "Not found",
     });
   }
-  const issue = await elasticGetComicIssue(id);
+  const issue = await elasticGetIssue(id);
   if (!issue) {
     return new Response(null, {
       status: 404,

@@ -90,9 +90,9 @@ export type ComicvineCredits = {
 /**
  * Represents the response from Comicvine API for issues in search.
  */
-export type ComicvineIssuesResponse = {
+export type ComicvineIssues = {
   /** List of aliases the issue is known by. A \n (newline) seperates each alias. */
-  aliases: string;
+  aliases: string | null;
   /** URL pointing to the issue detail resource. */
   api_detail_url: string;
   /** The publish date printed on the cover of an issue. */

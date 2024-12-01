@@ -1,15 +1,40 @@
 ---
-import { SeriesGrid } from "../../components/SeriesGrid/SeriesGrid";
+import IssueGrid from "../../components/IssueGrid/IssueGrid.astro";
+import {CoverLeaf} from "../../components/CoverLeaf/CoverLeaf";
 import Layout from "../../layouts/Layout.astro";
 import { getAllSeries } from "../../util/elastic";
+import type { Issue } from "../../util/comics.types";
 
-const series = await getAllSeries();
+const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
+const page = Astro.url.searchParams.get("page")
+  ? Number(Astro.url.searchParams.get("page"))
+  : 1;
+
+let series: Issue[] = [];
+let totalIssues = 0;
+
+try {
+  const { result, totalResults } = await getAllSeries({sort, page});
+  series = result;
+  totalIssues = totalResults;
+} catch (error) {
+  console.error(error);
+}
 const title = "Series";
 ---
 
 <Layout title={title}>
-  <h1>{title}</h1>
-  <ul>
-    {series ? <SeriesGrid client:load series={series} /> : "No series found"}
-  </ul>
+  { !series ?
+    <h1>Loading...</h1>
+  :
+    <h1>{totalIssues} series in your bookshelf</h1>
+    <IssueGrid totalNumberOfIssues={totalIssues} currentPage={page} >
+      {series.map((serie) => (
+        <CoverLeaf type="series" cover={serie.issue_cover} id={serie.series_id} name={serie.series_name} year={serie.series_year}/>
+      ))}
+    </IssueGrid>
+
+  
+}
+
 </Layout>

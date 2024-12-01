@@ -1,3 +1,5 @@
+export type IssueStatus = "Wanted" | "Downloaded" | "Skipped";
+
 export type MylarComic = {
   /** An URL to the issue page in Comicvine */
   detailsURL: string;
@@ -12,7 +14,7 @@ export type MylarComic = {
   /** The publisher of the issue */
   publisher: string;
   /** The status of the issue */
-  status: string;
+  status: IssueStatus;
   /** The total number of issues in the series */
   totalIssues: number;
   /** The year when the issue was originally published, in the format YYYY */
@@ -35,7 +37,7 @@ export type MylarIssue = {
   /** The date when the issue was released for download, in the format YYYY-MM-DD */
   releaseDate: string;
   /** The status of the issue */
-  status: string;
+  status: IssueStatus;
 };
 
 export type MylarComicWithIssues = {

@@ -4,23 +4,39 @@ import type {
   ComicvineVolume,
 } from "./comicvine.types";
 import type { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
-import type { Series } from "./comics.types";
+import type { Issue, Series } from "./comics.types";
+
+type PaginationProps = {
+  page: number;
+  size?: number;
+  sort: "asc" | "desc";
+};
 
 let client: Client | null = null;
 
+export const ELASTIC_INDEX = "issues";
+export const ELASTIC_API_KEY =
+  "UzZvR2ZwTUJaalpTOW81VTJteVY6N3VEMGVId3RUNjJGcFE3RFNmOE9sdw==";
+
+/**
+ * Get the Elastic client.
+ */
 export function getElasticClient(): Client {
   if (!client) {
     console.info("Creating new Elastic client");
     client = new Client({
-      node: "http://elasticsearch:9200",
-      // auth: {
-      //   apiKey: elasticSecrets.ELASTIC_SEARCH_API_KEY,
-      // },
+      node: "http://192.168.50.190:30003",
+      auth: {
+        apiKey: ELASTIC_API_KEY,
+      },
     });
   }
   return client;
 }
 
+/**
+ * Create a new index in Elastic.
+ */
 export async function elasticCreateIndex(
   index: string,
   mappings?: MappingTypeMapping
@@ -37,35 +53,87 @@ export async function elasticCreateIndex(
   }
 }
 
-export type SeriesProps = {};
-
-export async function getAllSeries(props?: SeriesProps) {
+/**
+ * Get all series from Elastic.
+ */
+export async function getAllSeries({
+  size = 50,
+  page = 1,
+  sort = "asc",
+}: PaginationProps) {
   const elastic = getElasticClient();
   try {
-    const series = await elastic.search({
-      index: "comics",
-      _source: true,
-      size: 10000,
+    const series = await elastic.search<Issue[]>({
+      index: ELASTIC_INDEX,
+      size,
+      from: (page - 1) * size,
+      query: {
+        match: {
+          issue_number: 1,
+        },
+      },
+      sort: [
+        {
+          "series_name.keyword": {
+            order: sort,
+          },
+        },
+      ],
     });
 
-    const { hits } = series.hits;
-    return hits.map((s: any) => s._source);
+    const { hits, total } = series.hits;
+    let totalResults: number = 0;
+    if (total && typeof total !== "number") {
+      totalResults = total.value;
+    }
+    const result = hits
+      .map((s) => s._source)
+      .filter((s) => !!s)
+      .flat();
+    return { result, totalResults };
   } catch (error) {
     console.error("Error fetching all series:", error);
-    throw new Error("Failed to fetch series from Elastic.");
+    throw Error("Failed to fetch series from Elastic.");
   }
 }
 
-export async function elasticGetSeries(id: string) {
+export async function elasticGetSeries(
+  id: string,
+  { size = 50, page = 1, sort = "asc" }: PaginationProps
+) {
   const elastic = getElasticClient();
   try {
-    const series = await elastic.get<Series>({
-      index: "comics",
-      id,
+    const series = await elastic.search<Issue[]>({
+      index: ELASTIC_INDEX,
+      size,
+      from: (page - 1) * size,
+      query: {
+        match: {
+          series_id: id,
+        },
+      },
+      sort: [
+        {
+          issue_number: {
+            order: sort,
+          },
+        },
+      ],
     });
-    return series._source;
+
+    const { hits, total } = series.hits;
+    let totalResults: number = 0;
+    if (total && typeof total !== "number") {
+      totalResults = total.value;
+    }
+    const result = hits
+      .map((s) => s._source)
+      .filter((s) => !!s)
+      .flat();
+    return { result, totalResults };
   } catch (error) {
     console.error(`Error fetching series ${id}:`, error);
+    throw Error("Failed to fetch series from Elastic.");
   }
 }
 
@@ -79,7 +147,8 @@ export async function elasticUpdateSeries(data: Series) {
     });
     return response;
   } catch (error) {
-    console.error(`Error updating series ${data.id}:`, error);
+    console.error(`Error updating series ${data.name}:`, error);
+    throw new Error(`Error updating series ${data.name}`);
   }
 }
 
@@ -87,7 +156,7 @@ export async function elasticBulkUpdateSeries(data: ComicvineVolume[]) {
   const elastic = getElasticClient();
   try {
     const operations = data.flatMap((serie) => [
-      { index: { _index: "series", _id: serie.id } },
+      { index: { _index: "comics", _id: serie.id } },
       serie,
     ]);
 
@@ -108,17 +177,17 @@ export async function elasticBulkUpdateSeries(data: ComicvineVolume[]) {
   }
 }
 
-export async function elasticUpdateIssue(data: ComicvineSingleIssueResponse) {
+export async function elasticUpdateIssue(data: Issue) {
   const elastic = getElasticClient();
   try {
     const response = await elastic.index({
-      index: "issues",
-      id: data.id.toString(),
+      index: ELASTIC_INDEX,
+      id: data.issue_id,
       document: data,
     });
     return response;
   } catch (error) {
-    console.error(`Error updating issue ${data.id}:`, error);
+    console.error(`Error updating issue ${data.issue_id}:`, error);
   }
 }
 
@@ -128,7 +197,7 @@ export async function elasticBulkUpdateIssues(
   const elastic = getElasticClient();
   try {
     const operations = data.flatMap((issue) => [
-      { index: { _index: "issues", _id: issue.id } },
+      { index: { _index: ELASTIC_INDEX, _id: issue.id } },
       issue,
     ]);
 
@@ -149,11 +218,11 @@ export async function elasticBulkUpdateIssues(
   }
 }
 
-export async function elasticGetComicIssue(id: string) {
+export async function elasticGetIssue(id: string) {
   const elastic = getElasticClient();
   try {
-    const issue = await elastic.get<ComicvineSingleIssueResponse>({
-      index: "issues",
+    const issue = await elastic.get<Issue>({
+      index: ELASTIC_INDEX,
       id,
     });
     return issue._source;
@@ -172,7 +241,7 @@ export async function elasticGetWeeklyComics(
   const elastic = getElasticClient();
   try {
     const issues = await elastic.search<ComicvineSingleIssueResponse[]>({
-      index: "issues",
+      index: ELASTIC_INDEX,
       query: {
         range: {
           cover_date: {

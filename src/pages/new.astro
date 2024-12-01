@@ -1,0 +1,29 @@
+---
+import Layout from "../layouts/Layout.astro";
+import IssueSlider from "../components/IssueSlider.astro";
+import { thisWeekBookendsDates } from "../util/date";
+
+import type { SingleIssuePreview } from "../components/IssueSlider.astro";
+import { getWeeklyComics } from "../util/comicvine";
+
+const { startOfWeek, endOfWeek } = thisWeekBookendsDates();
+
+let weeklyIssues;
+let issues: SingleIssuePreview[] = [];
+
+try {
+  weeklyIssues = await getWeeklyComics(startOfWeek, endOfWeek);
+  if (weeklyIssues) {
+    issues = weeklyIssues.issues.map((issue) => {
+      const shortIssueDetails = {
+        cover: issue.image.medium_url,
+        name: issue.name,
+        id: issue.id,
+      };
+      return shortIssueDetails;
+    });
+  }
+} catch (error) {
+  console.error(error);
+}
+---

@@ -4,28 +4,31 @@ import IssueSlider from "../components/IssueSlider.astro";
 import { thisWeekBookendsDates } from "../util/date";
 
 import type { SingleIssuePreview } from "../components/IssueSlider.astro";
-import { elasticGetWeeklyComics } from "../util/elastic";
+import { getWeeklyComics } from "../util/comicvine";
 
 const { startOfWeek, endOfWeek } = thisWeekBookendsDates();
 
 let weeklyIssues;
 let issues: SingleIssuePreview[] = [];
 let issuesNewForYou: SingleIssuePreview[] = [];
+let upcomingIssues: SingleIssuePreview[] = [];
+let continueReading: SingleIssuePreview[] = [];
+let recommendedSeries: SingleIssuePreview[] = [];
 
 try {
-  weeklyIssues = await elasticGetWeeklyComics(startOfWeek, endOfWeek);
-  console.log(weeklyIssues);
+  weeklyIssues = await getWeeklyComics(startOfWeek, endOfWeek);
   if (weeklyIssues) {
     // const followedSeries = await kvGetFollowSeries(kv);
     issues = weeklyIssues.issues.map((issue) => {
+      // const formattedIssue = convertComicvineIssuesToIssue(issue);
       const shortIssueDetails = {
         cover: issue.image.medium_url,
         name: issue.name,
         id: issue.id,
       };
-      if (followedSeries?.series.includes(issue.volume.id.toString())) {
-        issuesNewForYou.push(shortIssueDetails);
-      }
+      // if (followedSeries?.series.includes(issue.volume.id.toString())) {
+      //   issuesNewForYou.push(shortIssueDetails);
+      // }
       return shortIssueDetails;
     });
   }
@@ -60,10 +63,6 @@ try {
         </p>
         <IssueSlider issues={issues} />
       </>
-    ) : (
-      <p class="text-sm mb-4">
-        Feels very empty in here. Maybe try again later?
-      </p>
-    )
+    ) : null
   }
 </Layout>

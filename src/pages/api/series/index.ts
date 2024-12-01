@@ -1,15 +1,10 @@
 import type { APIContext } from "astro";
-import { getElasticClient } from "../../../util/elastic";
+import { getElasticClient, getAllSeries } from "../../../util/elastic";
 
 export async function GET() {
-  const elastic = getElasticClient();
   let series;
   try {
-    series = await elastic.search({
-      index: "series",
-      _source: true,
-      size: 10000, // Adjust this value according to your index size,
-    });
+    series = await getAllSeries();
   } catch (error) {
     return new Response(JSON.stringify(error), {
       status: 500,
@@ -20,10 +15,7 @@ export async function GET() {
     });
   }
 
-  const { hits } = series.hits;
-  const result = hits.map((s) => s._source);
-
-  return new Response(JSON.stringify({ result }), {
+  return new Response(JSON.stringify({ series }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",

@@ -1,25 +1,12 @@
-import pThrottle from "p-throttle";
 import { getComicIssueDetails, getVolumeDetails } from "./comicvine";
 import {
-  elasticBulkUpdateSeries,
-  elasticBulkUpdateIssues,
   elasticCreateIndex,
-  getElasticClient,
   elasticUpdateIssue,
   elasticUpdateSeries,
 } from "./elastic";
 import { mylarGetAllSeries, mylarGetSeries } from "./mylar";
+import { formatMylarIssue, formatMylarSeries } from "./formatter";
 import type { Series } from "./comics.types";
-
-const throttle = pThrottle({
-  limit: 1,
-  interval: 1000,
-});
-
-const issueThrottle = pThrottle({
-  limit: 1,
-  interval: 18000, // 1 request every 18 seconds
-});
 
 /*
  * Seeds elasticsearch database.
@@ -32,6 +19,7 @@ const issueThrottle = pThrottle({
 export async function seedElastic() {
   let totalSeries = 0;
   let totalIssues = 0;
+  const errors: string[] = [];
   try {
     try {
       await elasticCreateIndex("comics", {
@@ -48,24 +36,42 @@ export async function seedElastic() {
     }
 
     const { data } = await mylarGetAllSeries();
-    totalSeries = data.length;
 
     for (const serie of data) {
-      console.info(`Adding ${serie.name} (${serie.year}) to Elastic`);
-      const { data } = await mylarGetSeries(serie.id);
-      const { issues } = data;
-      totalIssues = totalIssues + issues.length;
-      const series: Series = {
-        ...serie,
-        issues,
-      };
+      try {
+        const { data } = await mylarGetSeries(serie.id);
+        const { issues } = data;
+        for (const issue of issues) {
+          console.info(`Adding ${issue.name} (${issue.number}) to Elastic`);
+          const formatedIssue = formatMylarIssue(issue, serie);
+          try {
+            await elasticUpdateIssue(formatedIssue);
+            totalIssues = totalIssues + 1;
+          } catch (error) {
+            console.error(error);
+            errors.push(`Failed to update ${issue.name} issue in Elastic.`);
+          }
+        }
+        // const formatedIssues = issues.map((issue) => formatMylarIssue(issue));
 
-      await elasticUpdateSeries(series);
+        // try {
+        //   await elasticUpdateSeries(series);
+        //   totalIssues = totalIssues + issues.length;
+        //   totalSeries = totalSeries + 1;
+        // } catch (error) {
+        //   console.error(error);
+        //   errors.push(`Failed to update ${serie.name} series in Elastic.`);
+        // }
+      } catch (error) {
+        console.error(error);
+        errors.push(`Failed to fetch ${serie.name} series data from Mylar.`);
+      }
     }
 
     return {
       series: totalSeries,
       issues: totalIssues,
+      errors,
     };
   } catch (error) {
     console.error(error);
@@ -73,22 +79,8 @@ export async function seedElastic() {
   }
 }
 
-// export async function syncSeriesDataFromComicVine(id: string) {
-//   console.log("Syncing series data from Comic Vine", id);
-//   const elastic = getElasticClient();
-//   const cvData = await getVolumeDetails(id);
-//   await elastic.index({
-//     index: "series",
-//     id,
-//     document: cvData,
-//   });
-
-//   const issueIDs = cvData.issues.map((issue) => issue.id);
-
-//   const throttledIssues = issueIDs.map((id) =>
-//     issueThrottle(() => getComicIssueDetails(id))
-//   );
-//   const issues = await Promise.all(throttledIssues.map((fn) => fn()));
-
-//   await elasticBulkUpdateIssues(issues);
-// }
+export async function updateComicDetailsFromComicVine(id: string) {
+  console.log("Updating comic details from Comic Vine", id);
+  const cvData = await getComicIssueDetails(id);
+  await elasticUpdateIssue(cvData);
+}
