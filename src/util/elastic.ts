@@ -4,7 +4,7 @@ import type {
   ComicvineVolume,
 } from "./comicvine.types";
 import type { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
-import type { Issue, Series } from "./comics.types";
+import type { Issue, SeriesUpdate } from "./comics.types";
 
 type PaginationProps = {
   page: number;
@@ -137,20 +137,38 @@ export async function elasticGetSeries(
   }
 }
 
-export async function elasticUpdateSeries(data: Series) {
+/**
+ * Partially update all documents in Elastic that contain the same series ID.
+ * @param data
+ * @returns
+ */
+export async function elasticUpdate(data: SeriesUpdate, series_id: string) {
   const elastic = getElasticClient();
   try {
-    const response = await elastic.index({
-      index: "comics",
-      id: data.id,
-      document: data,
+    const response = await elastic.updateByQuery({
+      index: ELASTIC_INDEX,
+      body: {
+        script: {
+          source: Object.keys(data)
+            .map((key) => `ctx._source.${key} = params.${key}`)
+            .join("; "),
+          params: data,
+        },
+        query: {
+          match: {
+            series_id: series_id,
+          },
+        },
+      },
     });
     return response;
   } catch (error) {
-    console.error(`Error updating series ${data.name}:`, error);
-    throw new Error(`Error updating series ${data.name}`);
+    console.error(`Error updating series ${data.series_name}:`, error);
+    throw new Error(`Error updating series ${data.series_name}`);
   }
 }
+
+// Functions bellow need to be reviewd or deleted
 
 export async function elasticBulkUpdateSeries(data: ComicvineVolume[]) {
   const elastic = getElasticClient();

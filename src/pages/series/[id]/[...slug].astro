@@ -2,7 +2,7 @@
 import Layout from "../../../layouts/Layout.astro";
 import CoverStack from "../../../components/CoverStack.astro";
 import IssueGrid from "../../../components/IssueGrid/IssueGrid.astro";
-import { SortButton } from "../../../components/SortButton";
+import SortButton from "../../../components/SortButton.astro";
 
 import { elasticGetSeries } from "../../../util/elastic";
 import type { Issue } from "../../../util/comics.types";
@@ -14,9 +14,8 @@ const page = Astro.url.searchParams.get("page")
   : 1;
 
 const { id } = Astro.params;
-let volume: Issue[] = [];
+let series: Issue[] = [];
 let totalIssues = 0;
-let isFollowing = false;
 
 try {
   if (id) {
@@ -24,7 +23,7 @@ try {
       sort,
       page,
     });
-    volume = result;
+    series = result;
     totalIssues = totalResults;
   }
 } catch (e) {
@@ -33,35 +32,38 @@ try {
 ---
 
 <script>
-  const followButton = document.getElementById("follow-series");
-  if (followButton) {
-    followButton.addEventListener("click", async (event) => {
-      const volumeId = event?.target?.getAttribute("data-volume");
-      if (volumeId) {
-        const response = await fetch("/api/followSeries", {
+  const readButton = document.getElementById("series-read");
+  if (readButton) {
+    readButton.addEventListener("click", async (event) => {
+      const seriesId = readButton.getAttribute("data-series");
+      if (seriesId) {
+        const response = await fetch(`/api/series/${seriesId}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ id: volumeId }),
+          body: JSON.stringify({
+            series_reading_status: "read",
+            issue_read: true,
+          }),
         });
         if (response.ok) {
-          followButton.textContent = "Following series";
+          readButton.textContent = "Following series";
         }
       }
     });
   }
 </script>
 
-<Layout title={volume?.[0].series_name ?? "Error loading volume"}>
+<Layout title={series?.[0].series_name ?? "Error loading series"}>
   {
-    volume ? (
+    series ? (
       <>
         <header class="flex flex-col">
           <div>
             <h1>
-              <span class="text-4xl">{volume?.[0].series_name}</span> (
-              {volume?.[0].series_year})
+              <span class="text-4xl">{series?.[0].series_name}</span> (
+              {series?.[0].series_year})
             </h1>
             <p>{totalIssues} issues</p>
           </div>
@@ -71,22 +73,28 @@ try {
         </header>
         <section class="mt-8">
           <div class="border-t-2 border-b-2 py-2">
-            <SortButton client:idle />
+            <SortButton />
+            <button id="series-read" data-series={id}>
+              {series?.[0].series_reading_status === "read"
+                ? "Mark series unread"
+                : "Mark series unread"}
+            </button>
           </div>
           <IssueGrid totalNumberOfIssues={totalIssues} currentPage={page}>
-            {volume.map((issue) => (
+            {series.map((issue) => (
               <CoverLeaf
                 type="Issue"
                 id={issue.issue_id}
                 cover={issue.issue_cover}
                 number={issue.issue_number}
+                read={issue.issue_read}
               />
             ))}
           </IssueGrid>
         </section>
       </>
     ) : (
-      <p>Error loading volume</p>
+      <p>Error loading series</p>
     )
   }
 </Layout>

@@ -1,5 +1,7 @@
 import type { IssueStatus } from "./mylar.types";
 
+export type ReadingStatus = "read" | "unread" | "reading";
+
 /**
  * An issue is a single comic book, magazine, or other publication.
  */
@@ -33,7 +35,7 @@ export type Issue = {
   /** The publisher of the series */
   series_publisher: string;
   /** Reading status */
-  series_reading_status: "read" | "unread" | "reading";
+  series_reading_status: ReadingStatus;
 };
 
 /**
@@ -49,5 +51,10 @@ export type Series = {
   /** The publisher of the series */
   series_publisher: string;
   /** Reading status */
-  series_reading_status: "read" | "unread" | "reading";
+  series_reading_status: ReadingStatus;
 };
+
+/**
+ * A series update is a partial update to a series.
+ */
+export type SeriesUpdate = Partial<Series>;
