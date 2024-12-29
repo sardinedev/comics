@@ -41,8 +41,12 @@ async function comicvine<T>(
     }
     return data;
   } catch (error) {
-    console.error(`[Comicvine API]: ${error.message}`);
-    throw Error(`[Comicvine API]: ${error.message}`);
+    console.error(`[Comicvine API]: ${error}`);
+    if (error instanceof Error) {
+      throw Error(`[Comicvine API]: ${error.message}`);
+    } else {
+      throw Error("[Comicvine API]: An unknown error occurred");
+    }
   }
 }
 
@@ -64,7 +68,11 @@ export async function getWeeklyComics(startOfWeek: string, endOfWeek: string) {
     };
   } catch (error) {
     // console.error("Fetching weekly comics");
-    throw Error(`Fetching weekly comics: ${error.message}`);
+    if (error instanceof Error) {
+      throw Error(`Fetching weekly comics: ${error.message}`);
+    } else {
+      throw Error("Fetching weekly comics: An unknown error occurred");
+    }
   }
 }
 

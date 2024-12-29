@@ -4,7 +4,7 @@ import type {
   ComicvineVolume,
 } from "./comicvine.types";
 import type { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
-import type { Issue, SeriesUpdate } from "./comics.types";
+import type { Issue } from "./comics.types";
 
 type PaginationProps = {
   page: number;
@@ -97,6 +97,12 @@ export async function getAllSeries({
   }
 }
 
+/**
+ * Get a single series from Elastic.
+ * @param id The ID of the series to fetch.
+ * @param options Pagination options.
+ * @returns The series and the total number of results.
+ */
 export async function elasticGetSeries(
   id: string,
   { size = 50, page = 1, sort = "asc" }: PaginationProps
@@ -137,64 +143,6 @@ export async function elasticGetSeries(
   }
 }
 
-/**
- * Partially update all documents in Elastic that contain the same series ID.
- * @param data
- * @returns
- */
-export async function elasticUpdate(data: SeriesUpdate, series_id: string) {
-  const elastic = getElasticClient();
-  try {
-    const response = await elastic.updateByQuery({
-      index: ELASTIC_INDEX,
-      body: {
-        script: {
-          source: Object.keys(data)
-            .map((key) => `ctx._source.${key} = params.${key}`)
-            .join("; "),
-          params: data,
-        },
-        query: {
-          match: {
-            series_id: series_id,
-          },
-        },
-      },
-    });
-    return response;
-  } catch (error) {
-    console.error(`Error updating series ${data.series_name}:`, error);
-    throw new Error(`Error updating series ${data.series_name}`);
-  }
-}
-
-// Functions bellow need to be reviewd or deleted
-
-export async function elasticBulkUpdateSeries(data: ComicvineVolume[]) {
-  const elastic = getElasticClient();
-  try {
-    const operations = data.flatMap((serie) => [
-      { index: { _index: "comics", _id: serie.id } },
-      serie,
-    ]);
-
-    const bulkResponse = await elastic.bulk({
-      refresh: true,
-      body: operations,
-    });
-
-    if (bulkResponse.errors) {
-      console.error(bulkResponse);
-      throw new Error("Failed to sync series to Elastic.");
-    }
-
-    return bulkResponse;
-  } catch (error) {
-    console.error(error);
-    throw new Error("Failed to sync series to Elastic.");
-  }
-}
-
 export async function elasticUpdateIssue(data: Issue) {
   const elastic = getElasticClient();
   try {
@@ -209,14 +157,12 @@ export async function elasticUpdateIssue(data: Issue) {
   }
 }
 
-export async function elasticBulkUpdateIssues(
-  data: ComicvineSingleIssueResponse[]
-) {
+export async function elasticBulkUpdate(data: Partial<Issue>[]) {
   const elastic = getElasticClient();
   try {
     const operations = data.flatMap((issue) => [
-      { index: { _index: ELASTIC_INDEX, _id: issue.id } },
-      issue,
+      { update: { _index: ELASTIC_INDEX, _id: issue.issue_id } },
+      { doc: issue },
     ]);
 
     const bulkResponse = await elastic.bulk({

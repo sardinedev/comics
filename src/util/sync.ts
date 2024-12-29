@@ -1,12 +1,6 @@
-import { getComicIssueDetails, getVolumeDetails } from "./comicvine";
-import {
-  elasticCreateIndex,
-  elasticUpdateIssue,
-  elasticUpdateSeries,
-} from "./elastic";
+import { elasticCreateIndex, elasticUpdateIssue } from "./elastic";
 import { mylarGetAllSeries, mylarGetSeries } from "./mylar";
-import { formatMylarIssue, formatMylarSeries } from "./formatter";
-import type { Series } from "./comics.types";
+import { formatMylarIssue } from "./formatter";
 
 /*
  * Seeds elasticsearch database.
@@ -52,16 +46,6 @@ export async function seedElastic() {
             errors.push(`Failed to update ${issue.name} issue in Elastic.`);
           }
         }
-        // const formatedIssues = issues.map((issue) => formatMylarIssue(issue));
-
-        // try {
-        //   await elasticUpdateSeries(series);
-        //   totalIssues = totalIssues + issues.length;
-        //   totalSeries = totalSeries + 1;
-        // } catch (error) {
-        //   console.error(error);
-        //   errors.push(`Failed to update ${serie.name} series in Elastic.`);
-        // }
       } catch (error) {
         console.error(error);
         errors.push(`Failed to fetch ${serie.name} series data from Mylar.`);
@@ -77,10 +61,4 @@ export async function seedElastic() {
     console.error(error);
     throw new Error("Failed to sync series to Elastic.");
   }
-}
-
-export async function updateComicDetailsFromComicVine(id: string) {
-  console.log("Updating comic details from Comic Vine", id);
-  const cvData = await getComicIssueDetails(id);
-  await elasticUpdateIssue(cvData);
 }

@@ -30,7 +30,7 @@ const title = "Series";
     <h1>{totalIssues} series in your bookshelf</h1>
     <IssueGrid totalNumberOfIssues={totalIssues} currentPage={page} >
       {series.map((serie) => (
-        <CoverLeaf type="series" cover={serie.issue_cover} id={serie.series_id} name={serie.series_name} year={serie.series_year}/>
+        <CoverLeaf type="series" cover={serie.issue_cover} id={serie.series_id} name={serie.series_name} year={serie.series_year} readingStatus={serie.series_reading_status}/>
       ))}
     </IssueGrid>
 

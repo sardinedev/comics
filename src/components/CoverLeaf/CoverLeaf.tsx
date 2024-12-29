@@ -34,10 +34,10 @@ export function CoverLeaf({ cover, id, ...props }: CoverLeaf) {
     label = `${name} (${year})`;
     alt = `Cover for ${name} (${year})`;
     href = `/series/${id}`;
-    readingStatus = props.readingStatus === "read" ? "reading" : "unread";
+    readingStatus = props.readingStatus === "read" ? "read" : "unread";
   }
   return (
-    <li>
+    <li data-coverid={id}>
       <a href={href}>
         <img
           class={"rounded-md w-full"}

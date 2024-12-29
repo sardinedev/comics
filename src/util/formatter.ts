@@ -1,4 +1,4 @@
-import type { Issue, Series } from "./comics.types";
+import type { Issue } from "./comics.types";
 import type { MylarIssue, MylarComic } from "./mylar.types";
 
 /**

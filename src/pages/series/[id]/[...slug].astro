@@ -24,6 +24,7 @@ try {
       page,
     });
     series = result;
+    console.log(series);
     totalIssues = totalResults;
   }
 } catch (e) {
@@ -35,20 +36,26 @@ try {
   const readButton = document.getElementById("series-read");
   if (readButton) {
     readButton.addEventListener("click", async (event) => {
-      const seriesId = readButton.getAttribute("data-series");
-      if (seriesId) {
-        const response = await fetch(`/api/series/${seriesId}`, {
+      console.log("clicked");
+      const issues = document.querySelectorAll("li[data-coverid]");
+      const updateDoc = [];
+      for (const list of issues.values()) {
+        updateDoc.push({
+          issue_id: list.getAttribute("data-coverid"),
+          issue_read: true,
+          series_reading_status: "read",
+        });
+      }
+      if (updateDoc.length > 0) {
+        const response = await fetch("/api/bulk-update", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            series_reading_status: "read",
-            issue_read: true,
-          }),
+          body: JSON.stringify(updateDoc),
         });
         if (response.ok) {
-          readButton.textContent = "Following series";
+          window.location.reload();
         }
       }
     });
@@ -74,10 +81,10 @@ try {
         <section class="mt-8">
           <div class="border-t-2 border-b-2 py-2">
             <SortButton />
-            <button id="series-read" data-series={id}>
+            <button type="button" id="series-read" data-series={id}>
               {series?.[0].series_reading_status === "read"
                 ? "Mark series unread"
-                : "Mark series unread"}
+                : "Mark series read"}
             </button>
           </div>
           <IssueGrid totalNumberOfIssues={totalIssues} currentPage={page}>

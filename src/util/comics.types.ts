@@ -37,24 +37,3 @@ export type Issue = {
   /** Reading status */
   series_reading_status: ReadingStatus;
 };
-
-/**
- * A series is a collection of issues.
- */
-export type Series = {
-  /** The unique identifier for the series, same as the Comicvine ID */
-  series_id: string;
-  /** The name of the series */
-  series_name: string;
-  /** The year when the series started, in the format YYYY */
-  series_year: string;
-  /** The publisher of the series */
-  series_publisher: string;
-  /** Reading status */
-  series_reading_status: ReadingStatus;
-};
-
-/**
- * A series update is a partial update to a series.
- */
-export type SeriesUpdate = Partial<Series>;

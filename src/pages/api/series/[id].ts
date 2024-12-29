@@ -1,5 +1,5 @@
 import type { APIContext } from "astro";
-import { elasticGetSeries, elasticUpdate } from "../../../util/elastic";
+import { elasticGetSeries, elasticUpdateSeries } from "../../../util/elastic";
 
 export async function GET({ params }: APIContext) {
   const { id } = params;
@@ -41,7 +41,7 @@ export async function POST({ params, request }: APIContext) {
   }
 
   try {
-    const series = await elasticUpdate(body, id);
+    const series = await elasticUpdateSeries(body, id);
     return new Response(JSON.stringify(series), {
       status: 200,
       headers: {
