@@ -24,7 +24,6 @@ try {
       page,
     });
     series = result;
-    console.log(series);
     totalIssues = totalResults;
   }
 } catch (e) {
@@ -36,7 +35,6 @@ try {
   const readButton = document.getElementById("series-read");
   if (readButton) {
     readButton.addEventListener("click", async (event) => {
-      console.log("clicked");
       const issues = document.querySelectorAll("li[data-coverid]");
       const updateDoc = [];
       for (const list of issues.values()) {
