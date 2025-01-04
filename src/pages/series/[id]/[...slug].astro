@@ -1,12 +1,11 @@
 ---
-import Layout from "../../../layouts/Layout.astro";
-import CoverStack from "../../../components/CoverStack.astro";
-import IssueGrid from "../../../components/IssueGrid/IssueGrid.astro";
-import SortButton from "../../../components/SortButton.astro";
-
-import { elasticGetSeries } from "../../../util/elastic";
-import type { Issue } from "../../../util/comics.types";
-import CoverLeaf from "../../../components/CoverLeaf/CoverLeaf.astro";
+import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
+import CoverStack from "@components/CoverStack.astro";
+import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
+import Layout from "@layouts/Layout.astro";
+import SortButton from "@components/SortButton.astro";
+import type { Issue } from "@util/comics.types";
+import { elasticGetSeries } from "@util/elastic";
 
 const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
 const page = Astro.url.searchParams.get("page")

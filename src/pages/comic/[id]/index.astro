@@ -1,9 +1,9 @@
 ---
-import IssueSlider from "../../../components/IssueSlider.astro";
-import Layout from "../../../layouts/Layout.astro";
+import IssueSlider from "@components/IssueSlider.astro";
+import Layout from "@layouts/Layout.astro";
 
-import type { SingleIssuePreview } from "../../../components/IssueSlider.astro";
-import { elasticGetIssue } from "../../../util/elastic";
+import type { SingleIssuePreview } from "@components/IssueSlider.astro";
+import { elasticGetIssue } from "@util/elastic";
 
 const { id } = Astro.params;
 let data;

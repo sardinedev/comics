@@ -1,9 +1,9 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import IssueSlider from "../components/IssueSlider.astro";
+import IssueSlider from "@components/IssueSlider.astro";
 import { thisWeekBookendsDates } from "../util/date";
 
-import type { SingleIssuePreview } from "../components/IssueSlider.astro";
+import type { SingleIssuePreview } from "@components/IssueSlider.astro";
 import { getWeeklyComics } from "../util/comicvine";
 
 const { startOfWeek, endOfWeek } = thisWeekBookendsDates();

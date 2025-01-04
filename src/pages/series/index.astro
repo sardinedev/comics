@@ -1,9 +1,9 @@
 ---
-import IssueGrid from "../../components/IssueGrid/IssueGrid.astro";
-import CoverLeaf from "../../components/CoverLeaf/CoverLeaf.astro";
-import Layout from "../../layouts/Layout.astro";
-import { getAllSeries } from "../../util/elastic";
-import type { Issue } from "../../util/comics.types";
+import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
+import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
+import Layout from "@layouts/Layout.astro";
+import { getAllSeries } from "@util/elastic";
+import type { Issue } from "@util/comics.types";
 
 const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
 const page = Astro.url.searchParams.get("page")
