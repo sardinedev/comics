@@ -1,5 +1,8 @@
 import type { MylarComic, MylarComicWithIssues } from "./mylar.types";
 
+const MYLAR_API_KEY = import.meta.env.MYLAR_API_KEY;
+const MYLAR_URL = import.meta.env.PUBLIC_MYLAR_URL;
+
 export type MylarResponse<T> = {
   result: string;
   data: T;
@@ -10,7 +13,7 @@ export async function mylar<T>(
   method = "GET"
 ): Promise<MylarResponse<T>> {
   const req = await fetch(
-    `http://192.168.50.190:8090/api?cmd=${endpoint}&apikey=780405694551c1e65227d5185f4b26fd`,
+    `${MYLAR_URL}/api?cmd=${endpoint}&apikey=${MYLAR_API_KEY}`,
     {
       method,
       headers: {

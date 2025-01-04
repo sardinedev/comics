@@ -13,9 +13,8 @@ export type WeeklyComics = {
   issues: ComicvineIssues[];
 };
 
-const COMICVINE_API_KEY = "d1dc24fd2bc230094c37a518cfa7b88aa43443ac";
-
-const COMICVINE_URL = "https://comicvine.gamespot.com/api";
+const COMICVINE_API_KEY = import.meta.env.COMICVINE_API_KEY;
+const COMICVINE_URL = import.meta.env.PUBLIC_COMICVINE_URL;
 
 /**
  * Fetches data from the Comicvine API.

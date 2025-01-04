@@ -14,9 +14,9 @@ type PaginationProps = {
 
 let client: Client | null = null;
 
-export const ELASTIC_INDEX = "issues";
-export const ELASTIC_API_KEY =
-  "UzZvR2ZwTUJaalpTOW81VTJteVY6N3VEMGVId3RUNjJGcFE3RFNmOE9sdw==";
+export const ELASTIC_INDEX = import.meta.env.ELASTIC_INDEX;
+export const ELASTIC_API_KEY = import.meta.env.ELASTIC_API_KEY;
+const ELASTIC_URL = import.meta.env.ELASTIC_URL;
 
 /**
  * Get the Elastic client.
@@ -25,7 +25,7 @@ export function getElasticClient(): Client {
   if (!client) {
     console.info("Creating new Elastic client");
     client = new Client({
-      node: "http://192.168.50.190:30003",
+      node: ELASTIC_URL,
       auth: {
         apiKey: ELASTIC_API_KEY,
       },
