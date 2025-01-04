@@ -3,8 +3,8 @@ import type {
   ComicvineSingleIssueResponse,
   ComicvineVolume,
 } from "./comicvine.types";
-import type { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
 import type { Issue } from "./comics.types";
+import type { estypes } from "@elastic/elasticsearch";
 
 type PaginationProps = {
   page: number;
@@ -39,7 +39,7 @@ export function getElasticClient(): Client {
  */
 export async function elasticCreateIndex(
   index: string,
-  mappings?: MappingTypeMapping
+  mappings: estypes.MappingTypeMapping
 ) {
   const elastic = getElasticClient();
   try {
