@@ -6,7 +6,7 @@ import SortButton from "../../../components/SortButton.astro";
 
 import { elasticGetSeries } from "../../../util/elastic";
 import type { Issue } from "../../../util/comics.types";
-import { CoverLeaf } from "../../../components/CoverLeaf/CoverLeaf";
+import CoverLeaf from "../../../components/CoverLeaf/CoverLeaf.astro";
 
 const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
 const page = Astro.url.searchParams.get("page")

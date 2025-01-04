@@ -1,0 +1,63 @@
+---
+import { Image } from "astro:assets";
+import type { ReadingStatus } from "../../util/comics.types";
+
+type IssueCoverLeaf = {
+  cover: string;
+  id: string;
+  number: number;
+  status?: string;
+  type: "Issue";
+  read: boolean;
+};
+
+type SeriesCoverLeaf = {
+  cover: string;
+  id: string;
+  name: string;
+  type: "series";
+  year: string;
+  readingStatus: ReadingStatus;
+};
+
+const { cover, id, ...props } = Astro.props as IssueCoverLeaf | SeriesCoverLeaf;
+
+let label, alt, href, readingStatus;
+
+if (props.type === "Issue") {
+  const { number } = props;
+  label = `Issue #${number}`;
+  alt = `Cover for issue #${number}`;
+  href = `/comic/${id}`;
+  readingStatus = props.read ? "read" : "unread";
+}
+if (props.type === "series") {
+  const { name, year } = props;
+  label = `${name} (${year})`;
+  alt = `Cover for ${name} (${year})`;
+  href = `/series/${id}`;
+  readingStatus = props.readingStatus === "read" ? "read" : "unread";
+}
+---
+
+<li data-coverid={id}>
+  <a href={href}>
+    <Image
+      class={"rounded-md w-full"}
+      style={{ aspectRatio: "210/320" }}
+      src={cover ?? "/logo.svg"}
+      height="320"
+      width="210"
+      alt={alt as string}
+      format="avif"
+    />
+    <span class={"flex justify-between mt-2"}>
+      {label}
+      <img
+        class={`h-5 w-5 invert`}
+        src={`/icons/${readingStatus === "read" ? "tick-filled" : "tick"}.svg`}
+        alt="Previous page"
+      />
+    </span>
+  </a>
+</li>

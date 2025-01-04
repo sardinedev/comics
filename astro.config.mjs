@@ -10,6 +10,14 @@ export default defineConfig({
   adapter: node({
     mode: "standalone",
   }),
+  image: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "comicvine.gamespot.com",
+      },
+    ],
+  },
   vite: {
     server: {
       host: "0.0.0.0",
