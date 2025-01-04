@@ -44,8 +44,8 @@ if (props.type === "series") {
   <a href={href}>
     <Image
       class={"rounded-md w-full"}
-      style={{ aspectRatio: "210/320" }}
       src={cover ?? "/logo.svg"}
+      densities={[1.5, 2]}
       height="320"
       width="210"
       alt={alt as string}

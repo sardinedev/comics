@@ -1,11 +1,27 @@
 ---
 import Layout from "@layouts/Layout.astro";
 import IssueSlider from "@components/IssueSlider.astro";
+import { elasticGetLatestIssues } from "@util/elastic";
+import type { Issue } from "@util/comics.types";
+
+let latestIssues: Issue[] = [];
 
 try {
+  latestIssues = await elasticGetLatestIssues();
 } catch (error) {
   console.error(error);
 }
 ---
 
-<Layout title="New this week" />
+<Layout title="All about the latest!">
+  {
+    latestIssues.length > 0 ? (
+      <>
+        <h2>Recently added to the library</h2>
+        <IssueSlider issues={latestIssues} />
+      </>
+    ) : (
+      <p>There are no issues in the library yet.</p>
+    )
+  }
+</Layout>

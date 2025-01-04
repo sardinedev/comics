@@ -223,3 +223,31 @@ export async function elasticGetWeeklyComics(
     throw new Error("Failed to fetch weekly issues from Elastic.");
   }
 }
+
+/**
+ * Get the latest issues from Elastic.
+ * @returns The 10 latest issues sorted by issue date.
+ */
+export async function elasticGetLatestIssues() {
+  console.log("Fetching latest issues from Elastic");
+  const elastic = getElasticClient();
+  try {
+    const issues = await elastic.search<Issue>({
+      index: ELASTIC_INDEX,
+      size: 10,
+      sort: [
+        {
+          issue_date: {
+            order: "desc",
+          },
+        },
+      ],
+    });
+
+    const { hits } = issues.hits;
+    return hits.map((s) => s._source).filter((s) => !!s);
+  } catch (error) {
+    console.error("Error fetching latest issues:", error);
+    throw new Error("Failed to fetch latest issues from Elastic.");
+  }
+}

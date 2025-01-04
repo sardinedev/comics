@@ -1,12 +1,12 @@
 ---
-export type SingleIssuePreview = {
-  id: number;
-  name: string;
-  cover: string;
-};
+import type { Issue } from "@util/comics.types";
+import { Image } from "astro:assets";
 
 interface Props {
-  issues: SingleIssuePreview[];
+  issues: Pick<
+    Issue,
+    "issue_id" | "issue_cover" | "issue_number" | "series_name"
+  >[];
   showMore?: {
     cover: string;
     volumeId: number;
@@ -20,14 +20,15 @@ const { issues, showMore } = Astro.props;
   {
     issues.map((issue) => (
       <li class="mr-4 last:mr-0 flex flex-col-reverse text-center">
-        <a href={`/comic/${issue.id}`}>
-          <img
-            class="rounded-md max-w-40"
-            src={issue.cover}
-            alt={issue.name}
-            loading="lazy"
-            height="246"
+        <a href={`/comic/${issue.issue_id}`}>
+          <Image
+            class={"rounded-md max-w-40"}
+            src={issue.issue_cover}
+            densities={[1.5, 2]}
+            height="244"
             width="160"
+            alt={`Cover for issue #${issue.issue_number} of ${issue.series_name}`}
+            format="avif"
           />
         </a>
       </li>

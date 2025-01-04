@@ -1,17 +1,25 @@
 ---
+import { Image } from "astro:assets";
 import IssueSlider from "@components/IssueSlider.astro";
 import Layout from "@layouts/Layout.astro";
-
-import type { SingleIssuePreview } from "@components/IssueSlider.astro";
-import { elasticGetIssue } from "@util/elastic";
+import { elasticGetIssue, elasticGetSeries } from "@util/elastic";
+import type { Issue } from "@util/comics.types";
 
 const { id } = Astro.params;
 let data;
-let issuesInSeries: SingleIssuePreview[] = [];
+let issuesInSeries: Issue[] = [];
 let viewVolume;
 try {
   if (id) {
     data = await elasticGetIssue(id);
+    if (data?.series_id) {
+      const { result } = await elasticGetSeries(data?.series_id, {
+        sort: "desc",
+        page: 1,
+        size: 10,
+      });
+      issuesInSeries = result;
+    }
   }
 } catch (error) {
   console.error(error);
@@ -34,16 +42,20 @@ const title = data
         </h2>
         <h2 class="text-xl">{data.issue_name}</h2>
         <p class="mb-4">{data.issue_date}</p>
-        <img
+        <Image
           class="mb-4"
           src={data.issue_cover}
-          alt={data.issue_name}
+          alt={
+            data.issue_name ??
+            `Cover for ${data.series_name} #${data.issue_number}`
+          }
+          densities={[1.5, 2]}
           width="421"
           height="640"
-          loading="lazy"
+          format="avif"
         />
         <h2 class="text-xl mt-8 mb-4">Other issues in series</h2>
-        <IssueSlider issues={issuesInSeries} showMore={viewVolume} />
+        <IssueSlider issues={issuesInSeries} />
       </>
     ) : (
       <p>Issue not found</p>
