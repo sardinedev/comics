@@ -13,7 +13,8 @@ export type WeeklyComics = {
   issues: ComicvineIssues[];
 };
 
-const COMICVINE_API_KEY = import.meta.env.COMICVINE_API_KEY;
+const COMICVINE_API_KEY =
+  import.meta.env.COMICVINE_API_KEY ?? process.env.COMICVINE_API_KEY;
 const COMICVINE_URL = import.meta.env.PUBLIC_COMICVINE_URL;
 
 /**

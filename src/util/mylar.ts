@@ -1,6 +1,7 @@
 import type { MylarComic, MylarComicWithIssues } from "./mylar.types";
 
-const MYLAR_API_KEY = import.meta.env.MYLAR_API_KEY;
+const MYLAR_API_KEY =
+  import.meta.env.MYLAR_API_KEY ?? process.env.MYLAR_API_KEY;
 const MYLAR_URL = import.meta.env.PUBLIC_MYLAR_URL;
 
 export type MylarResponse<T> = {

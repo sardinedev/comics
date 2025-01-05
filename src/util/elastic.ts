@@ -14,8 +14,9 @@ type PaginationProps = {
 
 let client: Client | null = null;
 
-export const ELASTIC_INDEX = import.meta.env.ELASTIC_INDEX;
-export const ELASTIC_API_KEY = import.meta.env.ELASTIC_API_KEY;
+const ELASTIC_INDEX = import.meta.env.ELASTIC_INDEX;
+const ELASTIC_API_KEY =
+  import.meta.env.ELASTIC_API_KEY ?? process.env.ELASTIC_API_KEY;
 const ELASTIC_URL = import.meta.env.ELASTIC_URL;
 
 /**

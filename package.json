@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
+    "start:prod": "node ./dist/server/entry.mjs",
     "type:check": "astro check",
     "build": "astro build",
     "preview": "npx wrangler pages dev ./dist",
