@@ -1,8 +1,8 @@
 import type {
-  ComicvineIssuesResponse,
+  ComicvineIssues,
   ComicvineResponse,
   ComicvineSingleIssueResponse,
-  ComicvineVolumeResponse,
+  ComicvineVolume,
 } from "./comicvine.types";
 
 /**
@@ -10,12 +10,12 @@ import type {
  */
 export type WeeklyComics = {
   totalResults: number;
-  issues: ComicvineIssuesResponse[];
+  issues: ComicvineIssues[];
 };
 
-const COMICVINE_API_KEY = "d1dc24fd2bc230094c37a518cfa7b88aa43443ac";
-
-const COMICVINE_URL = "https://comicvine.gamespot.com/api";
+const COMICVINE_API_KEY =
+  import.meta.env.COMICVINE_API_KEY ?? process.env.COMICVINE_API_KEY;
+const COMICVINE_URL = import.meta.env.PUBLIC_COMICVINE_URL;
 
 /**
  * Fetches data from the Comicvine API.
@@ -26,19 +26,27 @@ const COMICVINE_URL = "https://comicvine.gamespot.com/api";
 async function comicvine<T>(
   endpoint: string,
   params?: string
-): Promise<ComicvineResponse<T> | undefined> {
+): Promise<ComicvineResponse<T>> {
   try {
     const response = await fetch(
       `${COMICVINE_URL}/${endpoint}/?api_key=${COMICVINE_API_KEY}&format=json&${params}`,
       { headers: { "User-Agent": "marabyte.com" } }
     );
+    if (!response.ok) {
+      throw new Error("responded with HTTP status " + response.status);
+    }
     const data = await response.json();
     if (data.status_code !== 1) {
-      throw new Error(data.error);
+      throw Error(data.error);
     }
     return data;
   } catch (error) {
-    console.error("Error fetching comicvine", error);
+    console.error(`[Comicvine API]: ${error}`);
+    if (error instanceof Error) {
+      throw Error(`[Comicvine API]: ${error.message}`);
+    } else {
+      throw Error("[Comicvine API]: An unknown error occurred");
+    }
   }
 }
 
@@ -50,18 +58,21 @@ async function comicvine<T>(
  */
 export async function getWeeklyComics(startOfWeek: string, endOfWeek: string) {
   try {
-    const data = await comicvine<ComicvineIssuesResponse[]>(
+    const data = await comicvine<ComicvineIssues[]>(
       "issues",
       `filter=store_date:${startOfWeek}|${endOfWeek}`
     );
-    if (data) {
-      return {
-        totalResults: data.number_of_total_results,
-        issues: data.results,
-      };
-    }
+    return {
+      totalResults: data.number_of_total_results,
+      issues: data.results,
+    };
   } catch (error) {
-    console.error("Error fetching weekly comics", error);
+    // console.error("Fetching weekly comics");
+    if (error instanceof Error) {
+      throw Error(`Fetching weekly comics: ${error.message}`);
+    } else {
+      throw Error("Fetching weekly comics: An unknown error occurred");
+    }
   }
 }
 
@@ -72,18 +83,17 @@ export async function getWeeklyComics(startOfWeek: string, endOfWeek: string) {
  */
 export async function getComicIssueDetails(
   issueId: string | number
-): Promise<ComicvineSingleIssueResponse | undefined> {
+): Promise<ComicvineSingleIssueResponse> {
   try {
     const data = await comicvine<ComicvineSingleIssueResponse>(
       `issue/4000-${issueId}`
     );
-    if (data) {
-      return {
-        ...data.results,
-      };
-    }
+    return {
+      ...data.results,
+    };
   } catch (error) {
     console.error("Error fetching comic issue details", error);
+    throw Error("Error fetching comic issue details");
   }
 }
 
@@ -94,27 +104,24 @@ export async function getComicIssueDetails(
  */
 export async function getVolumeDetails(
   volumeId: number | string
-): Promise<ComicvineVolumeResponse | undefined> {
+): Promise<ComicvineVolume> {
   try {
-    const data = await comicvine<ComicvineVolumeResponse>(
-      `volume/4050-${volumeId}`
-    );
-    if (data) {
-      return {
-        ...data.results,
-      };
-    }
+    const data = await comicvine<ComicvineVolume>(`volume/4050-${volumeId}`);
+    return {
+      ...data.results,
+    };
   } catch (error) {
     console.error("Error fetching comic volume details", error);
+    throw Error("Error fetching comic volume details");
   }
 }
 
 export async function getIssuesFromVolume(
   volumeId: number | string,
   offset: number = 0
-): Promise<ComicvineIssuesResponse[] | undefined> {
+): Promise<ComicvineIssues[] | undefined> {
   try {
-    const data = await comicvine<ComicvineIssuesResponse[]>(
+    const data = await comicvine<ComicvineIssues[]>(
       "issues",
       `filter=volume:${volumeId}&sort=cover_date:asc`
     );

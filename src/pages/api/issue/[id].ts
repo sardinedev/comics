@@ -1,17 +1,17 @@
-import { kvGetComicIssue } from "../../../util/kv";
+import { elasticGetIssue } from "../../../util/elastic";
 
 import type { APIContext } from "astro";
 
-export async function GET({ params, locals }: APIContext) {
-  const kv = locals.runtime.env.COMICS;
+export async function GET({ params }: APIContext) {
   const { id } = params;
+  console.log("Fetching issue", id);
   if (!id) {
     return new Response(null, {
       status: 404,
       statusText: "Not found",
     });
   }
-  const issue = await kvGetComicIssue(id, kv);
+  const issue = await elasticGetIssue(id);
   if (!issue) {
     return new Response(null, {
       status: 404,

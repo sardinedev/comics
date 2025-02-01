@@ -1,18 +1,13 @@
 /// <reference types="astro/client" />
 
-type KVNamespace = import("@cloudflare/workers-types/experimental").KVNamespace;
-type ENV = {
-  SERVER_URL: string;
-  COMICS: KVNamespace;
-};
+interface ImportMetaEnv {
+  readonly COMICVINE_API_KEY: string;
+  readonly PUBLIC_COMICVINE_URL: string;
+  readonly ELASTIC_INDEX: string;
+  readonly ELASTIC_URL: string;
+  readonly ELASTIC_API_KEY: string;
+}
 
-type Runtime = import("@astrojs/cloudflare").AdvancedRuntime<ENV>;
-
-declare namespace App {
-  interface Locals extends Runtime {
-    user: {
-      name: string;
-      surname: string;
-    };
-  }
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
 }

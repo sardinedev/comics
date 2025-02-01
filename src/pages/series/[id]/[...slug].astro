@@ -1,31 +1,29 @@
 ---
-import Layout from "../../../layouts/Layout.astro";
-import CoverStack from "../../../components/CoverStack.astro";
-import { IssueGrid } from "../../../components/IssueGrid/IssueGrid";
-import { SortButton } from "../../../components/SortButton";
-import { kvGetVolume, kvGetFollowSeries } from "../../../util/kv";
-import { $sort } from "../../../stores/sort.store";
-
-import type { ComicvineVolumeResponse } from "../../../util/comicvine.types";
+import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
+import CoverStack from "@components/CoverStack.astro";
+import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
+import Layout from "@layouts/Layout.astro";
+import SortButton from "@components/SortButton.astro";
+import type { Issue } from "@util/comics.types";
+import { elasticGetSeries } from "@util/elastic";
 
 const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
-$sort.set(sort);
+const page = Astro.url.searchParams.get("page")
+  ? Number(Astro.url.searchParams.get("page"))
+  : 1;
 
-const kv = Astro.locals.runtime.env.COMICS;
-const { id, slug } = Astro.params;
-let volume: ComicvineVolumeResponse | undefined;
-let currentPage = 1;
-let isFollowing = false;
-
-if (slug) {
-  currentPage = parseInt(slug);
-}
+const { id } = Astro.params;
+let series: Issue[] = [];
+let totalIssues = 0;
 
 try {
   if (id) {
-    const followings = await kvGetFollowSeries(kv);
-    isFollowing = followings?.series.includes(id) ?? false;
-    volume = await kvGetVolume(id, kv);
+    const { result, totalResults } = await elasticGetSeries(id, {
+      sort,
+      page,
+    });
+    series = result;
+    totalIssues = totalResults;
   }
 } catch (e) {
   console.error(e);
@@ -33,72 +31,74 @@ try {
 ---
 
 <script>
-  const followButton = document.getElementById("follow-series");
-  if (followButton) {
-    followButton.addEventListener("click", async (event) => {
-      const volumeId = event?.target?.getAttribute("data-volume");
-      if (volumeId) {
-        const response = await fetch("/api/followSeries", {
+  const readButton = document.getElementById("series-read");
+  if (readButton) {
+    readButton.addEventListener("click", async (event) => {
+      const issues = document.querySelectorAll("li[data-coverid]");
+      const updateDoc = [];
+      for (const list of issues.values()) {
+        updateDoc.push({
+          issue_id: list.getAttribute("data-coverid"),
+          issue_read: true,
+          series_reading_status: "read",
+        });
+      }
+      if (updateDoc.length > 0) {
+        const response = await fetch("/api/bulk-update", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ id: volumeId }),
+          body: JSON.stringify(updateDoc),
         });
         if (response.ok) {
-          followButton.textContent = "Following series";
+          window.location.reload();
         }
       }
     });
   }
 </script>
 
-<Layout title={volume?.name ?? "Error loading volume"}>
+<Layout title={series?.[0].series_name ?? "Error loading series"}>
   {
-    volume ? (
+    series ? (
       <>
         <header class="flex flex-col">
           <div>
             <h1>
-              <span class="text-4xl">{volume.name}</span> ({volume.start_year})
+              <span class="text-4xl">{series?.[0].series_name}</span> (
+              {series?.[0].series_year})
             </h1>
-            <p>{volume.count_of_issues} issues</p>
+            <p>{totalIssues} issues</p>
           </div>
           <div class="flex items-end">
-            <CoverStack covers={volume.cover_image} />
-
-            <button
-              data-volume={volume.id}
-              id="follow-series"
-              type="button"
-              class="flex flex-col items-center"
-            >
-              <img
-                class="h-5 w-5 invert"
-                src={
-                  isFollowing ? "/icons/heart-filled.svg" : "/icons/heart.svg"
-                }
-                alt="Favorite"
-              />
-              {isFollowing ? "Following series" : "Follow series"}
-            </button>
+            {/* <CoverStack covers={volumeCover} /> */}
           </div>
         </header>
         <section class="mt-8">
           <div class="border-t-2 border-b-2 py-2">
-            <SortButton client:idle />
+            <SortButton />
+            <button type="button" id="series-read" data-series={id}>
+              {series?.[0].series_reading_status === "read"
+                ? "Mark series unread"
+                : "Mark series read"}
+            </button>
           </div>
-          <IssueGrid
-            client:load
-            seriesId={volume.id}
-            issueList={volume.issues}
-            totalNumberOfIssues={volume.count_of_issues}
-            currentPage={currentPage}
-          />
+          <IssueGrid totalNumberOfIssues={totalIssues} currentPage={page}>
+            {series.map((issue) => (
+              <CoverLeaf
+                type="Issue"
+                id={issue.issue_id}
+                cover={issue.issue_cover}
+                number={issue.issue_number}
+                read={issue.issue_read}
+              />
+            ))}
+          </IssueGrid>
         </section>
       </>
     ) : (
-      <p>Error loading volume</p>
+      <p>Error loading series</p>
     )
   }
 </Layout>

@@ -1,0 +1,9 @@
+services:
+  astro:
+    build:
+      context: .
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+    ports:
+      - 4321:4321

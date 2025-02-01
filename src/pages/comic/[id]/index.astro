@@ -1,46 +1,24 @@
 ---
-import IssueSlider from "../../../components/IssueSlider.astro";
-import Layout from "../../../layouts/Layout.astro";
-import { kvGetComicIssue, kvGetVolume } from "../../../util/kv";
+import { Image } from "astro:assets";
+import IssueSlider from "@components/IssueSlider.astro";
+import Layout from "@layouts/Layout.astro";
+import { elasticGetIssue, elasticGetSeries } from "@util/elastic";
+import type { Issue } from "@util/comics.types";
 
-import type { ComicvineSingleIssueResponse } from "../../../util/comicvine.types";
-import type { SingleIssuePreview } from "../../../components/IssueSlider.astro";
-
-const kv = Astro.locals.runtime.env.COMICS;
 const { id } = Astro.params;
 let data;
-let issuesInSeries: SingleIssuePreview[] = [];
+let issuesInSeries: Issue[] = [];
 let viewVolume;
 try {
   if (id) {
-    data = await kvGetComicIssue(id, kv);
-    if (data) {
-      const volume = await kvGetVolume(data.volume.id, kv);
-      if (volume) {
-        if (volume.count_of_issues > 10) {
-          viewVolume = {
-            volumeId: volume.id,
-            cover: volume.image.medium_url,
-          };
-        }
-        const issues = volume.issues
-          .reverse()
-          .slice(0, 10)
-          .map((issue) => issue.id);
-        const _issuesInSeries = await Promise.all(
-          issues.map((issueId) => kvGetComicIssue(issueId, kv))
-        );
-        issuesInSeries = _issuesInSeries
-          .filter(
-            (issue): issue is ComicvineSingleIssueResponse =>
-              issue !== undefined
-          )
-          .map((issue) => ({
-            id: issue.id,
-            name: issue.name,
-            cover: issue.image.medium_url,
-          }));
-      }
+    data = await elasticGetIssue(id);
+    if (data?.series_id) {
+      const { result } = await elasticGetSeries(data?.series_id, {
+        sort: "desc",
+        page: 1,
+        size: 10,
+      });
+      issuesInSeries = result;
     }
   }
 } catch (error) {
@@ -48,7 +26,7 @@ try {
 }
 
 const title = data
-  ? `${data.volume.name} #${data.issue_number} - ${data.name}`
+  ? `${data.series_name} #${data.issue_number}`
   : "Issue not found";
 ---
 
@@ -57,24 +35,27 @@ const title = data
     data ? (
       <>
         <h2 class="mb-2">
-          <a class="text-3xl" href={`/series/${data.volume.id}`}>
-            {data.volume.name}
-          </a>{" "}
+          <a class="text-3xl" href={`/series/${data.series_id}`}>
+            {data.series_name}
+          </a>
           #{data.issue_number}
         </h2>
-        <h2 class="text-xl">{data.name}</h2>
-        <p class="mb-4">{data.cover_date}</p>
-        <img
+        <h2 class="text-xl">{data.issue_name}</h2>
+        <p class="mb-4">{data.issue_date}</p>
+        <Image
           class="mb-4"
-          src={data.image.medium_url}
-          alt={data.name}
+          src={data.issue_cover}
+          alt={
+            data.issue_name ??
+            `Cover for ${data.series_name} #${data.issue_number}`
+          }
+          densities={[1.5, 2]}
           width="421"
           height="640"
+          format="avif"
         />
-        <div set:html={data.description} />
-
         <h2 class="text-xl mt-8 mb-4">Other issues in series</h2>
-        <IssueSlider issues={issuesInSeries} showMore={viewVolume} />
+        <IssueSlider issues={issuesInSeries} />
       </>
     ) : (
       <p>Issue not found</p>

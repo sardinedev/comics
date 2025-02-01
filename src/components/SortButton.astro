@@ -1,0 +1,18 @@
+---
+const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
+---
+
+<a
+  type="button"
+  class="flex items-center"
+  href={`?sort=${sort === "asc" ? "desc" : "asc"}`}
+>
+  <img
+    class={`h-5 w-5 invert transition-all ${
+      sort === "desc" ? "rotate-180" : "rotate-0"
+    }`}
+    src="/icons/sort.svg"
+    alt="Previous page"
+  />
+  {sort === "asc" ? "Sort: Oldest first" : "Sort: Newest first"}
+</a>

@@ -1,0 +1,55 @@
+---
+import Layout from "@layouts/Layout.astro";
+import { thisWeekBookendsDates } from "@util/date";
+import { getWeeklyComics } from "@util/comicvine";
+import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
+import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
+import type { Issue } from "@util/comics.types";
+
+const { startOfWeek, endOfWeek } = thisWeekBookendsDates();
+
+let weeklyIssues;
+let issues: Pick<Issue, "issue_cover" | "issue_id" | "issue_number">[] = [];
+
+try {
+  weeklyIssues = await getWeeklyComics(startOfWeek, endOfWeek);
+  if (weeklyIssues) {
+    issues = weeklyIssues.issues.map((issue) => {
+      const shortIssueDetails = {
+        issue_cover: issue.image.medium_url,
+        issue_number: issue.issue_number,
+        issue_id: issue.id,
+      };
+      return shortIssueDetails;
+    });
+  }
+} catch (error) {
+  console.error(error);
+}
+---
+
+<Layout title="New this week">
+  {
+    weeklyIssues ? (
+      <>
+        <h2 class="text-2xl">New this week</h2>
+        <p class="text-sm mb-4">
+          There are {weeklyIssues.totalResults} new comics this week.
+        </p>
+        <IssueGrid
+          currentPage={1}
+          totalNumberOfIssues={weeklyIssues.totalResults}
+        >
+          {issues.map((issue) => (
+            <CoverLeaf
+              type="Issue"
+              id={issue.issue_id}
+              cover={issue.issue_cover}
+              number={issue.issue_number}
+            />
+          ))}
+        </IssueGrid>
+      </>
+    ) : null
+  }
+</Layout>
