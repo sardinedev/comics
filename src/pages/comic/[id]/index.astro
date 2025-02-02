@@ -3,13 +3,16 @@ import { Image } from "astro:assets";
 import IssueSlider from "@components/IssueSlider.astro";
 import Layout from "@layouts/Layout.astro";
 import Breadcrumbs from "@components/Breadcrumbs.astro";
+import { AddToLibrary } from "@components/AddToLibrary/AddToLibrary";
 import { elasticGetIssue, elasticGetSeries } from "@util/elastic";
 import type { Issue } from "@util/comics.types";
+import { getComicIssueDetails } from "@util/comicvine";
+import { formatComicvineIssue } from "@util/formatter";
 
 const { id } = Astro.params;
 let data;
 let issuesInSeries: Issue[] = [];
-let viewVolume;
+let isInLibrary = true;
 try {
   if (id) {
     data = await elasticGetIssue(id);
@@ -20,6 +23,13 @@ try {
         size: 10,
       });
       issuesInSeries = result;
+    } else {
+      console.warn(`No series found for issue ${id}`);
+      const comicvineData = await getComicIssueDetails(id);
+      if (comicvineData) {
+        isInLibrary = false;
+        data = formatComicvineIssue(comicvineData);
+      }
     }
   }
 } catch (error) {
@@ -42,14 +52,21 @@ const title = data
             { title: `#${data.issue_number}` },
           ]}
         />
-        <h2 class="mb-2">
-          <a class="text-3xl" href={`/series/${data.series_id}`}>
-            {data.series_name}
-          </a>
-          #{data.issue_number}
-        </h2>
-        <h2 class="text-xl">{data.issue_name}</h2>
-        <p class="mb-4">{data.issue_date}</p>
+        <header>
+          <h1 class="mb-2">
+            <a class="text-3xl" href={`/series/${data.series_id}`}>
+              {data.series_name}
+            </a>
+            #{data.issue_number}
+          </h1>
+          <div class="flex justify-between items-center flex-wrap mb-4">
+            <h2 class="text-xl">{data.issue_name}</h2>
+            <p class="text-sm">{data.issue_date}</p>
+          </div>
+        </header>
+        {!isInLibrary && (
+          <AddToLibrary client:idle seriesId={data.series_id as string} />
+        )}
         <Image
           class="mb-4"
           src={data.issue_cover}
