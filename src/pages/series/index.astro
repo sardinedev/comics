@@ -2,6 +2,8 @@
 import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import Layout from "@layouts/Layout.astro";
+import Breadcrumbs from "@components/Breadcrumbs.astro";
+
 import { getAllSeries } from "@util/elastic";
 import type { Issue } from "@util/comics.types";
 
@@ -24,6 +26,11 @@ const title = "Series";
 ---
 
 <Layout title={title}>
+  <Breadcrumbs
+  crumbs={[
+    { title: "Series"},
+  ]}
+/>
   { !series ?
     <h1>Loading...</h1>
   :

@@ -2,6 +2,7 @@
 import { Image } from "astro:assets";
 import IssueSlider from "@components/IssueSlider.astro";
 import Layout from "@layouts/Layout.astro";
+import Breadcrumbs from "@components/Breadcrumbs.astro";
 import { elasticGetIssue, elasticGetSeries } from "@util/elastic";
 import type { Issue } from "@util/comics.types";
 
@@ -34,6 +35,13 @@ const title = data
   {
     data ? (
       <>
+        <Breadcrumbs
+          crumbs={[
+            { title: "Series", url: "/series" },
+            { title: data.series_name, url: `/series/${data.series_id}` },
+            { title: `#${data.issue_number}` },
+          ]}
+        />
         <h2 class="mb-2">
           <a class="text-3xl" href={`/series/${data.series_id}`}>
             {data.series_name}
