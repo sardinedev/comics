@@ -1,4 +1,8 @@
-import { elasticCreateIndex, elasticUpdateIssue } from "./elastic";
+import {
+  elasticAddIssueWithoutUpdate,
+  elasticCreateIndex,
+  elasticUpdateIssue,
+} from "./elastic";
 import { mylarGetAllSeries, mylarGetSeries } from "./mylar";
 import { formatMylarIssue } from "./formatter";
 
@@ -36,7 +40,7 @@ export async function seedElastic() {
         const { data } = await mylarGetSeries(serie.id);
         const { issues } = data;
         for (const issue of issues) {
-          console.info(`Adding ${issue.name} (${issue.number}) to Elastic`);
+          console.info(`Adding ${serie.name} (${issue.number}) to Elastic`);
           const formatedIssue = formatMylarIssue(issue, serie);
           try {
             await elasticUpdateIssue(formatedIssue);
@@ -54,6 +58,51 @@ export async function seedElastic() {
 
     return {
       series: totalSeries,
+      issues: totalIssues,
+      errors,
+    };
+  } catch (error) {
+    console.error(error);
+    throw new Error("Failed to sync series to Elastic.");
+  }
+}
+
+/*
+ *
+ */
+export async function syncMylarWithElastic() {
+  let totalIssues = 0;
+  const errors: string[] = [];
+  try {
+    const { data } = await mylarGetAllSeries();
+
+    for (const serie of data) {
+      try {
+        const { data } = await mylarGetSeries(serie.id);
+        const { issues } = data;
+        for (const issue of issues) {
+          const formatedIssue = formatMylarIssue(issue, serie);
+          try {
+            const update = await elasticAddIssueWithoutUpdate(formatedIssue);
+            if (update.result === "skipped") {
+              console.info(update.message);
+              continue;
+            } else {
+              console.info(`Adding ${serie.name} (${issue.number}) to Elastic`);
+              totalIssues = totalIssues + 1;
+            }
+          } catch (error) {
+            console.error(error);
+            errors.push(`Failed to update ${issue.name} issue in Elastic.`);
+          }
+        }
+      } catch (error) {
+        console.error(error);
+        errors.push(`Failed to fetch ${serie.name} series data from Mylar.`);
+      }
+    }
+
+    return {
       issues: totalIssues,
       errors,
     };

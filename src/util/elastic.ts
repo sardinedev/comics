@@ -252,3 +252,33 @@ export async function elasticGetLatestIssues() {
     throw new Error("Failed to fetch latest issues from Elastic.");
   }
 }
+
+/**
+ * Adds an issue to Elastic without updating if it already exists.
+ * @param data The issue data to add.
+ * @returns The response from Elastic or a message if the issue already exists.
+ */
+export async function elasticAddIssueWithoutUpdate(data: Issue) {
+  const elastic = getElasticClient();
+  try {
+    const response = await elastic.index({
+      index: ELASTIC_INDEX,
+      id: data.issue_id,
+      document: data,
+      op_type: "create",
+    });
+    return response;
+  } catch (error: any) {
+    if (
+      error?.meta?.body?.error?.type === "version_conflict_engine_exception"
+    ) {
+      return {
+        result: "skipped",
+        message: `${data.series_name} (${data.issue_number}) already exists, skipping.`,
+      };
+    } else {
+      console.error(`Error adding issue ${data.issue_id}:`, error);
+      throw error;
+    }
+  }
+}

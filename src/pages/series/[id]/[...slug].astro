@@ -4,6 +4,7 @@ import CoverStack from "@components/CoverStack.astro";
 import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
 import Layout from "@layouts/Layout.astro";
 import SortButton from "@components/SortButton.astro";
+import Breadcrumbs from "@components/Breadcrumbs.astro";
 import type { Issue } from "@util/comics.types";
 import { elasticGetSeries } from "@util/elastic";
 
@@ -60,6 +61,12 @@ try {
 </script>
 
 <Layout title={series?.[0].series_name ?? "Error loading series"}>
+  <Breadcrumbs
+  crumbs={[
+    { title: "Series", url: "/series" },
+    { title: series?.[0].series_name, },
+  ]}
+/>
   {
     series ? (
       <>

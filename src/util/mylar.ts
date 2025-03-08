@@ -52,3 +52,12 @@ export function mylarGetUpcoming() {
     throw new Error("Failed to fetch upcoming comics from Mylar.");
   }
 }
+
+export function mylarAddSeries(id: string) {
+  try {
+    return mylar<MylarComicWithIssues>(`addComic&id=${id}`);
+  } catch (error) {
+    console.error(error);
+    throw new Error("Failed to add series to Mylar.");
+  }
+}
