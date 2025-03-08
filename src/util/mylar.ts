@@ -2,7 +2,7 @@ import type { MylarComic, MylarComicWithIssues } from "./mylar.types";
 
 const MYLAR_API_KEY =
   import.meta.env.MYLAR_API_KEY ?? process.env.MYLAR_API_KEY;
-const MYLAR_URL = import.meta.env.PUBLIC_MYLAR_URL;
+const MYLAR_URL = "http://192.168.50.190:8090";
 
 export type MylarResponse<T> = {
   result: string;

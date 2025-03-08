@@ -11,10 +11,10 @@ type PaginationProps = {
 
 let client: Client | null = null;
 
-const ELASTIC_INDEX = import.meta.env.ELASTIC_INDEX;
+const ELASTIC_INDEX = "issues";
 const ELASTIC_API_KEY =
   import.meta.env.ELASTIC_API_KEY ?? process.env.ELASTIC_API_KEY;
-const ELASTIC_URL = import.meta.env.ELASTIC_URL;
+const ELASTIC_URL = "http://192.168.50.190:30003";
 
 /**
  * Get the Elastic client.
