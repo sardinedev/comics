@@ -1,8 +1,5 @@
 import { Client } from "@elastic/elasticsearch";
-import type {
-  ComicvineSingleIssueResponse,
-  ComicvineVolume,
-} from "./comicvine.types";
+import type { ComicvineSingleIssueResponse } from "./comicvine.types";
 import type { Issue } from "./comics.types";
 import type { estypes } from "@elastic/elasticsearch";
 
