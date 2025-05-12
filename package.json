@@ -25,7 +25,7 @@
     "astro": "^5.5.2",
     "nanostores": "^0.11.4",
     "preact": "^10.26.4",
-    "tailwindcss": "^4.0.3",
+    "tailwindcss": "^4.1.6",
     "typescript": "^5.8.2"
   },
   "devDependencies": {
