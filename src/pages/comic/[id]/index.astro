@@ -54,31 +54,37 @@ const title = data
         />
         <header>
           <h1 class="mb-2">
-            <a class="text-3xl" href={`/series/${data.series_id}`}>
-              {data.series_name}
-            </a>
-            #{data.issue_number}
+            <span class="text-3xl">{data.issue_name ?? data.series_name}</span>
+            {!data.issue_name ? (
+              <span class="text-2xl">#{data.issue_number}</span>
+            ) : (
+              ""
+            )}
           </h1>
           <div class="flex justify-between items-center flex-wrap mb-4">
-            <h2 class="text-xl">{data.issue_name}</h2>
             <p class="text-sm">{data.issue_date}</p>
           </div>
         </header>
         {!isInLibrary && (
           <AddToLibrary client:idle seriesId={data.series_id as string} />
         )}
-        <Image
-          class="mb-4"
-          src={data.issue_cover}
-          alt={
-            data.issue_name ??
-            `Cover for ${data.series_name} #${data.issue_number}`
-          }
-          densities={[1.5, 2]}
-          width="421"
-          height="640"
-          format="avif"
-        />
+        {
+          data.issue_cover ? (
+            <Image
+              class="mb-4"
+              src={data.issue_cover}
+              alt={
+                data.issue_name ??
+                `Cover for ${data.series_name} #${data.issue_number}`
+              }
+              densities={[1.5, 2]}
+              width="421"
+              height="640"
+              format="avif"
+            />
+          ) : null /* TODO: Add a fallback image */
+        }
+
         <h2 class="text-xl mt-8 mb-4">Other issues in series</h2>
         <IssueSlider issues={issuesInSeries} />
       </>

@@ -85,7 +85,6 @@ export async function syncMylarWithElastic() {
           try {
             const update = await elasticAddIssueWithoutUpdate(formatedIssue);
             if (update.result === "skipped") {
-              console.info(update.message);
               continue;
             } else {
               console.info(`Adding ${serie.name} (${issue.number}) to Elastic`);

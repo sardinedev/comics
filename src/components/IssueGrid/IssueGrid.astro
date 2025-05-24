@@ -10,7 +10,7 @@ type Props = {
 const { currentPage, totalNumberOfIssues, issuesPerPage = 50 } = Astro.props;
 ---
 
-<ol class="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mt-8">
+<ol class="grid gap-8 grid-cols-1 sm:grid-cols-3 md:grid-cols-5 mt-8">
   <slot />
 </ol>
 <PageNavigator
