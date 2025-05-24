@@ -8,7 +8,7 @@ const { crumbs } = Astro.props as { crumbs: Crumb[] };
 ---
 
 <nav class="mb-4" aria-label="Breadcrumb">
-  <ol class="flex items-center">
+  <ol class="flex items-center overflow-scroll">
     <li>
       <a href="/" class="text-gray-400 hover:text-gray-500">
         <svg
@@ -28,25 +28,25 @@ const { crumbs } = Astro.props as { crumbs: Crumb[] };
     </li>
     {
       crumbs.map((crumb) => (
-        <li class="flex items-center">
-            <svg
-              class="size-5 shrink-0 text-gray-400"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
-              data-slot="icon"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            {crumb.url ? (
-              <a href={crumb.url}>{crumb.title}</a>
-            ) : (
-              <span>{crumb.title}</span>
-            )}
+        <li class="flex items-center text-nowrap">
+          <svg
+            class="size-5 shrink-0 text-gray-400"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+            data-slot="icon"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          {crumb.url ? (
+            <a href={crumb.url}>{crumb.title}</a>
+          ) : (
+            <span>{crumb.title}</span>
+          )}
         </li>
       ))
     }

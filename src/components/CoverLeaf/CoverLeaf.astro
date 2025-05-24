@@ -33,7 +33,6 @@ if (props.type === "Issue") {
 }
 if (props.type === "series") {
   const { name, year } = props;
-  label = `${name} (${year})`;
   alt = `Cover for ${name} (${year})`;
   href = `/series/${id}`;
   readingStatus = props.readingStatus === "read" ? "read" : "unread";
@@ -41,9 +40,9 @@ if (props.type === "series") {
 ---
 
 <li data-coverid={id}>
-  <a href={href}>
+  <a href={href} class="relative flex flex-col items-center gap-2">
     <Image
-      class={"rounded-md w-full"}
+      class={"rounded-md w-64"}
       src={cover ?? "/logo.svg"}
       densities={[1.5, 2]}
       height="320"
@@ -51,13 +50,28 @@ if (props.type === "series") {
       alt={alt as string}
       format="avif"
     />
-    <span class={"flex justify-between mt-2"}>
-      {label}
-      <img
-        class={`h-5 w-5 invert`}
-        src={`/icons/${readingStatus === "read" ? "tick-filled" : "tick"}.svg`}
-        alt="Previous page"
-      />
+    <span class={"flex items-baseline justify-center gap-2"}>
+      {
+        props.type === "Issue" ? (
+          label
+        ) : (
+          <>
+            <span class="text-xl font-bold text-white sm:text-2xl">
+              {props.name}
+            </span>
+            <span class="text-sm text-gray-300">{props.year}</span>
+          </>
+        )
+      }
     </span>
+    {
+      readingStatus === "read" ? (
+        <img
+          class={"h-5 w-5 invert absolute top-1 right-1 shadow-lg"}
+          src={"/icons/tick-filled.svg"}
+          alt="Previous page"
+        />
+      ) : null
+    }
   </a>
 </li>

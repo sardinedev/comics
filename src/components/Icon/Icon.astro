@@ -1,0 +1,16 @@
+---
+const { name, size = "1rem", color } = Astro.props;
+
+const svgPath = `/icons/${name}.svg`;
+---
+
+<style define:vars={{ color }}>
+  .icon {
+    aspect-ratio: 1;
+    background-color: var(--color, white);
+    height: 1.5rem;
+    width: 1.5rem;
+  }
+</style>
+
+<div style={{ mask: `url(${svgPath}) no-repeat center` }} class="icon"></div>

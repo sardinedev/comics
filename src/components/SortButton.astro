@@ -8,7 +8,7 @@ const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
   href={`?sort=${sort === "asc" ? "desc" : "asc"}`}
 >
   <img
-    class={`h-5 w-5 invert transition-all ${
+            class={`h-5 w-5 invert transition-all ${
       sort === "desc" ? "rotate-180" : "rotate-0"
     }`}
     src="/icons/sort.svg"

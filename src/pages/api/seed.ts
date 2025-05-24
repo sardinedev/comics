@@ -1,7 +1,7 @@
 import type { APIContext } from "astro";
 import { seedElastic } from "../../util/sync";
 
-export async function GET({ params }: APIContext) {
+export async function PUT({ params }: APIContext) {
   try {
     const result = await seedElastic();
     return new Response(JSON.stringify(result), {

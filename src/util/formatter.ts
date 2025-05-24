@@ -15,7 +15,7 @@ export function formatMylarIssue(issue: MylarIssue, series: MylarComic): Issue {
     issue_cover: issue.imageURL,
     issue_cover_author: null,
     issue_date:
-      issue.issueDate === "0000-00-00" ? "1900-01-01" : issue.issueDate,
+      issue.releaseDate === "0000-00-00" ? "1900-01-01" : issue.releaseDate,
     issue_id: issue.id,
     issue_name: issue.name,
     issue_number: Number(issue.number),
@@ -30,7 +30,9 @@ export function formatMylarIssue(issue: MylarIssue, series: MylarComic): Issue {
   };
 }
 
-export function formatComicvineIssue(issue: ComicvineSingleIssueResponse): Partial<Issue> {
+export function formatComicvineIssue(
+  issue: ComicvineSingleIssueResponse
+): Partial<Issue> {
   return {
     issue_artists: [],
     issue_cover: issue.image.original_url,
