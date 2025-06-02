@@ -21,7 +21,7 @@
     "@nanostores/persistent": "^1.0.0",
     "@nanostores/preact": "^1.0.0",
     "@tailwindcss/vite": "^4.1.7",
-    "astro": "^5.8.0",
+    "astro": "^5.8.1",
     "nanostores": "^1.0.0",
     "preact": "^10.26.4",
     "tailwindcss": "^4.1.7",
