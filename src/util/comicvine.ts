@@ -116,6 +116,12 @@ export async function getVolumeDetails(
   }
 }
 
+/**
+ * Retrieves the issues of a volume based on the specified volume ID.
+ * @param volumeId - The ID of the volume.
+ * @param offset - The offset for pagination (default is 0).
+ * @returns An array of comic issues for the specified volume.
+ */
 export async function getIssuesFromVolume(
   volumeId: number | string,
   offset: number = 0

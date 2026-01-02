@@ -53,6 +53,8 @@ export async function elasticCreateIndex(
 
 /**
  * Get all series from Elastic.
+ * @param options Pagination options.
+ * @returns The series and the total number of results.
  */
 export async function getAllSeries({
   size = 50,
@@ -141,6 +143,11 @@ export async function elasticGetSeries(
   }
 }
 
+/**
+ * Update an issue in Elastic.
+ * @param data The issue data to update.
+ * @returns The response from Elastic.
+ */
 export async function elasticUpdateIssue(data: Issue) {
   const elastic = getElasticClient();
   try {
@@ -155,6 +162,11 @@ export async function elasticUpdateIssue(data: Issue) {
   }
 }
 
+/**
+ * Bulk update issues in Elastic.
+ * @param data An array of partial Issue objects to update.
+ * @returns The bulk response from Elastic.
+ */
 export async function elasticBulkUpdate(data: Partial<Issue>[]) {
   const elastic = getElasticClient();
   try {
@@ -180,6 +192,11 @@ export async function elasticBulkUpdate(data: Partial<Issue>[]) {
   }
 }
 
+/**
+ * Get a single issue from Elastic.
+ * @param id The ID of the issue to fetch.
+ * @returns The issue data.
+ */
 export async function elasticGetIssue(id: string) {
   const elastic = getElasticClient();
   try {
@@ -193,6 +210,12 @@ export async function elasticGetIssue(id: string) {
   }
 }
 
+/**
+ * Get weekly comics from Elastic.
+ * @param startOfWeek The start date of the week (YYYY-MM-DD).
+ * @param endOfWeek The end date of the week (YYYY-MM-DD).
+ * @returns An array of ComicvineSingleIssueResponse objects.
+ */
 export async function elasticGetWeeklyComics(
   startOfWeek: string,
   endOfWeek: string
