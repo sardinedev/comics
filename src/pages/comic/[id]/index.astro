@@ -44,6 +44,12 @@ const coverSrc = data?.issue_cover;
 const isRemoteCover =
   typeof coverSrc === "string" &&
   (coverSrc.startsWith("http://") || coverSrc.startsWith("https://"));
+const isLocalCoverRoute =
+  typeof coverSrc === "string" && coverSrc.startsWith("/covers/");
+const optimizableCoverSrc =
+  isLocalCoverRoute && coverSrc
+    ? new URL(coverSrc, Astro.url).toString()
+    : coverSrc;
 ---
 
 <Layout title={title}>
@@ -91,12 +97,13 @@ const isRemoteCover =
             ) : (
               <Image
                 class="mb-4"
-                src={coverSrc}
+                src={optimizableCoverSrc}
                 alt={
                   data.issue_name ??
                   `Cover for ${data.series_name} #${data.issue_number}`
                 }
-                densities={[1.5, 2]}
+                widths={[421, 632, 842]}
+                sizes="421px"
                 width="421"
                 height="640"
                 format="avif"

@@ -25,6 +25,10 @@ const { cover, id, ...props } = Astro.props as IssueCoverLeaf | SeriesCoverLeaf;
 const coverSrc = cover ?? "/logo.svg";
 const isRemoteCover =
   coverSrc.startsWith("http://") || coverSrc.startsWith("https://");
+const isLocalCoverRoute = coverSrc.startsWith("/covers/");
+const optimizableCoverSrc = isLocalCoverRoute
+  ? new URL(coverSrc, Astro.url).toString()
+  : coverSrc;
 
 let label, alt, href, readingStatus;
 
@@ -59,8 +63,9 @@ if (props.type === "series") {
       ) : (
         <Image
           class={"rounded-md w-64"}
-          src={coverSrc}
-          densities={[1.5, 2]}
+          src={optimizableCoverSrc}
+          widths={[210, 315, 420]}
+          sizes="256px"
           height="320"
           width="210"
           alt={alt as string}

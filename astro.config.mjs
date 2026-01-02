@@ -23,6 +23,11 @@ export default defineConfig({
         protocol: "https",
         hostname: "comicvine.gamespot.com",
       },
+      {
+        // Allow optimizing our own on-demand cover route (/covers/*)
+        // regardless of hostname (dev/prod) so we can request resized bytes.
+        pathname: "/covers/**",
+      },
     ],
   },
 
