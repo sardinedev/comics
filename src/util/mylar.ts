@@ -9,6 +9,12 @@ export type MylarResponse<T> = {
   data: T;
 };
 
+/**
+ * Generic function to make requests to the Mylar API.
+ * @param endpoint The API endpoint to call.
+ * @param method The HTTP method to use (default is GET).
+ * @returns A promise that resolves to the MylarResponse.
+ */
 export async function mylar<T>(
   endpoint: string,
   method = "GET"
@@ -26,6 +32,10 @@ export async function mylar<T>(
   return req.json();
 }
 
+/**
+ * Fetches all comic series from Mylar.
+ * @returns A promise that resolves to the MylarResponse containing an array of MylarComic.
+ */
 export function mylarGetAllSeries() {
   try {
     return mylar<MylarComic[]>("getIndex");
@@ -35,6 +45,11 @@ export function mylarGetAllSeries() {
   }
 }
 
+/**
+ * Fetches a specific comic series from Mylar by its ID.
+ * @param id The unique identifier of the comic series.
+ * @returns A promise that resolves to the MylarResponse containing MylarComicWithIssues.
+ */
 export function mylarGetSeries(id: string) {
   try {
     return mylar<MylarComicWithIssues>(`getComic&id=${id}`);
@@ -44,6 +59,10 @@ export function mylarGetSeries(id: string) {
   }
 }
 
+/**
+ * Fetches upcoming comics from Mylar.
+ * @returns A promise that resolves to the MylarResponse containing an array of MylarComic.
+ */
 export function mylarGetUpcoming() {
   try {
     return mylar<MylarComic[]>("getUpcoming&include_downloaded_issues=Y");
@@ -53,6 +72,11 @@ export function mylarGetUpcoming() {
   }
 }
 
+/**
+ * Adds a new comic series to Mylar by its ID.
+ * @param id The unique identifier of the comic series to add.
+ * @returns A promise that resolves to the MylarResponse containing MylarComicWithIssues.
+ */
 export function mylarAddSeries(id: string) {
   try {
     return mylar<MylarComicWithIssues>(`addComic&id=${id}`);

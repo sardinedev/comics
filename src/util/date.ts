@@ -1,3 +1,8 @@
+/**
+ * Returns the start and end dates of the current week (Monday to Sunday)
+ * in 'YYYY-MM-DD' format. 
+ * @returns An object containing startOfWeek and endOfWeek strings.
+ */
 export function thisWeekBookendsDates(): {
   startOfWeek: string;
   endOfWeek: string;

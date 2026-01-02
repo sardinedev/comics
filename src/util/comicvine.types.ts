@@ -193,126 +193,55 @@ export type ComicvineSingleIssueResponse = {
  * Volume type definition
  */
 export type ComicvineVolume = {
-  /**
-   * List of aliases the volume is known by. A \n (newline) separates each alias.
-   */
+  /** List of aliases the volume is known by. A \n (newline) separates each alias. */
   aliases: string[] | null;
-
-  /**
-   * URL pointing to the volume detail resource.
-   */
+  /** URL pointing to the volume detail resource. */
   api_detail_url: string;
-
-  /**
-   * A list of characters that appear in this volume.
-   */
+  /** A list of characters that appear in this volume. */
   characters: ComicvineCredits[];
-
-  /**
-   * A list of concepts that appear in this volume.
-   */
+  /** A list of concepts that appear in this volume. */
   concepts: ComicvineCredits[];
-
-  /**
-   * Number of issues included in this volume.
-   */
+  /** Number of issues included in this volume. */
   count_of_issues: number;
-
-  /**
-   * Date the volume was added to Comic Vine.
-   */
+  /** Date the volume was added to Comic Vine. */
   date_added: string;
-
-  /**
-   * Date the volume was last updated on Comic Vine.
-   */
+  /** Date the volume was last updated on Comic Vine. */
   date_last_updated: string;
-
-  /**
-   * Brief summary of the volume.
-   */
+  /** Brief summary of the volume. */
   deck: string | null;
-
-  /**
-   * Description of the volume.
-   */
+  /** Description of the volume. */
   description: string;
-
-  /**
-   * The first issue in this volume.
-   */
+  /** The first issue in this volume. */
   first_issue: ShortIssue;
-
-  /**
-   * Unique ID of the volume.
-   */
+  /** Unique ID of the volume. */
   id: number;
-
-  /**
-   * Main image of the volume.
-   */
+  /** Main image of the volume. */
   image: ComicvineImage;
-
   /** A list of issues part of this volume */
   issues: ShortIssue[];
-
-  /**
-   * The last issue in this volume.
-   */
+  /** The last issue in this volume. */
   last_issue: ShortIssue;
-
-  /**
-   * List of locations that appeared in this volume.
-   */
+  /** List of locations that appeared in this volume. */
   locations: ComicvineCredits[];
-
-  /**
-   * Name of the volume.
-   */
+  /** Name of the volume. */
   name: string;
-
-  /**
-   * List of objects that appeared in this volume.
-   */
+  /** List of objects that appeared in this volume. */
   objects: ComicvineCredits[];
-
-  /**
-   * List of people that worked on this volume.
-   */
+  /** List of people that worked on this volume. */
   people: ComicvineCredits[];
-
-  /**
-   * The primary publisher a volume is attached to.
-   */
+  /** The primary publisher a volume is attached to. */
   publisher: {
-    /**
-     * Name of the publisher.
-     */
+    /** Name of the publisher. */
     name: string;
-
-    /**
-     * URL pointing to the publisher detail resource.
-     */
+    /** URL pointing to the publisher detail resource. */
     api_detail_url: string;
-
-    /**
-     * Unique ID of the publisher.
-     */
+    /** Unique ID of the publisher. */
     id: number;
   };
-
-  /**
-   * URL pointing to the volume on Giant Bomb.
-   */
+  /** URL pointing to the volume on Giant Bomb. */
   site_detail_url: string;
-
-  /**
-   * The first year this volume appeared in comics.
-   */
+  /** The first year this volume appeared in comics. */
   start_year: string;
-
-  /**
-   * List of teams that appear in this volume.
-   */
+  /** List of teams that appear in this volume. */
   teams?: ComicvineCredits[];
 };

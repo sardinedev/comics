@@ -30,6 +30,11 @@ export function formatMylarIssue(issue: MylarIssue, series: MylarComic): Issue {
   };
 }
 
+/**
+ * Formats a Comicvine issue into an Issue object.
+ * @param issue An object representing a Comicvine issue.
+ * @returns An Issue object.
+ */
 export function formatComicvineIssue(
   issue: ComicvineSingleIssueResponse
 ): Partial<Issue> {

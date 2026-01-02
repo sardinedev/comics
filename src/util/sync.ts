@@ -68,7 +68,7 @@ export async function seedElastic() {
 }
 
 /*
- *
+ * Syncs Mylar comics to Elastic without updating existing issues.
  */
 export async function syncMylarWithElastic() {
   let totalIssues = 0;

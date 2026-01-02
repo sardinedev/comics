@@ -41,6 +41,8 @@ export type MylarIssue = {
 };
 
 export type MylarComicWithIssues = {
+  /** The comic series information */
   comic: MylarComic[];
+  /** The list of issues in the comic series */
   issues: MylarIssue[];
 };
