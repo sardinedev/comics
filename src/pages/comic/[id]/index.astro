@@ -39,6 +39,11 @@ try {
 const title = data
   ? `${data.series_name} #${data.issue_number}`
   : "Issue not found";
+
+const coverSrc = data?.issue_cover;
+const isRemoteCover =
+  typeof coverSrc === "string" &&
+  (coverSrc.startsWith("http://") || coverSrc.startsWith("https://"));
 ---
 
 <Layout title={title}>
@@ -69,19 +74,34 @@ const title = data
           <AddToLibrary client:idle seriesId={data.series_id as string} />
         )}
         {
-          data.issue_cover ? (
-            <Image
-              class="mb-4"
-              src={data.issue_cover}
-              alt={
-                data.issue_name ??
-                `Cover for ${data.series_name} #${data.issue_number}`
-              }
-              densities={[1.5, 2]}
-              width="421"
-              height="640"
-              format="avif"
-            />
+          coverSrc ? (
+            isRemoteCover ? (
+              <img
+                class="mb-4"
+                src={coverSrc}
+                alt={
+                  data.issue_name ??
+                  `Cover for ${data.series_name} #${data.issue_number}`
+                }
+                width="421"
+                height="640"
+                loading="lazy"
+                decoding="async"
+              />
+            ) : (
+              <Image
+                class="mb-4"
+                src={coverSrc}
+                alt={
+                  data.issue_name ??
+                  `Cover for ${data.series_name} #${data.issue_number}`
+                }
+                densities={[1.5, 2]}
+                width="421"
+                height="640"
+                format="avif"
+              />
+            )
           ) : null /* TODO: Add a fallback image */
         }
 

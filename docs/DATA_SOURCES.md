@@ -10,6 +10,7 @@ Each data source has a dedicated module in `src/util/` that exposes multiple fun
 - `src/util/mylar.ts`: Mylar client + Mylar-specific API helpers
 - `src/util/comicvine.ts`: Comic Vine client + Comic Vine-specific API helpers
 - `src/util/elastic.ts`: Elasticsearch client + query/index helpers
+- `src/util/covers.ts`: Cover image caching and serving helpers
 - `src/util/sync.ts`: orchestration for syncing/seeding data between sources
 
 Shared shapes live next to the clients:
@@ -28,12 +29,14 @@ Shared shapes live next to the clients:
 **What it provides**
 
 - Your library/collection: series list and series details (including issues).
-- Issue cover URLs and release dates as tracked by Mylar.
+- Issue download status (`Downloaded`, `Wanted`, `Skipped`).
+- Downloaded comic files (CBZ) via `downloadIssue` API.
+- Series cover art via `getArt` API.
 
 **Configuration**
 
 - API key: `MYLAR_API_KEY`
-- Base URL is currently hard-coded in `src/util/mylar.ts`.
+- Base URL: `MYLAR_URL` (defaults to `http://192.168.50.190:8090`)
 
 **Implementation**
 
@@ -61,8 +64,9 @@ Shared shapes live next to the clients:
 
 **Images**
 
-- Covers are loaded from Comic Vine image URLs.
-- Astro is configured to allow remote images from `comicvine.gamespot.com` (see `astro.config.mjs`).
+- Comic Vine's CDN (Cloudflare) blocks server-to-server requests with HTTP 403.
+- Covers are self-hosted locally instead of hotlinking to Comic Vine.
+- See "Cover images" section below for details.
 
 ## Storage / index
 
@@ -83,6 +87,57 @@ Shared shapes live next to the clients:
 - `src/util/elastic.ts`
 
 > Note: `src/env.d.ts` declares `ELASTIC_URL` and `ELASTIC_INDEX`, but the current implementation uses hard-coded values. If you want these to be runtime-configurable, wire them through `import.meta.env`.
+
+## Cover images
+
+Cover images use a hybrid approach based on whether an issue has been downloaded:
+
+### Downloaded issues (extracted from CBZ)
+
+For issues with `status: "Downloaded"`:
+1. Cover is extracted from the CBZ file via Mylar's `downloadIssue` API.
+2. The first image (alphabetically sorted) is used as the cover.
+3. Stored locally in `data/covers/` (configurable via `COVERS_DIR`).
+4. Elasticsearch stores local paths like `/covers/12345.jpg`.
+5. The `/covers/[...path]` route serves cached images.
+6. Astro's `<Image>` component handles resizing and format conversion on-demand.
+
+### Non-downloaded issues (ComicVine direct)
+
+For issues with `status: "Wanted"` or `"Skipped"`:
+1. Elasticsearch stores the original ComicVine URL.
+2. Browser fetches directly from ComicVine (CDN allows browser requests).
+3. No server-side caching (since we can't reliably fetch from ComicVine server-side).
+
+### Configuration
+
+- `COVERS_DIR`: Local directory for cached covers (default: `data/covers`)
+
+### Backfill
+
+To populate covers for downloaded issues:
+
+```bash
+# Check status (shows downloaded vs non-downloaded breakdown)
+curl http://localhost:4321/api/covers/backfill
+
+# Run backfill (processes up to 100 downloaded issues)
+curl -X POST http://localhost:4321/api/covers/backfill?limit=100
+
+# Force re-download
+curl -X POST http://localhost:4321/api/covers/backfill?limit=100&force=true
+```
+
+### Implementation
+
+- `src/util/covers.ts`: CBZ extraction and caching logic
+- `src/util/mylar.ts`: Mylar API (`mylarDownloadIssue`, `mylarGetSeriesArt`)
+- `src/pages/covers/[...path].ts`: Route handler for serving covers
+- `src/pages/api/covers/backfill.ts`: Backfill API endpoint
+
+### Dependencies
+
+- `unzipper`: Used for CBZ extraction (CBZ files are ZIP archives)
 
 ## Ingestion / sync flows
 

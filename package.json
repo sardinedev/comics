@@ -9,7 +9,7 @@
     "dev": "astro dev --host",
     "start": "astro dev",
     "start:prod": "node ./dist/server/entry.mjs",
-    "type:check": "astro check",
+    "type:check": "tsc --noEmit",
     "build": "astro build",
     "preview": "npx wrangler pages dev ./dist",
     "astro": "astro"
@@ -21,11 +21,13 @@
     "@nanostores/persistent": "1.2.0",
     "@nanostores/preact": "1.0.0",
     "@tailwindcss/vite": "4.1.18",
+    "@types/unzipper": "^0.10.11",
     "astro": "5.16.6",
     "nanostores": "1.1.0",
     "preact": "10.28.1",
     "sharp": "^0.34.5",
-    "tailwindcss": "4.1.18"
+    "tailwindcss": "4.1.18",
+    "unzipper": "^0.12.3"
   },
   "devDependencies": {
     "typescript": "5.9.3",

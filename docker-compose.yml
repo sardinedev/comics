@@ -5,5 +5,11 @@ services:
     volumes:
       - ./src:/app/src
       - ./public:/app/public
+      - covers_data:/app/data/covers
     ports:
       - 4321:4321
+    environment:
+      - COVERS_DIR=/app/data/covers
+
+volumes:
+  covers_data:

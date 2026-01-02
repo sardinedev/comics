@@ -6,6 +6,9 @@ interface ImportMetaEnv {
   readonly ELASTIC_INDEX: string;
   readonly ELASTIC_URL: string;
   readonly ELASTIC_API_KEY: string;
+  readonly MYLAR_URL: string;
+  readonly MYLAR_API_KEY: string;
+  readonly COVERS_DIR: string;
 }
 
 interface ImportMeta {

@@ -14,6 +14,9 @@ interface Props {
 }
 
 const { issues, showMore } = Astro.props;
+
+const isRemoteCover = (src: string) =>
+  src.startsWith("http://") || src.startsWith("https://");
 ---
 
 <ul class="flex overflow-x-scroll hide-scrollbar">
@@ -21,15 +24,27 @@ const { issues, showMore } = Astro.props;
     issues.map((issue) => (
       <li class="mr-4 last:mr-0 flex flex-col-reverse text-center">
         <a href={`/comic/${issue.issue_id}`}>
-          <Image
-            class={"rounded-md max-w-40"}
-            src={issue.issue_cover}
-            densities={[1.5, 2]}
-            height="244"
-            width="160"
-            alt={`Cover for issue #${issue.issue_number} of ${issue.series_name}`}
-            format="avif"
-          />
+          {isRemoteCover(issue.issue_cover) ? (
+            <img
+              class="rounded-md max-w-40"
+              src={issue.issue_cover}
+              height="244"
+              width="160"
+              alt={`Cover for issue #${issue.issue_number} of ${issue.series_name}`}
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <Image
+              class={"rounded-md max-w-40"}
+              src={issue.issue_cover}
+              densities={[1.5, 2]}
+              height="244"
+              width="160"
+              alt={`Cover for issue #${issue.issue_number} of ${issue.series_name}`}
+              format="avif"
+            />
+          )}
         </a>
       </li>
     ))

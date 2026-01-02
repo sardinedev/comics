@@ -5,6 +5,7 @@ import {
 } from "./elastic";
 import { mylarGetAllSeries, mylarGetSeries } from "./mylar";
 import { formatMylarIssue } from "./formatter";
+import { ensureCoverCached } from "./covers";
 
 /*
  * Seeds elasticsearch database.
@@ -42,6 +43,21 @@ export async function seedElastic() {
         for (const issue of issues) {
           console.info(`Adding ${serie.name} (${issue.number}) to Elastic`);
           const formatedIssue = formatMylarIssue(issue, serie);
+
+          // For downloaded issues, try to extract cover from CBZ
+          const isDownloaded = issue.status === "Downloaded";
+          if (isDownloaded) {
+            const localCoverUrl = await ensureCoverCached(
+              issue.id,
+              isDownloaded,
+              serie.id // series ID for fallback to series cover
+            );
+            if (localCoverUrl) {
+              formatedIssue.issue_cover = localCoverUrl;
+            }
+          }
+          // Non-downloaded issues keep the ComicVine URL from formatter
+
           try {
             await elasticUpdateIssue(formatedIssue);
             totalIssues = totalIssues + 1;
@@ -82,6 +98,21 @@ export async function syncMylarWithElastic() {
         const { issues } = data;
         for (const issue of issues) {
           const formatedIssue = formatMylarIssue(issue, serie);
+
+          // For downloaded issues, try to extract cover from CBZ
+          const isDownloaded = issue.status === "Downloaded";
+          if (isDownloaded) {
+            const localCoverUrl = await ensureCoverCached(
+              issue.id,
+              isDownloaded,
+              serie.id // series ID for fallback to series cover
+            );
+            if (localCoverUrl) {
+              formatedIssue.issue_cover = localCoverUrl;
+            }
+          }
+          // Non-downloaded issues keep the ComicVine URL from formatter
+
           try {
             const update = await elasticAddIssueWithoutUpdate(formatedIssue);
             if (update.result === "skipped") {
