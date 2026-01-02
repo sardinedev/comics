@@ -28,7 +28,9 @@ export const GET: APIRoute = async ({ params }) => {
           ? "image/webp"
           : "image/jpeg";
 
-    return new Response(coverData as unknown as BodyInit, {
+    // Convert to a plain ArrayBuffer to satisfy BodyInit typing in Astro's server environment
+    const body = new Uint8Array(coverData).buffer;
+    return new Response(body, {
       status: 200,
       headers: {
         "Content-Type": contentType,
@@ -38,7 +40,8 @@ export const GET: APIRoute = async ({ params }) => {
   }
 
   // Return placeholder for missing covers (allows backfill later)
-  return new Response(getPlaceholderPng() as unknown as BodyInit, {
+  const placeholderBody = new Uint8Array(getPlaceholderPng()).buffer;
+  return new Response(placeholderBody, {
     status: 200,
     headers: {
       "Content-Type": "image/png",

@@ -7,6 +7,28 @@ import { mylarGetAllSeries, mylarGetSeries } from "./mylar";
 import { formatMylarIssue } from "./formatter";
 import { ensureCoverCached } from "./covers";
 
+/**
+ * If the issue is downloaded, attempts to set its cover to the local cached cover URL.
+ * @param formattedIssue The formatted issue object to potentially modify.
+ * @param issueId The unique identifier of the issue.
+ * @param issueStatus The download status of the issue.
+ * @param seriesId (Optional) The unique identifier of the series.
+ * @return A promise that resolves when the operation is complete.
+ */
+async function applyLocalCoverIfDownloaded(
+  formattedIssue: { issue_cover: string },
+  issueId: string,
+  issueStatus: string,
+  seriesId?: string
+): Promise<void> {
+  if (issueStatus !== "Downloaded") return;
+
+  const localCoverUrl = await ensureCoverCached(issueId, seriesId);
+  if (localCoverUrl) {
+    formattedIssue.issue_cover = localCoverUrl;
+  }
+}
+
 /*
  * Seeds elasticsearch database.
  * 1- Fetches series data from Mylar.
@@ -44,19 +66,7 @@ export async function seedElastic() {
           console.info(`Adding ${serie.name} (${issue.number}) to Elastic`);
           const formatedIssue = formatMylarIssue(issue, serie);
 
-          // For downloaded issues, try to extract cover from CBZ
-          const isDownloaded = issue.status === "Downloaded";
-          if (isDownloaded) {
-            const localCoverUrl = await ensureCoverCached(
-              issue.id,
-              isDownloaded,
-              serie.id // series ID for fallback to series cover
-            );
-            if (localCoverUrl) {
-              formatedIssue.issue_cover = localCoverUrl;
-            }
-          }
-          // Non-downloaded issues keep the ComicVine URL from formatter
+          await applyLocalCoverIfDownloaded(formatedIssue, issue.id, issue.status, serie.id);
 
           try {
             await elasticUpdateIssue(formatedIssue);
@@ -99,19 +109,7 @@ export async function syncMylarWithElastic() {
         for (const issue of issues) {
           const formatedIssue = formatMylarIssue(issue, serie);
 
-          // For downloaded issues, try to extract cover from CBZ
-          const isDownloaded = issue.status === "Downloaded";
-          if (isDownloaded) {
-            const localCoverUrl = await ensureCoverCached(
-              issue.id,
-              isDownloaded,
-              serie.id // series ID for fallback to series cover
-            );
-            if (localCoverUrl) {
-              formatedIssue.issue_cover = localCoverUrl;
-            }
-          }
-          // Non-downloaded issues keep the ComicVine URL from formatter
+          await applyLocalCoverIfDownloaded(formatedIssue, issue.id, issue.status, serie.id);
 
           try {
             const update = await elasticAddIssueWithoutUpdate(formatedIssue);

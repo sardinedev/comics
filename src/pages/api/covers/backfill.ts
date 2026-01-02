@@ -3,7 +3,7 @@ import { getElasticClient } from "@util/elastic";
 import { extractCoverFromDownloadedIssue, coverExists, getCoverUrl } from "@util/covers";
 import type { Issue } from "@util/comics.types";
 
-const ELASTIC_INDEX = "issues";
+const ELASTIC_INDEX = import.meta.env.ELASTIC_INDEX ?? "issues";
 
 type BackfillError = {
   issue_id: string;
@@ -50,9 +50,11 @@ export const POST: APIRoute = async ({ request }) => {
     const response = await elastic.search<Issue>({
       index: ELASTIC_INDEX,
       size: Math.min(limit * 2, 2000), // Fetch extra to account for skipped
-      _source: ["issue_id", "issue_cover", "issue_status", "series_id"],
+      _source: ["issue_id", "issue_cover", "issue_status"],
       query: {
-        match_all: {},
+        bool: {
+          filter: [{ match: { issue_status: "Downloaded" } }],
+        },
       },
       sort: [{ issue_date: "desc" }],
     });
@@ -64,7 +66,7 @@ export const POST: APIRoute = async ({ request }) => {
     for (const issue of issues) {
       if (stats.processed >= limit) break;
 
-      const { issue_id, issue_cover, issue_status, series_id } = issue;
+      const { issue_id, issue_cover, issue_status } = issue;
 
       // Skip non-downloaded issues (they use ComicVine URLs)
       if (issue_status !== "Downloaded") {

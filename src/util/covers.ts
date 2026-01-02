@@ -114,14 +114,10 @@ function isImageFile(filename: string): boolean {
   const ext = path.extname(filename).toLowerCase();
   return IMAGE_EXTENSIONS.includes(ext);
 }
-
-/**
- * Extracts the first image (cover) from a CBZ/ZIP archive.
- * @param zipData The archive data as Uint8Array
- * @returns The cover image data or null if extraction failed
- */
 /**
  * Detects the archive type from magic bytes.
+ * @param data The archive data
+ * @return "zip", "rar", or "unknown"
  */
 function detectArchiveType(data: Uint8Array): "zip" | "rar" | "unknown" {
   if (data.length < 4) return "unknown";
@@ -172,6 +168,13 @@ async function extractCoverFromCbz(archiveData: Uint8Array): Promise<Uint8Array 
     return new Promise<Uint8Array | null>((resolve) => {
       const chunks: { path: string; buffer: Uint8Array }[] = [];
       let resolved = false;
+      // Multiple events (close/error/source error) can fire in different orders.
+      // Guard resolution so the Promise settles once and we don't attempt multiple resolves.
+      const resolveOnce = (value: Uint8Array | null) => {
+        if (resolved) return;
+        resolved = true;
+        resolve(value);
+      };
       
       const stream = unzip.Parse();
       
@@ -200,12 +203,9 @@ async function extractCoverFromCbz(archiveData: Uint8Array): Promise<Uint8Array 
       });
       
       stream.on("close", () => {
-        if (resolved) return;
-        resolved = true;
-        
         if (chunks.length === 0) {
           console.error("No image files found in CBZ archive");
-          resolve(null);
+          resolveOnce(null);
           return;
         }
         
@@ -213,18 +213,21 @@ async function extractCoverFromCbz(archiveData: Uint8Array): Promise<Uint8Array 
         chunks.sort((a, b) => a.path.localeCompare(b.path));
         const cover = chunks[0];
         console.info(`Extracted cover: ${cover.path}`);
-        resolve(cover.buffer);
+        resolveOnce(cover.buffer);
       });
       
       stream.on("error", (err) => {
-        if (resolved) return;
-        resolved = true;
         console.error("Error parsing CBZ stream:", err);
-        resolve(null);
+        resolveOnce(null);
       });
       
       // Feed the archive data to the stream
       const readable = Readable.from(Buffer.from(archiveData));
+      readable.on("error", (err) => {
+        console.error("Error reading CBZ data stream:", err);
+        stream.destroy(err);
+        resolveOnce(null);
+      });
       readable.pipe(stream);
     });
   } catch (error) {
@@ -334,26 +337,19 @@ export async function cacheSeriesCover(
 /**
  * Ensures a cover is cached locally for a downloaded issue.
  * For downloaded issues, extracts from CBZ.
- * Returns null if the issue isn't downloaded (caller should use ComicVine URL).
+ * Returns null if caching fails (caller should fall back to ComicVine URL).
  *
  * @param issueId The ComicVine issue ID
- * @param isDownloaded Whether the issue has been downloaded
  * @param seriesId Optional series ID for fallback to series cover
  * @returns The local cover URL path, or null if not available
  */
 export async function ensureCoverCached(
   issueId: string,
-  isDownloaded: boolean,
   seriesId?: string
 ): Promise<string | null> {
-  // Check if already cached
+
   if (await coverExists(issueId)) {
     return getCoverUrl(issueId);
-  }
-
-  // Only try to extract if the issue is downloaded
-  if (!isDownloaded) {
-    return null;
   }
 
   // Try to extract from CBZ

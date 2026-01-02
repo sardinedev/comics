@@ -94,7 +94,7 @@ const optimizableCoverSrc =
                 loading="lazy"
                 decoding="async"
               />
-            ) : (
+            ) : optimizableCoverSrc ? (
               <Image
                 class="mb-4"
                 src={optimizableCoverSrc}
@@ -108,7 +108,7 @@ const optimizableCoverSrc =
                 height="640"
                 format="avif"
               />
-            )
+            ) : null
           ) : null /* TODO: Add a fallback image */
         }
 
