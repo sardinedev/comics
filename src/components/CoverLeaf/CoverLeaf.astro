@@ -22,6 +22,14 @@ type SeriesCoverLeaf = {
 
 const { cover, id, ...props } = Astro.props as IssueCoverLeaf | SeriesCoverLeaf;
 
+const coverSrc = cover ?? "/logo.svg";
+const isRemoteCover =
+  coverSrc.startsWith("http://") || coverSrc.startsWith("https://");
+const isLocalCoverRoute = coverSrc.startsWith("/covers/");
+const optimizableCoverSrc = isLocalCoverRoute
+  ? new URL(coverSrc, Astro.url).toString()
+  : coverSrc;
+
 let label, alt, href, readingStatus;
 
 if (props.type === "Issue") {
@@ -41,15 +49,30 @@ if (props.type === "series") {
 
 <li data-coverid={id}>
   <a href={href} class="relative flex flex-col items-center gap-2">
-    <Image
-      class={"rounded-md w-64"}
-      src={cover ?? "/logo.svg"}
-      densities={[1.5, 2]}
-      height="320"
-      width="210"
-      alt={alt as string}
-      format="avif"
-    />
+    {
+      isRemoteCover ? (
+        <img
+          class="rounded-md w-64"
+          src={coverSrc}
+          height="320"
+          width="210"
+          alt={alt as string}
+          loading="lazy"
+          decoding="async"
+        />
+      ) : (
+        <Image
+          class={"rounded-md w-64"}
+          src={optimizableCoverSrc}
+          widths={[210, 315, 420]}
+          sizes="256px"
+          height="320"
+          width="210"
+          alt={alt as string}
+          format="avif"
+        />
+      )
+    }
     <span class={"flex items-baseline justify-center gap-2"}>
       {
         props.type === "Issue" ? (

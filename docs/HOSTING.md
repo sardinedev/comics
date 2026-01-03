@@ -10,8 +10,36 @@ The app also talks to Comic Vine (public API) for weekly releases and as a fallb
 ## Runtime dependencies
 
 - **Elasticsearch**: required for most browsing pages (series listing, issue pages when the issue is in the library).
-- **Mylar**: required for sync/seed flows and for adding series to your library.
+- **Mylar**: required for sync/seed flows, adding series to your library, and downloading cover artwork.
 - **Comic Vine**: required for `/new` (weekly comics) and as a fallback when an issue is not found in Elasticsearch.
+
+## Persistent storage
+
+The app stores cover images locally in `data/covers/`. This directory must be persisted across container restarts.
+
+### Docker volume configuration
+
+The `docker-compose.yml` includes a named volume for covers:
+
+```yaml
+volumes:
+  - covers_data:/app/data/covers
+```
+
+### TrueNAS / host path
+
+For TrueNAS or other setups where you want a host-mounted path:
+
+```yaml
+volumes:
+  - /mnt/pool/appdata/comics/covers:/app/data/covers
+```
+
+Create the directory first:
+
+```bash
+mkdir -p /mnt/pool/appdata/comics/covers
+```
 
 ## Networking
 

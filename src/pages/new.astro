@@ -17,8 +17,8 @@ try {
     issues = weeklyIssues.issues.map((issue) => {
       const shortIssueDetails = {
         issue_cover: issue.image.medium_url,
-        issue_number: issue.issue_number,
-        issue_id: issue.id,
+        issue_number: Number(issue.issue_number),
+        issue_id: String(issue.id),
       };
       return shortIssueDetails;
     });
