@@ -15,16 +15,6 @@ async function getUnzipper() {
 const COVERS_DIR = import.meta.env.COVERS_DIR ?? process.env.COVERS_DIR ?? "data/covers";
 
 /**
- * 1x1 transparent PNG for placeholder when cover is missing.
- */
-const TRANSPARENT_PNG = new Uint8Array(
-  Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-    "base64"
-  )
-);
-
-/**
  * Image file extensions to look for in CBZ archives.
  */
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -373,6 +363,4 @@ export async function ensureCoverCached(
 /**
  * Returns the 1x1 transparent PNG placeholder.
  */
-export function getPlaceholderPng(): Uint8Array {
-  return TRANSPARENT_PNG;
-}
+
