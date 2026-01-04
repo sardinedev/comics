@@ -1,10 +1,9 @@
 import type { APIRoute } from "astro";
-import { readCover, getPlaceholderPng } from "@util/covers";
+import { readCover } from "@util/covers";
 
 /**
  * Serves cached cover images from local storage.
- * Returns a 1x1 transparent PNG with no-store cache if the file is missing,
- * allowing backfill to populate it later without broken images.
+ * Returns 404 if the file is missing.
  */
 export const GET: APIRoute = async ({ params }) => {
   const { path } = params;
@@ -39,12 +38,9 @@ export const GET: APIRoute = async ({ params }) => {
     });
   }
 
-  // Return placeholder for missing covers (allows backfill later)
-  const placeholderBody = new Uint8Array(getPlaceholderPng()).buffer;
-  return new Response(placeholderBody, {
-    status: 200,
+  return new Response("Not found", {
+    status: 404,
     headers: {
-      "Content-Type": "image/png",
       "Cache-Control": "no-store",
     },
   });

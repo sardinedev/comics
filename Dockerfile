@@ -14,6 +14,6 @@ ENV COVERS_DIR=/app/data/covers
 EXPOSE 4321
 
 # Create covers directory for persistent storage
-RUN mkdir -p /app/data/covers
+RUN mkdir -p /data/covers
 
 ENTRYPOINT ["npm", "run", "start:prod"]

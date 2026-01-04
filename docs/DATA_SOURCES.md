@@ -95,15 +95,14 @@ Cover images use a hybrid approach based on whether an issue has been downloaded
 ### Downloaded issues (extracted from CBZ)
 
 For issues with `status: "Downloaded"`:
-1. Cover is extracted from the CBZ file via Mylar's `downloadIssue` API.
-2. The first image (alphabetically sorted) is used as the cover.
-3. Stored locally in `data/covers/` (configurable via `COVERS_DIR`).
-4. Elasticsearch stores local paths like `/covers/12345.jpg`.
-5. The `/covers/[...path]` route serves cached images.
-6. Astro's `<Image>` component handles resizing and format conversion on-demand.
+1. The first image file in the CBZ archive (alphabetically sorted by filename) is treated as the cover.
+2. That image is extracted from the CBZ via Mylar's `downloadIssue` API and cached under `COVERS_DIR` using a stable relative path (e.g. `<seriesId>/<issueId>/cover.ext`).
+3. Elasticsearch stores this relative cover path in the normalized `Issue` document (not the original CBZ location).
+4. The `/covers/[...path]` route reads from `COVERS_DIR` and serves the cached image for downloaded issues.
+5. UI components build cover `src` URLs pointing at `/covers/...` when an issue is marked as downloaded.
+2. Astro's `<Image>` component handles resizing and format conversion on-demand.
 
 ### Non-downloaded issues (ComicVine direct)
-
 For issues with `status: "Wanted"` or `"Skipped"`:
 1. Elasticsearch stores the original ComicVine URL.
 2. Browser fetches directly from ComicVine (CDN allows browser requests).
@@ -115,17 +114,35 @@ For issues with `status: "Wanted"` or `"Skipped"`:
 
 ### Backfill
 
-To populate covers for downloaded issues:
+To populate covers for downloaded issues, the backfill endpoint only targets issues that:
 
+1. Have `status: "Downloaded"`, and
+2. Still have a remote cover URL (`issue_cover` starts with `http`).
+
+This means each successful run shrinks the remaining work over time.
+
+If a cover file already exists in `data/covers/` and `force=false`, the backfill will only update Elasticsearch to point `issue_cover` at `/covers/{id}.jpg` (no re-download).
 ```bash
 # Check status (shows downloaded vs non-downloaded breakdown)
 curl http://localhost:4321/api/covers/backfill
 
 # Run backfill (processes up to 100 downloaded issues)
-curl -X POST http://localhost:4321/api/covers/backfill?limit=100
+curl -X POST \
+	-H 'Content-Type: application/json' \
+	-d '{}' \
+	'http://localhost:4321/api/covers/backfill?limit=100'
 
 # Force re-download
-curl -X POST http://localhost:4321/api/covers/backfill?limit=100&force=true
+curl -X POST \
+	-H 'Content-Type: application/json' \
+	-d '{}' \
+	'http://localhost:4321/api/covers/backfill?limit=100&force=true'
+
+# Dry-run backfill (preview which issues would be processed without downloading or updating covers)
+curl -X POST \
+	-H 'Content-Type: application/json' \
+	-d '{}' \
+	'http://localhost:4321/api/covers/backfill?limit=100&dry=true'
 ```
 
 ### Implementation
