@@ -95,8 +95,12 @@ Cover images use a hybrid approach based on whether an issue has been downloaded
 ### Downloaded issues (extracted from CBZ)
 
 For issues with `status: "Downloaded"`:
-1. Cover is extracted from the CBZ file via Mylar's `downloadIssue` API.
-6. Astro's `<Image>` component handles resizing and format conversion on-demand.
+1. The first image file in the CBZ archive (alphabetically sorted by filename) is treated as the cover.
+2. That image is extracted from the CBZ via Mylar's `downloadIssue` API and cached under `COVERS_DIR` using a stable relative path (e.g. `<seriesId>/<issueId>/cover.ext`).
+3. Elasticsearch stores this relative cover path in the normalized `Issue` document (not the original CBZ location).
+4. The `/covers/[...path]` route reads from `COVERS_DIR` and serves the cached image for downloaded issues.
+5. UI components build cover `src` URLs pointing at `/covers/...` when an issue is marked as downloaded.
+2. Astro's `<Image>` component handles resizing and format conversion on-demand.
 
 ### Non-downloaded issues (ComicVine direct)
 For issues with `status: "Wanted"` or `"Skipped"`:
@@ -133,6 +137,12 @@ curl -X POST \
 	-H 'Content-Type: application/json' \
 	-d '{}' \
 	'http://localhost:4321/api/covers/backfill?limit=100&force=true'
+
+# Dry-run backfill (preview which issues would be processed without downloading or updating covers)
+curl -X POST \
+	-H 'Content-Type: application/json' \
+	-d '{}' \
+	'http://localhost:4321/api/covers/backfill?limit=100&dry=true'
 ```
 
 ### Implementation
