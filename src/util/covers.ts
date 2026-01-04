@@ -359,8 +359,3 @@ export async function ensureCoverCached(
   console.warn(`Failed to cache cover for issue ${issueId}: ${result.reason}`);
   return null;
 }
-
-/**
- * Returns the 1x1 transparent PNG placeholder.
- */
-
