@@ -1,4 +1,19 @@
-export type IssueStatus = "Wanted" | "Downloaded" | "Skipped";
+// Mylar issue status values observed in practice.
+export type IssueStatus =
+  | "Wanted"
+  | "Skipped"
+  | "Downloaded"
+  | "Snatched"
+  | "Archived"
+  | "Ignored"
+  | "Failed";
+
+// Mylar history items have their own status domain (different from IssueStatus).
+export type HistoryStatus =
+  | "Snatched"
+  | "Downloaded"
+  | "Post-Processed"
+  | "Failed";
 
 export type MylarComic = {
   /** An URL to the issue page in Comicvine */
@@ -45,4 +60,21 @@ export type MylarComicWithIssues = {
   comic: MylarComic[];
   /** The list of issues in the comic series */
   issues: MylarIssue[];
+};
+
+export type MylarHistoryItem = {
+  /** The unique identifier for the comic */
+  ComicID: string;
+  /** The name of the comic */
+  ComicName: string;
+  /** The date when the issue was added to history, in the format YYYY-MM-DD HH:MM:SS */
+  DateAdded: string;
+  /** The unique identifier for the issue */
+  IssueID: string;
+  /** The issue number */
+  Issue_Number: string;
+  /** The status of the item (Snatched, Downloaded, Post-Processed, etc.) */
+  Status: HistoryStatus;
+  /** The provider used to download the issue */
+  Provider: string;
 };

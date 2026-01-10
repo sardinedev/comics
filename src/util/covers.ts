@@ -285,46 +285,6 @@ export async function extractCoverFromDownloadedIssue(
 }
 
 /**
- * Fetches and caches the series cover art from Mylar.
- * Fallback when issue-specific cover isn't available.
- *
- * @param issueId The issue ID (used for caching)
- * @param seriesId The ComicVine series/volume ID
- * @returns Result object with success/failure and reason
- */
-export async function cacheSeriesCover(
-  issueId: string,
-  seriesId: string
-): Promise<CoverCacheResult> {
-  // Check if already cached
-  if (await coverExists(issueId)) {
-    return { success: true, url: getCoverUrl(issueId), source: "cached" };
-  }
-
-  // Fetch series art from Mylar
-  const artData = await mylarGetSeriesArt(seriesId);
-  
-  if (!artData) {
-    return {
-      success: false,
-      reason: "Failed to fetch series art from Mylar",
-    };
-  }
-
-  // Save to cache
-  try {
-    await saveCover(issueId, artData);
-    console.info(`Cached cover for issue ${issueId} (from series art)`);
-    return { success: true, url: getCoverUrl(issueId), source: "series-art" };
-  } catch (error) {
-    return {
-      success: false,
-      reason: `Failed to save cover to disk: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-}
-
-/**
  * Ensures a cover is cached locally for a downloaded issue.
  * For downloaded issues, extracts from CBZ.
  * Returns null if caching fails (caller should fall back to ComicVine URL).
@@ -346,14 +306,6 @@ export async function ensureCoverCached(
   const result = await extractCoverFromDownloadedIssue(issueId);
   if (result.success) {
     return result.url;
-  }
-
-  // Fallback to series cover if available
-  if (seriesId) {
-    const seriesResult = await cacheSeriesCover(issueId, seriesId);
-    if (seriesResult.success) {
-      return seriesResult.url;
-    }
   }
 
   console.warn(`Failed to cache cover for issue ${issueId}: ${result.reason}`);
