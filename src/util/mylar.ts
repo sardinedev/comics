@@ -1,4 +1,4 @@
-import type { MylarComic, MylarComicWithIssues } from "./mylar.types";
+import type { MylarComic, MylarComicWithIssues, MylarHistoryItem } from "./mylar.types";
 
 const MYLAR_API_KEY =
   import.meta.env.MYLAR_API_KEY ?? process.env.MYLAR_API_KEY;
@@ -84,6 +84,19 @@ export function mylarAddSeries(id: string) {
   } catch (error) {
     console.error(error);
     throw new Error("Failed to add series to Mylar.");
+  }
+}
+
+/**
+ * Fetches recent download history from Mylar (snatched/downloaded issues).
+ * @returns A promise that resolves to the MylarResponse containing an array of MylarHistoryItem.
+ */
+export function mylarGetHistory() {
+  try {
+    return mylar<MylarHistoryItem[]>("getHistory");
+  } catch (error) {
+    console.error(error);
+    throw new Error("Failed to fetch history from Mylar.");
   }
 }
 

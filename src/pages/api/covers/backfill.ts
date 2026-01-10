@@ -8,7 +8,7 @@ const ELASTIC_INDEX = import.meta.env.ELASTIC_INDEX ?? "issues";
 type BackfillError = {
   issue_id: string;
   issue_cover: string | undefined;
-  issue_status: string | undefined;
+  issue_status: Issue["issue_status"] | undefined;
   reason: string;
 };
 
