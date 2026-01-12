@@ -140,7 +140,7 @@ export async function syncMylarWithElastic() {
       seriesMap.get(item.ComicID)?.add(item.IssueID);
     }
 
-    const updatesToApply: Partial<Issue>[] = [];
+    const updatesToApply: (Partial<Issue> & { upsert?: Issue })[] = [];
 
     for (const [seriesId, issueIds] of seriesMap.entries()) {
       try {
@@ -160,6 +160,7 @@ export async function syncMylarWithElastic() {
             issue_id: formattedIssue.issue_id,
             issue_cover: formattedIssue.issue_cover,
             issue_status: formattedIssue.issue_status,
+            upsert: formattedIssue,
           });
 
           totalIssues++;
@@ -177,7 +178,11 @@ export async function syncMylarWithElastic() {
         console.info(`Synced ${updatesToApply.length} issues from Mylar history`);
       } catch (error) {
         console.error("Failed to bulk update Elastic:", error);
-        errors.push("Failed to bulk update issues in Elastic.");
+        errors.push(
+          error instanceof Error
+            ? error.message
+            : "Failed to bulk update issues in Elastic."
+        );
       }
     }
 
