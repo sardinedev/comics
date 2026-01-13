@@ -36,6 +36,28 @@ export async function POST({ params, request }: APIContext) {
     );
   }
 
+  // If callers include `series_id` in items, ensure it matches the route param.
+  const invalidSeriesItem = body.find((item) => {
+    if (!item || typeof item !== "object") return false;
+    const record = item as Record<string, unknown>;
+    if (!("series_id" in record)) return false;
+    return typeof record.series_id === "string" && record.series_id !== id;
+  });
+
+  if (invalidSeriesItem) {
+    return new Response(
+      JSON.stringify({
+        error: "All issues in the payload must belong to the requested series",
+      }),
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  }
+
   try {
     const series = await elasticBulkUpdate(body as any);
     return new Response(JSON.stringify(series), {

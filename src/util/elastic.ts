@@ -9,6 +9,11 @@ type PaginationProps = {
   sort: "asc" | "desc";
 };
 
+export type ElasticBulkUpdateItem = Partial<Issue> & {
+  /** Optional full document used when the target doc doesn't exist yet. */
+  upsert?: Issue;
+};
+
 let client: Client | null = null;
 
 const ELASTIC_INDEX = "issues";
@@ -167,10 +172,12 @@ export async function elasticUpdateIssue(data: Issue) {
  * @param data An array of partial Issue objects to update.
  * @returns The bulk response from Elastic.
  */
-export async function elasticBulkUpdate(data: Partial<Issue>[]) {
+export async function elasticBulkUpdate(
+  data: ElasticBulkUpdateItem[]
+): Promise<estypes.BulkResponse> {
   const elastic = getElasticClient();
   try {
-    const invalid = data.filter((issue) => !(issue as any).issue_id);
+    const invalid = data.filter((issue) => !issue.issue_id);
     if (invalid.length > 0) {
       console.warn(
         `elasticBulkUpdate: skipping ${invalid.length} updates without issue_id`
@@ -178,12 +185,8 @@ export async function elasticBulkUpdate(data: Partial<Issue>[]) {
     }
 
     const operations = data.flatMap((item) => {
-      const issueId = (item as any).issue_id as string | undefined;
+      const { issue_id: issueId, upsert, ...doc } = item;
       if (!issueId) return [];
-
-      // Allow callers to provide an upsert document (full Issue) to create the doc if it's missing.
-      // This avoids doc_as_upsert=true, which would create an incomplete document when `doc` is partial.
-      const { upsert, ...doc } = item as any;
 
       return [
         { update: { _index: ELASTIC_INDEX, _id: issueId } },
@@ -196,7 +199,7 @@ export async function elasticBulkUpdate(data: Partial<Issue>[]) {
         took: 0,
         errors: false,
         items: [],
-      } as any;
+      };
     }
 
     const bulkResponse = await elastic.bulk({
@@ -205,17 +208,12 @@ export async function elasticBulkUpdate(data: Partial<Issue>[]) {
     });
 
     if (bulkResponse.errors) {
-      const erroredItems = (bulkResponse.items ?? [])
-        .map((item) =>
-          // Bulk responses have one key per item: update/index/create/delete
-          (item as any).update ??
-          (item as any).index ??
-          (item as any).create ??
-          (item as any).delete
-        )
-        .filter((action) => action?.error)
+      const erroredItems = bulkResponse.items
+        .map((item) => item.update ?? item.index ?? item.create ?? item.delete)
+        .filter((action): action is estypes.BulkResponseItem => !!action)
+        .filter((action) => !!action.error)
         .map((action) => ({
-          id: action._id,
+          id: action._id ?? undefined,
           status: action.status,
           type: action.error?.type,
           reason: action.error?.reason,
@@ -224,7 +222,7 @@ export async function elasticBulkUpdate(data: Partial<Issue>[]) {
       const sample = erroredItems.slice(0, 8);
       console.error("Elasticsearch bulk update failed", {
         index: ELASTIC_INDEX,
-        took: (bulkResponse as any).took,
+        took: bulkResponse.took,
         errors: erroredItems.length,
         sample,
       });
@@ -335,7 +333,7 @@ export async function elasticGetLatestIssues() {
 /**
  * Get the next unread issues from Elastic.
  * @param size Number of issues to fetch.
- * @returns The latest unread issues sorted by issue date.
+ * @returns The next unread issues sorted by issue date (most recent first).
  */
 export async function elasticGetUpNextIssues(size: number = 10) {
   console.log("Fetching up next (unread) issues from Elastic");
