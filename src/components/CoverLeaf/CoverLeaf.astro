@@ -1,6 +1,5 @@
 ---
 import { Image } from "astro:assets";
-import type { ReadingStatus } from "../../util/comics.types";
 
 type IssueCoverLeaf = {
   cover: string;
@@ -17,7 +16,6 @@ type SeriesCoverLeaf = {
   name: string;
   type: "series";
   year: string;
-  readingStatus: ReadingStatus;
 };
 
 const { cover, id, ...props } = Astro.props as IssueCoverLeaf | SeriesCoverLeaf;
@@ -43,7 +41,7 @@ if (props.type === "series") {
   const { name, year } = props;
   alt = `Cover for ${name} (${year})`;
   href = `/series/${id}`;
-  readingStatus = props.readingStatus === "read" ? "read" : "unread";
+  readingStatus = "unread";
 }
 ---
 

@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Readable } from "node:stream";
-import { mylarDownloadIssue, mylarGetSeriesArt } from "./mylar";
+import { mylarDownloadIssue } from "./mylar";
 
 // Use dynamic import for unzipper since it's a CJS module
 let unzipper: typeof import("unzipper") | null = null;
@@ -290,12 +290,10 @@ export async function extractCoverFromDownloadedIssue(
  * Returns null if caching fails (caller should fall back to ComicVine URL).
  *
  * @param issueId The ComicVine issue ID
- * @param seriesId Optional series ID for fallback to series cover
  * @returns The local cover URL path, or null if not available
  */
 export async function ensureCoverCached(
   issueId: string,
-  seriesId?: string
 ): Promise<string | null> {
 
   if (await coverExists(issueId)) {

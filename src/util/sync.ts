@@ -14,18 +14,16 @@ import type { IssueStatus } from "./mylar.types";
  * @param formattedIssue The formatted issue object to potentially modify.
  * @param issueId The unique identifier of the issue.
  * @param issueStatus The download status of the issue.
- * @param seriesId (Optional) The unique identifier of the series.
  * @return A promise that resolves when the operation is complete.
  */
 async function applyLocalCoverIfDownloaded(
   formattedIssue: { issue_cover: string },
   issueId: string,
-  issueStatus: IssueStatus,
-  seriesId?: string
+  issueStatus: IssueStatus
 ): Promise<void> {
   if (issueStatus !== "Downloaded") return;
 
-  const localCoverUrl = await ensureCoverCached(issueId, seriesId);
+  const localCoverUrl = await ensureCoverCached(issueId);
   if (localCoverUrl) {
     formattedIssue.issue_cover = localCoverUrl;
   }
@@ -68,7 +66,7 @@ export async function seedElastic() {
           console.info(`Adding ${serie.name} (${issue.number}) to Elastic`);
           const formatedIssue = formatMylarIssue(issue, serie);
 
-          await applyLocalCoverIfDownloaded(formatedIssue, issue.id, issue.status, serie.id);
+          await applyLocalCoverIfDownloaded(formatedIssue, issue.id, issue.status);
 
           try {
             await elasticUpdateIssue(formatedIssue);
@@ -154,7 +152,7 @@ export async function syncMylarWithElastic() {
         for (const issue of recentIssues) {
           const formattedIssue = formatMylarIssue(issue, serie);
 
-          await applyLocalCoverIfDownloaded(formattedIssue, issue.id, issue.status, serie.id);
+          await applyLocalCoverIfDownloaded(formattedIssue, issue.id, issue.status);
 
           updatesToApply.push({
             issue_id: formattedIssue.issue_id,

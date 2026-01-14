@@ -25,7 +25,7 @@ function makeIssue(overrides: Partial<Issue>): Issue {
     issue_date: "2026-01-01",
     issue_status: "Downloaded",
     issue_cover: "https://example.com/cover.jpg",
-    issue_read: false,
+    issue_reading_state: "unread",
     issue_artists: [],
     issue_writers: [],
     issue_cover_author: null,
@@ -33,7 +33,6 @@ function makeIssue(overrides: Partial<Issue>): Issue {
     series_name: "Series",
     series_year: "2026",
     series_publisher: "Publisher",
-    series_reading_status: "unread",
     ...overrides,
   };
 }
@@ -59,7 +58,7 @@ describe("elasticGetUpNextIssues", () => {
     expect(elasticState.search).toHaveBeenCalledTimes(1);
     const args = elasticState.search.mock.calls[0][0];
     expect(args.size).toBe(5);
-    expect(args.query).toEqual({ term: { issue_read: false } });
+    expect(args.query).toEqual({ term: { issue_reading_state: "unread" } });
     expect(args.sort).toEqual([{ issue_date: { order: "desc" } }]);
   });
 });
@@ -77,14 +76,14 @@ describe("elasticGetContinueReadingIssues", () => {
     const seriesARead = makeIssue({
       series_id: "A",
       series_name: "Alpha",
-      issue_read: true,
+      issue_reading_state: "read",
       issue_number: 2,
       issue_id: "A-2",
     });
     const seriesBRead = makeIssue({
       series_id: "B",
       series_name: "Beta",
-      issue_read: true,
+      issue_reading_state: "read",
       issue_number: 5,
       issue_id: "B-5",
     });
@@ -92,14 +91,14 @@ describe("elasticGetContinueReadingIssues", () => {
     const unreadA3 = makeIssue({
       series_id: "A",
       series_name: "Alpha",
-      issue_read: false,
+      issue_reading_state: "unread",
       issue_number: 3,
       issue_id: "A-3",
     });
     const unreadB6 = makeIssue({
       series_id: "B",
       series_name: "Beta",
-      issue_read: false,
+      issue_reading_state: "unread",
       issue_number: 6,
       issue_id: "B-6",
     });
@@ -120,7 +119,7 @@ describe("elasticGetContinueReadingIssues", () => {
     const seriesARead = makeIssue({
       series_id: "A",
       series_name: "Alpha",
-      issue_read: true,
+      issue_reading_state: "read",
       issue_number: 5,
       issue_id: "A-5",
     });
@@ -128,14 +127,14 @@ describe("elasticGetContinueReadingIssues", () => {
     const unreadA1 = makeIssue({
       series_id: "A",
       series_name: "Alpha",
-      issue_read: false,
+      issue_reading_state: "unread",
       issue_number: 1,
       issue_id: "A-1",
     });
     const unreadA2 = makeIssue({
       series_id: "A",
       series_name: "Alpha",
-      issue_read: false,
+      issue_reading_state: "unread",
       issue_number: 2,
       issue_id: "A-2",
     });

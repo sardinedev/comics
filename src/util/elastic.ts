@@ -344,7 +344,7 @@ export async function elasticGetUpNextIssues(size: number = 10) {
       size,
       query: {
         term: {
-          issue_read: false,
+          issue_reading_state: "unread",
         },
       },
       sort: [
@@ -395,7 +395,7 @@ export async function elasticGetContinueReadingIssues({
       size: scanRead,
       query: {
         term: {
-          issue_read: true,
+          issue_reading_state: "read",
         },
       },
       sort: [
@@ -443,7 +443,7 @@ export async function elasticGetContinueReadingIssues({
             },
             {
               term: {
-                issue_read: false,
+                issue_reading_state: "unread",
               },
             },
           ],

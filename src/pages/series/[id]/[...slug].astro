@@ -40,8 +40,7 @@ try {
       for (const list of issues.values()) {
         updateDoc.push({
           issue_id: list.getAttribute("data-coverid"),
-          issue_read: true,
-          series_reading_status: "read",
+          issue_reading_state: "read",
         });
       }
       if (updateDoc.length > 0) {
@@ -86,9 +85,7 @@ try {
           <div class="border-t-2 border-b-2 py-2">
             <SortButton />
             <button type="button" id="series-read" data-series={id}>
-              {series?.[0].series_reading_status === "read"
-                ? "Mark series unread"
-                : "Mark series read"}
+              Mark series read
             </button>
           </div>
           <IssueGrid totalNumberOfIssues={totalIssues} currentPage={page}>
@@ -98,7 +95,7 @@ try {
                 id={issue.issue_id}
                 cover={issue.issue_cover}
                 number={issue.issue_number}
-                read={issue.issue_read}
+                read={issue.issue_reading_state === "read"}
               />
             ))}
           </IssueGrid>

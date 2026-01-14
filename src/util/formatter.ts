@@ -26,13 +26,12 @@ export function formatMylarIssue(issue: MylarIssue, series: MylarComic): Issue {
     issue_id: issue.id,
     issue_name: issue.name,
     issue_number: Number(issue.number),
-    issue_read: false,
+    issue_reading_state: "unread",
     issue_status: issue.status,
     issue_writers: [],
     series_id: series.id,
     series_name: series.name,
     series_publisher: series.publisher,
-    series_reading_status: "unread",
     series_year: series.year,
   };
 }
@@ -53,10 +52,9 @@ export function formatComicvineIssue(
     issue_id: String(issue.id),
     issue_name: issue.name,
     issue_number: Number(issue.issue_number),
-    issue_read: false,
+    issue_reading_state: "unread",
     issue_writers: [],
     series_id: String(issue.volume.id),
     series_name: issue.volume.name,
-    series_reading_status: "unread",
   };
 }
