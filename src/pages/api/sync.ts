@@ -1,7 +1,7 @@
 import type { APIContext } from "astro";
 import { syncMylarWithElastic } from "../../util/sync";
 
-export async function GET({ params }: APIContext) {
+export async function GET(_ctx: APIContext) {
   try {
     const result = await syncMylarWithElastic();
     return new Response(JSON.stringify(result), {

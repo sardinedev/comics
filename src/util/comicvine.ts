@@ -129,7 +129,7 @@ export async function getIssuesFromVolume(
   try {
     const data = await comicvine<ComicvineIssues[]>(
       "issues",
-      `filter=volume:${volumeId}&sort=cover_date:asc`
+      `filter=volume:${volumeId}&sort=cover_date:asc&offset=${offset}`
     );
     if (data) {
       return data.results;

@@ -1,6 +1,5 @@
 ---
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
-import CoverStack from "@components/CoverStack.astro";
 import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
 import Layout from "@layouts/Layout.astro";
 import SortButton from "@components/SortButton.astro";
@@ -34,7 +33,7 @@ try {
 <script>
   const readButton = document.getElementById("series-read");
   if (readButton) {
-    readButton.addEventListener("click", async (event) => {
+    readButton.addEventListener("click", async () => {
       const issues = document.querySelectorAll("li[data-coverid]");
       const updateDoc = [];
       for (const list of issues.values()) {
@@ -61,11 +60,11 @@ try {
 
 <Layout title={series?.[0].series_name ?? "Error loading series"}>
   <Breadcrumbs
-  crumbs={[
-    { title: "Series", url: "/series" },
-    { title: series?.[0].series_name, },
-  ]}
-/>
+    crumbs={[
+      { title: "Series", url: "/series" },
+      { title: series?.[0].series_name },
+    ]}
+  />
   {
     series ? (
       <>
