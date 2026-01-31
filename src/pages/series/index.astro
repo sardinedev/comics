@@ -1,60 +1,8 @@
 ---
 import Layout from "@layouts/Layout.astro";
-
-import Breadcrumbs from "@components/Breadcrumbs.astro";
-import Button from "@components/Button/Button.astro";
-import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
-import Icon from "@components/Icon/Icon.astro";
-import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
-
-import { getAllSeries } from "@util/elastic";
-import type { Issue } from "@util/comics.types";
-
-const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
-const page = Astro.url.searchParams.get("page")
-  ? Number(Astro.url.searchParams.get("page"))
-  : 1;
-
-let series: Issue[] = [];
-let totalIssues = 0;
-
-try {
-  const { result, totalResults } = await getAllSeries({sort, page});
-  series = result;
-  totalIssues = totalResults;
-} catch (error) {
-  console.error(error);
-}
 const title = "Series";
 ---
 
 <Layout title={title}>
-  <Breadcrumbs
-  crumbs={[
-    { title: "Series"},
-  ]}
-/>
-  { !series ?
-    <h1>Loading...</h1>
-  :
-  <section class="flex gap-4 items-center mb-4">
-    <Button class="w-100">
-      <Icon name="filter" size="1.5rem" />
-      Filter
-    </Button>
-    <Button class="w-100">
-      <Icon name="sort" size="1.5rem" />
-      Sort
-    </Button>
-  </section>
-
-    <IssueGrid totalNumberOfIssues={totalIssues} currentPage={page} >
-      {series.map((serie) => (
-        <CoverLeaf type="series" cover={serie.issue_cover} id={serie.series_id} name={serie.series_name} year={serie.series_year}/>
-      ))}
-    </IssueGrid>
-
-  
-}
-
+  <!-- UI for showing all series will be here -->
 </Layout>
