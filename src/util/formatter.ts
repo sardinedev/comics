@@ -1,6 +1,6 @@
 import type { Issue } from "./comics.types";
-import type { MylarIssue, MylarComic } from "./mylar.types";
-import type { ComicvineSingleIssueResponse } from "./comicvine.types";
+import type { MylarIssue, MylarComic } from "../data/mylar/mylar.types";
+import type { ComicvineSingleIssueResponse } from "../data/comicvine/comicvine.types";
 
 /**
  * Formats a Mylar issue into an Issue object.

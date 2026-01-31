@@ -1,4 +1,4 @@
-import type { IssueStatus } from "./mylar.types";
+import type { IssueStatus } from "../data/mylar/mylar.types";
 
 /**
  * Per-issue reading state.

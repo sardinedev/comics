@@ -1,54 +1,72 @@
-# Astro Starter Kit: Basics
+# Comics
 
-```sh
-npm create astro@latest -- --template basics
-```
+An Astro server-side rendered (SSR) application for browsing and managing a personal comics library. Features a clean UI built with Astro components and Preact islands for interactivity, styled using Tailwind CSS.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/withastro/astro/tree/latest/examples/basics)
-[![Open with CodeSandbox](https://assets.codesandbox.io/github/button-edit-lime.svg)](https://codesandbox.io/p/sandbox/github/withastro/astro/tree/latest/examples/basics)
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/withastro/astro?devcontainer_path=.devcontainer/basics/devcontainer.json)
+## Overview
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+This app helps you:
+- Browse your personal comics library
+- Track series and issues from Mylar
+- View weekly new releases from Comic Vine
+- Manage cover images locally
 
-![just-the-basics](https://github.com/withastro/astro/assets/2244813/a0a5533c-a856-4198-8470-2d67b1d7c554)
+## Tech Stack
 
-## 🚀 Project Structure
+- **Framework**: Astro 5 SSR with Node adapter
+- **UI**: Astro components + Preact islands for interactivity
+- **Styling**: Tailwind CSS 4
+- **State**: Nanostores for client-side state management
+- **Testing**: Vitest
+- **Language**: TypeScript
 
-Inside of your Astro project, you'll see the following folders and files:
+## Commands
+
+All commands are run from the root of the project:
+
+| Command              | Action                                      |
+| :------------------- | :------------------------------------------ |
+| `npm install`        | Install dependencies                        |
+| `npm run dev`        | Start dev server at `localhost:4321`        |
+| `npm run build`      | Build production site to `./dist/`          |
+| `npm run preview`    | Preview build locally before deploying      |
+| `npm run type:check` | Run Astro type checking                     |
+| `npx vitest run`     | Run tests                                   |
+
+## Project Structure
 
 ```text
 /
-├── public/
-│   └── favicon.svg
-├── src/
-│   ├── components/
-│   │   └── Card.astro
-│   ├── layouts/
-│   │   └── Layout.astro
-│   └── pages/
-│       └── index.astro
-└── package.json
+├── data/
+│   └── covers/              # Local cover image cache
+├── docs/                    # Project documentation
+├── public/                  # Static assets
+│   └── icons/
+└── src/
+    ├── components/          # Astro components + Preact islands
+    ├── data/               # Data layer (API clients, models)
+    │   ├── comicvine/      # Comic Vine API client
+    │   ├── elastic/        # Elasticsearch client & models
+    │   └── mylar/          # Mylar API client
+    ├── layouts/            # Page layouts
+    ├── pages/              # Astro pages & API routes
+    ├── stores/             # Nanostores for client state
+    ├── styles/             # Global CSS
+    └── util/               # Utilities & helpers
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Documentation
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+Detailed documentation is available in the `docs/` folder:
 
-Any static assets, like images, can be placed in the `public/` directory.
+- [Conventions](docs/CONVENTIONS.md) - Coding standards and patterns
+- [Data Sources](docs/DATA_SOURCES.md) - API integrations (Mylar, Comic Vine, Elasticsearch)
+- [Cover Images](docs/COVER_IMAGES.md) - Cover caching and serving
+- [Testing](docs/TESTING.md) - Testing approach
+- [Hosting](docs/HOSTING.md) - Deployment and infrastructure
 
-## 🧞 Commands
+## Requirements
 
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- Node.js 22.12.0 (see `.nvmrc`)
+- Elasticsearch instance
+- Mylar instance
+- Comic Vine API key

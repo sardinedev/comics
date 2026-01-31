@@ -5,18 +5,17 @@ This app pulls comic/series metadata from a mix of upstream APIs and stores (ind
 
 ## Code organization (where to look)
 
-Each data source has a dedicated module in `src/util/` that exposes multiple functions to interact with it:
+Each data source has a dedicated module in `src/data/` that exposes multiple functions to interact with it:
 
-- `src/util/mylar.ts`: Mylar client + Mylar-specific API helpers
-- `src/util/comicvine.ts`: Comic Vine client + Comic Vine-specific API helpers
-- `src/util/elastic.ts`: Elasticsearch client + query/index helpers
+- `src/data/mylar/mylar.ts`: Mylar client + Mylar-specific API helpers
+- `src/data/comicvine/comicvine.ts`: Comic Vine client + Comic Vine-specific API helpers
+- `src/data/elastic/elastic.ts`: Elasticsearch client + query/index helpers
 - `src/util/covers.ts`: Cover image caching and serving helpers
-- `src/util/sync.ts`: orchestration for syncing/seeding data between sources
 
 Shared shapes live next to the clients:
 
 - `src/util/comics.types.ts`: normalized `Issue` shape used throughout the app
-- `src/util/mylar.types.ts`, `src/util/comicvine.types.ts`: upstream response typings
+- `src/data/mylar/mylar.types.ts`, `src/data/comicvine/comicvine.types.ts`: upstream response typings
 
 ## Upstream sources
 
@@ -40,7 +39,7 @@ Shared shapes live next to the clients:
 
 **Implementation**
 
-- `src/util/mylar.ts`
+- `src/data/mylar/mylar.ts`
 
 ### Comic Vine (public API)
 
@@ -60,7 +59,7 @@ Shared shapes live next to the clients:
 
 **Implementation**
 
-- `src/util/comicvine.ts`
+- `src/data/comicvine/comicvine.ts`
 
 **Images**
 
@@ -75,42 +74,20 @@ Shared shapes live next to the clients:
 **What it stores**
 
 - A normalized `Issue` document (see `src/util/comics.types.ts`) used by pages and API routes.
-- The index is currently hard-coded as `issues` in `src/util/elastic.ts`.
+- The index name is defined as `ISSUES_INDEX` in `src/data/elastic/models/issue.model.ts`.
 
 **Configuration**
 
 - API key: `ELASTIC_API_KEY`
-- Base URL is currently hard-coded in `src/util/elastic.ts`.
+- Base URL is currently hard-coded in `src/data/elastic/elastic.ts`.
 
 **Implementation**
 
-- `src/util/elastic.ts`
+- `src/data/elastic/elastic.ts`
 
-> Note: `src/env.d.ts` declares `ELASTIC_URL` and `ELASTIC_INDEX`, but the current implementation uses hard-coded values. If you want these to be runtime-configurable, wire them through `import.meta.env`.
+> Note: `src/env.d.ts` declares `ELASTIC_URL` and `ELASTIC_INDEX`, but the current implementation uses hard-coded values. The `ELASTIC_URL` is hard-coded in `src/data/elastic/elastic.ts` and the index name is defined in `src/data/elastic/models/issue.model.ts`. If you want these to be runtime-configurable, wire them through `import.meta.env`.
 
-## Ingestion / sync flows
-
-### Seed (full pass from Mylar → Elasticsearch)
-
-Implemented in `seedElastic()` (`src/util/sync.ts`):
-
-1. Creates an Elasticsearch index (best-effort; logs if it already exists).
-2. Fetches all series from Mylar.
-3. For each series, fetches series details (including issues).
-4. Formats each Mylar issue into the app’s `Issue` shape.
-5. Upserts each issue into Elasticsearch.
-
-This is typically triggered via an Astro API route under `src/pages/api/` (file-based routing), but the exact URL can change as routes evolve.
-
-### Sync (incremental create-only from Mylar → Elasticsearch)
-
-Implemented in `syncMylarWithElastic()` (`src/util/sync.ts`):
-
-- Same Mylar traversal as the seed, but uses create-only indexing (`elasticAddIssueWithoutUpdate`) and skips issues already present.
-
-This is typically triggered via an Astro API route under `src/pages/api/` (file-based routing), but the exact URL can change as routes evolve.
 
 ## Keeping this doc accurate over time
 
-When code moves, the most reliable way to re-ground this document is to start from `src/util/` (clients + sync) and follow imports.
-
+When code moves, the most reliable way to re-ground this document is to start from `src/data/` (clients) and `src/util/` (utilities) and follow imports.

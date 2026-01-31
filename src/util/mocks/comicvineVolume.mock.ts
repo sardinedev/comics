@@ -1,4 +1,4 @@
-import type { ComicvineVolume } from "../comicvine.types";
+import type { ComicvineVolume } from "../../data/comicvine/comicvine.types";
 
 export const comicvineVolumeMock: ComicvineVolume = {
   aliases: null,

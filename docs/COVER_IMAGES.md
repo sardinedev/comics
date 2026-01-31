@@ -22,45 +22,12 @@ For issues with `status: "Wanted"` or `"Skipped"`:
 
 - `COVERS_DIR`: Local directory for cached covers (default: `data/covers`)
 
-### Backfill
-
-To populate covers for downloaded issues, the backfill endpoint only targets issues that:
-
-1. Have `status: "Downloaded"`, and
-2. Still have a remote cover URL (`issue_cover` starts with `http`).
-
-This means each successful run shrinks the remaining work over time.
-
-If a cover file already exists in `data/covers/` and `force=false`, the backfill will only update Elasticsearch to point `issue_cover` at `/covers/{id}.jpg` (no re-download).
-```bash
-# Check status (shows downloaded vs non-downloaded breakdown)
-curl http://localhost:4321/api/covers/backfill
-
-# Run backfill (processes up to 100 downloaded issues)
-curl -X POST \
-	-H 'Content-Type: application/json' \
-	-d '{}' \
-	'http://localhost:4321/api/covers/backfill?limit=100'
-
-# Force re-download
-curl -X POST \
-	-H 'Content-Type: application/json' \
-	-d '{}' \
-	'http://localhost:4321/api/covers/backfill?limit=100&force=true'
-
-# Dry-run backfill (preview which issues would be processed without downloading or updating covers)
-curl -X POST \
-	-H 'Content-Type: application/json' \
-	-d '{}' \
-	'http://localhost:4321/api/covers/backfill?limit=100&dry=true'
 ```
 
 ### Implementation
 
-- `src/util/covers.ts`: CBZ extraction and caching logic
-- `src/util/mylar.ts`: Mylar API (`mylarDownloadIssue`, `mylarGetSeriesArt`)
+- `src/util/covers.ts`: CBZ extraction and caching logiciesArt`)
 - `src/pages/covers/[...path].ts`: Route handler for serving covers
-- `src/pages/api/covers/backfill.ts`: Backfill API endpoint
 
 ### Dependencies
 

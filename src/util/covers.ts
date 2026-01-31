@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Readable } from "node:stream";
-import { mylarDownloadIssue } from "./mylar";
+import { mylarDownloadIssue } from "../data/mylar/mylar";
 
 // Use dynamic import for unzipper since it's a CJS module
 let unzipper: typeof import("unzipper") | null = null;
