@@ -1,7 +1,8 @@
 import {
-  elasticCreateIndex,
   elasticUpdateIssue,
   elasticBulkUpdate,
+  elasticEnsureReadModelIndices,
+  elasticUpsertSeriesProgressForSeries,
 } from "./elastic";
 import { mylarGetAllSeries, mylarGetSeries, mylarGetHistory } from "./mylar";
 import { formatMylarIssue } from "./formatter";
@@ -42,19 +43,7 @@ export async function seedElastic() {
   let totalIssues = 0;
   const errors: string[] = [];
   try {
-    try {
-      await elasticCreateIndex("comics", {
-        properties: {
-          year: {
-            type: "date",
-            format: "yyyy",
-          },
-        },
-      });
-    } catch (error) {
-      console.error(error);
-      console.log("Index already exists.");
-    }
+    await elasticEnsureReadModelIndices();
 
     const { data } = await mylarGetAllSeries();
 
@@ -76,6 +65,15 @@ export async function seedElastic() {
             errors.push(`Failed to update ${issue.name} issue in Elastic.`);
           }
         }
+
+        try {
+          await elasticUpsertSeriesProgressForSeries(serie.id);
+        } catch (error) {
+          console.error(`Failed to update series progress for ${serie.id}:`, error);
+          errors.push(`Failed to update series progress for ${serie.name}.`);
+        }
+
+        totalSeries = totalSeries + 1;
       } catch (error) {
         console.error(error);
         errors.push(`Failed to fetch ${serie.name} series data from Mylar.`);
@@ -102,6 +100,8 @@ export async function syncMylarWithElastic() {
   const errors: string[] = [];
   
   try {
+    await elasticEnsureReadModelIndices();
+
     const { data: historyItems } = await mylarGetHistory();
     
     if (!historyItems || historyItems.length === 0) {
@@ -174,6 +174,16 @@ export async function syncMylarWithElastic() {
       try {
         await elasticBulkUpdate(updatesToApply);
         console.info(`Synced ${updatesToApply.length} issues from Mylar history`);
+
+        // Update per-series progress docs for any series we touched.
+        for (const seriesId of seriesMap.keys()) {
+          try {
+            await elasticUpsertSeriesProgressForSeries(seriesId);
+          } catch (error) {
+            console.error(`Failed to update series progress for ${seriesId}:`, error);
+            errors.push(`Failed to update series progress for ComicID ${seriesId}.`);
+          }
+        }
       } catch (error) {
         console.error("Failed to bulk update Elastic:", error);
         errors.push(

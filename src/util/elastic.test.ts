@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Issue } from "./comics.types";
+import type { Issue, SeriesProgress } from "./comics.types";
 
 const elasticState = {
   search: vi.fn(),
+  mget: vi.fn(),
 };
 
 vi.mock("@elastic/elasticsearch", () => {
@@ -11,6 +12,11 @@ vi.mock("@elastic/elasticsearch", () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       constructor(_opts: unknown) { }
       search = (...args: any[]) => elasticState.search(...args);
+      mget = (...args: any[]) => elasticState.mget(...args);
+      indices = {
+        exists: vi.fn().mockResolvedValue(true),
+        create: vi.fn(),
+      };
     },
   };
 });
@@ -45,8 +51,23 @@ function hitsResponse(issues: Issue[]) {
   } as any;
 }
 
+function progressHitsResponse(progress: SeriesProgress[]) {
+  return {
+    hits: {
+      hits: progress.map((p) => ({ _source: p })),
+    },
+  } as any;
+}
+
+function mgetResponse(issues: Issue[]) {
+  return {
+    docs: issues.map((issue) => ({ _id: issue.issue_id, _source: issue })),
+  } as any;
+}
+
 afterEach(() => {
   elasticState.search.mockReset();
+  elasticState.mget.mockReset();
 });
 
 describe("elasticGetUpNextIssues", () => {
@@ -64,87 +85,54 @@ describe("elasticGetUpNextIssues", () => {
 });
 
 describe("elasticGetContinueReadingIssues", () => {
-  it("returns empty when there are no read issues", async () => {
-    elasticState.search.mockResolvedValueOnce(hitsResponse([]));
+  it("returns empty when series_progress has no docs", async () => {
+    elasticState.search.mockResolvedValueOnce(progressHitsResponse([]));
 
     const result = await elastic.elasticGetContinueReadingIssues();
     expect(result).toEqual([]);
     expect(elasticState.search).toHaveBeenCalledTimes(1);
+    expect(elasticState.mget).toHaveBeenCalledTimes(0);
   });
 
-  it("picks the first unread issue after the max read per series", async () => {
-    const seriesARead = makeIssue({
+  it("returns current_issue_id or next_issue_id in progress order", async () => {
+    const issueA5 = makeIssue({
       series_id: "A",
       series_name: "Alpha",
-      issue_reading_state: "read",
-      issue_number: 2,
-      issue_id: "A-2",
-    });
-    const seriesBRead = makeIssue({
-      series_id: "B",
-      series_name: "Beta",
-      issue_reading_state: "read",
-      issue_number: 5,
-      issue_id: "B-5",
-    });
-
-    const unreadA3 = makeIssue({
-      series_id: "A",
-      series_name: "Alpha",
-      issue_reading_state: "unread",
-      issue_number: 3,
-      issue_id: "A-3",
-    });
-    const unreadB6 = makeIssue({
-      series_id: "B",
-      series_name: "Beta",
-      issue_reading_state: "unread",
-      issue_number: 6,
-      issue_id: "B-6",
-    });
-
-    elasticState.search
-      .mockResolvedValueOnce(hitsResponse([seriesBRead, seriesARead]))
-      .mockResolvedValueOnce(hitsResponse([unreadA3, unreadB6]));
-
-    const result = await elastic.elasticGetContinueReadingIssues({
-      maxSeries: 10,
-    });
-
-    expect(result.map((i) => i.issue_id).sort()).toEqual(["A-3", "B-6"]);
-    expect(elasticState.search).toHaveBeenCalledTimes(2);
-  });
-
-  it("falls back to the earliest unread when none are after max read", async () => {
-    const seriesARead = makeIssue({
-      series_id: "A",
-      series_name: "Alpha",
-      issue_reading_state: "read",
-      issue_number: 5,
       issue_id: "A-5",
+      issue_number: 5,
+      issue_reading_state: "reading",
     });
-
-    const unreadA1 = makeIssue({
-      series_id: "A",
-      series_name: "Alpha",
-      issue_reading_state: "unread",
+    const issueB1 = makeIssue({
+      series_id: "B",
+      series_name: "Beta",
+      issue_id: "B-1",
       issue_number: 1,
-      issue_id: "A-1",
-    });
-    const unreadA2 = makeIssue({
-      series_id: "A",
-      series_name: "Alpha",
       issue_reading_state: "unread",
-      issue_number: 2,
-      issue_id: "A-2",
     });
 
-    elasticState.search
-      .mockResolvedValueOnce(hitsResponse([seriesARead]))
-      .mockResolvedValueOnce(hitsResponse([unreadA1, unreadA2]));
+    const progress: SeriesProgress[] = [
+      {
+        series_id: "A",
+        series_name: "Alpha",
+        current_issue_id: "A-5",
+        current_issue_number: 5,
+        last_activity_at: "2026-01-02T00:00:00.000Z",
+      },
+      {
+        series_id: "B",
+        series_name: "Beta",
+        next_issue_id: "B-1",
+        next_issue_number: 1,
+        last_activity_at: "2026-01-01T00:00:00.000Z",
+      },
+    ];
 
-    const result = await elastic.elasticGetContinueReadingIssues();
-    expect(result.map((i) => i.issue_id)).toEqual(["A-1"]);
-    expect(elasticState.search).toHaveBeenCalledTimes(2);
+    elasticState.search.mockResolvedValueOnce(progressHitsResponse(progress));
+    elasticState.mget.mockResolvedValueOnce(mgetResponse([issueA5, issueB1]));
+
+    const result = await elastic.elasticGetContinueReadingIssues({ maxSeries: 10 });
+    expect(result.map((i) => i.issue_id)).toEqual(["A-5", "B-1"]);
+    expect(elasticState.search).toHaveBeenCalledTimes(1);
+    expect(elasticState.mget).toHaveBeenCalledTimes(1);
   });
 });
