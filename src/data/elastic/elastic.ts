@@ -4,9 +4,9 @@ import type { estypes } from "@elastic/elasticsearch";
 let client: Client | null = null;
 
 const ELASTIC_API_KEY =
-  import.meta.env.ELASTIC_API_KEY ?? process.env.ELASTIC_API_KEY;
+  import.meta.env?.ELASTIC_API_KEY ?? process.env.ELASTIC_API_KEY;
 const ELASTIC_URL =
-  import.meta.env.ELASTIC_URL ??
+  import.meta.env?.ELASTIC_URL ??
   process.env.ELASTIC_URL ??
   "http://192.168.50.190:30003";
 
@@ -148,7 +148,9 @@ export async function elasticInitializeIndex(
 }
 
 // Re-export reindex functionality
-export type { ElasticReindexOptions } from "./reindex";
 export { elasticReindex } from "./reindex";
+
+// Re-export document/bulk helpers
+export { summarizeBulkResponse, elasticBulkUpsertDocuments } from "./documents";
 
 

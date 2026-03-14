@@ -5,20 +5,7 @@ import {
   elasticCreateIndex,
   elasticDeleteIndex,
 } from "./elastic";
-
-/**
- * Options for reindexing operation.
- */
-export interface ElasticReindexOptions {
-  /** New mappings to apply to the destination index */
-  mappings: estypes.MappingTypeMapping;
-  /** Optional suffix for the new index name (default: timestamp) */
-  suffix?: string;
-  /** Optional index settings (defaults to DEFAULT_INDEX_SETTINGS) */
-  settings?: estypes.IndicesIndexSettings;
-  /** If true, preserves old index as backup instead of deleting (default: false) */
-  keepOldIndex?: boolean;
-}
+import type { ElasticReindexOptions } from "./elastic.types";
 
 /**
  * Reindex data from one index to another with new mappings.

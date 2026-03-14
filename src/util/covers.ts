@@ -12,7 +12,7 @@ async function getUnzipper() {
   return unzipper;
 }
 
-const COVERS_DIR = import.meta.env.COVERS_DIR ?? process.env.COVERS_DIR ?? "data/covers";
+const COVERS_DIR = import.meta.env?.COVERS_DIR ?? process.env.COVERS_DIR ?? "data/covers";
 
 /**
  * Image file extensions to look for in CBZ archives.
@@ -111,24 +111,24 @@ function isImageFile(filename: string): boolean {
  */
 function detectArchiveType(data: Uint8Array): "zip" | "rar" | "unknown" {
   if (data.length < 4) return "unknown";
-  
+
   // ZIP: starts with "PK" (0x50 0x4B)
   if (data[0] === 0x50 && data[1] === 0x4B) {
     return "zip";
   }
-  
+
   // RAR: starts with "Rar!" (0x52 0x61 0x72 0x21)
   if (data[0] === 0x52 && data[1] === 0x61 && data[2] === 0x72 && data[3] === 0x21) {
     return "rar";
   }
-  
+
   return "unknown";
 }
 
 async function extractCoverFromCbz(archiveData: Uint8Array): Promise<Uint8Array | null> {
   // Detect archive type
   const archiveType = detectArchiveType(archiveData);
-  
+
   if (archiveType === "rar") {
     // CBR (RAR) files are not supported by unzipper
     console.warn(
@@ -136,7 +136,7 @@ async function extractCoverFromCbz(archiveData: Uint8Array): Promise<Uint8Array 
     );
     return null;
   }
-  
+
   if (archiveType === "unknown") {
     console.error(
       `Unknown archive format. First bytes: ${Array.from(archiveData.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ')}`
@@ -150,10 +150,10 @@ async function extractCoverFromCbz(archiveData: Uint8Array): Promise<Uint8Array 
   }
 
   console.info(`Parsing CBZ (ZIP) archive: ${(archiveData.length / 1024 / 1024).toFixed(2)} MB`);
-  
+
   try {
     const unzip = await getUnzipper();
-    
+
     // Use streaming approach - more robust for various ZIP formats
     return new Promise<Uint8Array | null>((resolve) => {
       const chunks: { path: string; buffer: Uint8Array }[] = [];
@@ -165,18 +165,18 @@ async function extractCoverFromCbz(archiveData: Uint8Array): Promise<Uint8Array 
         resolved = true;
         resolve(value);
       };
-      
+
       const stream = unzip.Parse();
-      
+
       stream.on("entry", async (entry) => {
         const filePath = entry.path;
-        
+
         // Skip non-image files and macOS metadata
         if (filePath.startsWith("__MACOSX") || !isImageFile(filePath)) {
           entry.autodrain();
           return;
         }
-        
+
         // Collect the entry data
         const buffers: Uint8Array[] = [];
         entry.on("data", (chunk: Buffer) => buffers.push(new Uint8Array(chunk)));
@@ -191,26 +191,26 @@ async function extractCoverFromCbz(archiveData: Uint8Array): Promise<Uint8Array 
           chunks.push({ path: filePath, buffer: combined });
         });
       });
-      
+
       stream.on("close", () => {
         if (chunks.length === 0) {
           console.error("No image files found in CBZ archive");
           resolveOnce(null);
           return;
         }
-        
+
         // Sort alphabetically to get cover (usually first)
         chunks.sort((a, b) => a.path.localeCompare(b.path));
         const cover = chunks[0];
         console.info(`Extracted cover: ${cover.path}`);
         resolveOnce(cover.buffer);
       });
-      
+
       stream.on("error", (err) => {
         console.error("Error parsing CBZ stream:", err);
         resolveOnce(null);
       });
-      
+
       // Feed the archive data to the stream
       const readable = Readable.from(Buffer.from(archiveData));
       readable.on("error", (err) => {
@@ -244,7 +244,7 @@ export async function extractCoverFromDownloadedIssue(
   // Download the archive from Mylar
   console.info(`Downloading issue ${issueId} from Mylar for cover extraction...`);
   const archiveData = await mylarDownloadIssue(issueId);
-  
+
   if (!archiveData) {
     return {
       success: false,
@@ -263,7 +263,7 @@ export async function extractCoverFromDownloadedIssue(
 
   // Extract the cover
   const coverData = await extractCoverFromCbz(archiveData);
-  
+
   if (!coverData) {
     return {
       success: false,

@@ -61,6 +61,9 @@ Shared shapes live next to the clients:
 
 - `src/data/comicvine/comicvine.ts`
 
+**Rate limiting**
+- Support 200 requests per resource, per hour.
+
 **Images**
 
 - Comic Vine's CDN (Cloudflare) blocks server-to-server requests with HTTP 403.
