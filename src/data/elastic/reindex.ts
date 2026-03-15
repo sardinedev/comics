@@ -1,6 +1,6 @@
 import type { estypes } from "@elastic/elasticsearch";
 import {
-  getElasticClient,
+  elastic,
   elasticIndexExists,
   elasticCreateIndex,
   elasticDeleteIndex,
@@ -49,7 +49,6 @@ export async function elasticReindex(
   options: ElasticReindexOptions
 ) {
   const { mappings, suffix, settings, keepOldIndex = false } = options;
-  const elastic = getElasticClient();
   const timestampMs = new Date().getTime();
   const indexSuffix = suffix ?? timestampMs.toString();
   const newIndex = `${oldIndex}_${indexSuffix}`;

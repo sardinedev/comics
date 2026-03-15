@@ -1,5 +1,5 @@
 import type { estypes } from "@elastic/elasticsearch";
-import { getElasticClient } from "./elastic";
+import { elastic } from "./elastic";
 import type {
   ElasticBulkErrorItem,
   ElasticBulkSummary,
@@ -57,7 +57,6 @@ export async function elasticBulkUpsertDocuments<
   docs: ElasticUpsertDocument<TDoc>[],
   options: ElasticBulkUpsertOptions = {}
 ): Promise<ElasticBulkSummary> {
-  const elastic = getElasticClient();
 
   const body: unknown[] = [];
   for (const { id, doc, upsert } of docs) {

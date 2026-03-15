@@ -1,0 +1,72 @@
+openapi: 3.1.0
+info:
+  title: Comics Library API
+  version: 0.1.0
+  description: Personal comics library backed by Elasticsearch
+
+servers:
+  - url: http://localhost:4321/api
+    description: Local development
+
+paths:
+  /series:
+    get:
+      summary: List all series
+      operationId: getAllSeries
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated series list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedSeriesSummary"
+
+components:
+  schemas:
+    SeriesSummary:
+      type: object
+      required: [series_id, series_name, series_year]
+      properties:
+        series_id:
+          type: string
+        series_name:
+          type: string
+        series_year:
+          type: string
+        series_cover_url:
+          type: string
+          nullable: true
+
+    PaginatedResult:
+      type: object
+      required: [items, total, page, pageSize, totalPages]
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalPages:
+          type: integer
+
+    PaginatedSeriesSummary:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResult"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/SeriesSummary"

@@ -1,8 +1,6 @@
 import { Client } from "@elastic/elasticsearch";
 import type { estypes } from "@elastic/elasticsearch";
 
-let client: Client | null = null;
-
 const ELASTIC_API_KEY =
   import.meta.env?.ELASTIC_API_KEY ?? process.env.ELASTIC_API_KEY;
 const ELASTIC_URL =
@@ -10,34 +8,25 @@ const ELASTIC_URL =
   process.env.ELASTIC_URL ??
   "http://192.168.50.190:30003";
 
-/**
- * Get the Elastic client.
- */
-export function getElasticClient(): Client {
-  if (!client) {
-    if (!ELASTIC_API_KEY) {
-      throw new Error(
-        "ELASTIC_API_KEY is not defined. Please set it in your environment variables."
-      );
-    }
-    console.info("Creating new Elastic client");
-    client = new Client({
-      node: ELASTIC_URL,
-      auth: {
-        apiKey: ELASTIC_API_KEY,
-      },
-    });
-  }
-  return client;
+if (!ELASTIC_API_KEY) {
+  throw new Error(
+    "ELASTIC_API_KEY is not defined. Please set it in your environment variables."
+  );
 }
+
+export const elastic: Client = new Client({
+  node: ELASTIC_URL,
+  auth: {
+    apiKey: ELASTIC_API_KEY,
+  },
+});
 
 /**
  * Check if an index exists in Elasticsearch.
  * Throws if there's a connection error.
  */
-export async function elasticIndexExists(index: string): Promise<boolean> {
-  const elastic = getElasticClient();
-  return await elastic.indices.exists({ index });
+export function elasticIndexExists(index: string): Promise<boolean> {
+  return elastic.indices.exists({ index });
 }
 
 /**
@@ -57,7 +46,6 @@ export async function elasticCreateIndex(
   mappings: estypes.MappingTypeMapping,
   settings: estypes.IndicesIndexSettings = DEFAULT_INDEX_SETTINGS
 ) {
-  const elastic = getElasticClient();
   try {
     const response = await elastic.indices.create({
       index,
@@ -85,7 +73,6 @@ export async function elasticUpdateMappings(
   index: string,
   mappings: estypes.MappingTypeMapping
 ) {
-  const elastic = getElasticClient();
   try {
     const response = await elastic.indices.putMapping({
       index,
@@ -109,7 +96,6 @@ export async function elasticUpdateMappings(
  * Delete an index from Elasticsearch.
  */
 export async function elasticDeleteIndex(index: string) {
-  const elastic = getElasticClient();
   try {
     const response = await elastic.indices.delete({ index });
 

@@ -44,14 +44,6 @@ describe("Elasticsearch Client Functions", () => {
     vi.clearAllMocks();
   });
 
-  describe("getElasticClient", () => {
-    it("should return a singleton Elasticsearch client", () => {
-      const client1 = elastic.getElasticClient();
-      const client2 = elastic.getElasticClient();
-      expect(client1).toBe(client2);
-    });
-  });
-
   describe("elasticIndexExists", () => {
     it("should return true when index exists", async () => {
       elasticState.indices.exists.mockResolvedValue(true);
