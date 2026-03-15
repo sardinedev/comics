@@ -3,17 +3,13 @@ import PageNavigator from "../PageNavigator.astro";
 
 type Props = {
   currentPage: number;
-  totalNumberOfIssues: number;
-  issuesPerPage?: number;
+  totalNumberOfPages: number;
 };
 
-const { currentPage, totalNumberOfIssues, issuesPerPage = 50 } = Astro.props;
+const { currentPage, totalNumberOfPages } = Astro.props;
 ---
 
-<ol class="grid gap-8 grid-cols-1 sm:grid-cols-3 md:grid-cols-5 mt-8">
+<ol class="grid gap-8 grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mt-8">
   <slot />
 </ol>
-<PageNavigator
-  numberOfPages={Math.ceil(totalNumberOfIssues / issuesPerPage)}
-  currentPage={currentPage}
-/>
+<PageNavigator numberOfPages={totalNumberOfPages} currentPage={currentPage} />

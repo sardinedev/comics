@@ -21,8 +21,6 @@ type SeriesCoverLeaf = {
 const { cover, id, ...props } = Astro.props as IssueCoverLeaf | SeriesCoverLeaf;
 
 const coverSrc = cover ?? "/logo.svg";
-const isRemoteCover =
-  coverSrc.startsWith("http://") || coverSrc.startsWith("https://");
 const isLocalCoverRoute = coverSrc.startsWith("/covers/");
 const optimizableCoverSrc = isLocalCoverRoute
   ? new URL(coverSrc, Astro.url).toString()
@@ -46,38 +44,26 @@ if (props.type === "series") {
 ---
 
 <li data-coverid={id}>
-  <a href={href} class="relative flex flex-col items-center gap-2">
-    {
-      isRemoteCover ? (
-        <img
-          class="rounded-md w-64"
-          src={coverSrc}
-          height="320"
-          width="210"
-          alt={alt as string}
-          loading="lazy"
-          decoding="async"
-        />
-      ) : (
-        <Image
-          class={"rounded-md w-64"}
-          src={optimizableCoverSrc}
-          widths={[210, 315, 420]}
-          sizes="256px"
-          height="320"
-          width="210"
-          alt={alt as string}
-          format="avif"
-        />
-      )
-    }
-    <span class={"flex items-baseline justify-center gap-2"}>
+  <a href={href} class="relative flex flex-wrap gap-2">
+    <Image
+      class={"rounded-md w-64"}
+      src={optimizableCoverSrc}
+      widths={[183, 275, 366]}
+      sizes="(max-width: 640px) 183px, 210px"
+      height={320}
+      width={210}
+      quality="mid"
+      format="avif"
+      alt={alt as string}
+      loading="lazy"
+    />
+    <span class={"flex flex-col gap-2"}>
       {
         props.type === "Issue" ? (
           label
         ) : (
           <>
-            <span class="text-xl font-bold text-white sm:text-2xl">
+            <span class="text-lg font-bold leading-6 text-white sm:text-2xl">
               {props.name}
             </span>
             <span class="text-sm text-gray-300">{props.year}</span>
@@ -85,14 +71,5 @@ if (props.type === "series") {
         )
       }
     </span>
-    {
-      readingStatus === "read" ? (
-        <img
-          class={"h-5 w-5 invert absolute top-1 right-1 shadow-lg"}
-          src={"/icons/tick-filled.svg"}
-          alt="Previous page"
-        />
-      ) : null
-    }
   </a>
 </li>

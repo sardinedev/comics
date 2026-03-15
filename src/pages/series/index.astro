@@ -1,8 +1,27 @@
 ---
 import Layout from "@layouts/Layout.astro";
+import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
+import { getAllSeries } from "@data/elastic/queries";
+import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
+
 const title = "Series";
+const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
+const series = await getAllSeries(currentPage);
 ---
 
 <Layout title={title}>
-  <!-- UI for showing all series will be here -->
+  <h1 class="text-3xl font-bold">{title}</h1>
+  <IssueGrid currentPage={currentPage} totalNumberOfPages={series.totalPages}>
+    {
+      series.items.map((s) => (
+        <CoverLeaf
+          id={s.series_id}
+          cover={s.series_cover_url}
+          name={s.series_name}
+          year={s.series_year}
+          type="series"
+        />
+      ))
+    }
+  </IssueGrid>
 </Layout>
