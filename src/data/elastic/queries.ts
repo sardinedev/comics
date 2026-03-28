@@ -2,7 +2,10 @@ import { elastic } from "./elastic";
 import { ISSUES_INDEX } from "./models/issue.model";
 import type { Issue } from "../comics.types";
 
-type SeriesHitSource = Pick<Issue, "series_id" | "series_name" | "series_year">;
+type SeriesHitSource = Pick<
+  Issue,
+  "series_id" | "series_name" | "series_year" | "series_publisher" | "series_total_issues"
+>;
 type CoverHitSource = Pick<Issue, "issue_cover_url">;
 type SeriesAggregations = { total_series: { value: number } };
 
@@ -11,6 +14,8 @@ export type SeriesSummary = {
   series_name: string;
   series_year: string;
   series_cover_url?: string;
+  series_publisher?: string;
+  series_total_issues?: number;
 };
 
 export type PaginatedResult<T> = {
@@ -31,6 +36,71 @@ const SORT_CLAUSES: Record<SeriesSort, SortClause[]> = {
   "date-asc":   [{ series_year: "asc" },  { "series_name.keyword": "asc" }],
   "date-desc":  [{ series_year: "desc" }, { "series_name.keyword": "asc" }],
 };
+
+/**
+ * The most recently opened issue the user is currently reading.
+ * Used for the homepage hero.
+ */
+export async function getNowReading(): Promise<Issue | null> {
+  const response = await elastic.search<Issue>({
+    index: ISSUES_INDEX,
+    size: 1,
+    query: { term: { reading_state: "reading" } },
+    sort: [{ last_opened_at: "desc" }],
+  });
+
+  return response.hits.hits[0]?._source ?? null;
+}
+
+/**
+ * Issues the user is currently reading, sorted by most recently opened.
+ * Used for the "Continue Reading" strip on the homepage.
+ */
+export async function getContinueReading(limit = 5): Promise<Issue[]> {
+  const response = await elastic.search<Issue>({
+    index: ISSUES_INDEX,
+    size: limit,
+    query: { term: { reading_state: "reading" } },
+    sort: [{ last_opened_at: "desc" }],
+  });
+
+  return response.hits.hits.map((h) => h._source!);
+}
+
+/**
+ * Recently added series, collapsed so each series appears once.
+ * Sorted by the most recent `added_to_library_at` across all issues in the series.
+ */
+export async function getRecentlyAdded(limit = 6): Promise<SeriesSummary[]> {
+  const response = await elastic.search<SeriesHitSource>({
+    index: ISSUES_INDEX,
+    size: limit,
+    collapse: {
+      field: "series_id",
+      inner_hits: {
+        name: "latest_cover",
+        size: 1,
+        sort: [{ issue_date: "desc" }],
+        _source: ["issue_cover_url"],
+      },
+    },
+    sort: [{ added_to_library_at: "desc" }],
+    _source: ["series_id", "series_name", "series_year", "series_publisher", "series_total_issues"],
+  });
+
+  return response.hits.hits.map((hit) => {
+    const src = hit._source!;
+    const cover = hit.inner_hits?.latest_cover?.hits?.hits?.[0]?._source as CoverHitSource | undefined;
+    return {
+      series_id: src.series_id,
+      series_name: src.series_name ?? "",
+      series_year: src.series_year ?? "",
+      series_cover_url: cover?.issue_cover_url,
+      series_publisher: src.series_publisher,
+      series_total_issues: src.series_total_issues,
+    };
+  });
+}
 
 /**
  * Fetches paginated series using field collapsing.
@@ -62,7 +132,7 @@ export async function getAllSeries(
       },
     },
     sort: SORT_CLAUSES[sort],
-    _source: ["series_id", "series_name", "series_year"],
+    _source: ["series_id", "series_name", "series_year", "series_publisher", "series_total_issues"],
     aggs: {
       total_series: {
         cardinality: { field: "series_id" },
@@ -83,6 +153,8 @@ export async function getAllSeries(
       series_name: src.series_name ?? "",
       series_year: src.series_year ?? "",
       series_cover_url: innerHit?.issue_cover_url,
+      series_publisher: src.series_publisher,
+      series_total_issues: src.series_total_issues,
     };
   });
 

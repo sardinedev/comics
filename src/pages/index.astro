@@ -1,5 +1,20 @@
 ---
 import Layout from "@layouts/Layout.astro";
+import { getNowReading, getContinueReading, getRecentlyAdded, getAllSeries } from "@data/elastic/queries";
+import { Image } from "astro:assets";
+
+const [nowReading, continueReading, recentlyAdded, seriesResult] = await Promise.all([
+  getNowReading(),
+  getContinueReading(5),
+  getRecentlyAdded(6),
+  getAllSeries(1, 6),
+]);
+
+const browseSeriesItems = seriesResult.items;
+
+const heroProgress = nowReading?.current_page && nowReading?.issue_page_count
+  ? Math.round((nowReading.current_page / nowReading.issue_page_count) * 100)
+  : null;
 ---
 
 <Layout title="Comics">
@@ -20,213 +35,219 @@ import Layout from "@layouts/Layout.astro";
   </div>
 
   <!-- Hero Section -->
-  <div class="relative -mx-4 -mt-4 mb-16 overflow-hidden">
-    <!-- Grain texture overlay -->
-    <div class="pointer-events-none absolute inset-0 z-10 opacity-[0.03]" style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%224%22 stitchTiles=%22stitch%22/></filter><rect width=%22300%22 height=%22300%22 filter=%22url(%23n)%22 opacity=%221%22/></svg>'); background-repeat: repeat;"></div>
+  {nowReading && (
+    <div class="relative -mx-4 -mt-4 mb-16 overflow-hidden">
+      <div class="pointer-events-none absolute inset-0 z-10 opacity-[0.03]" style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%224%22 stitchTiles=%22stitch%22/></filter><rect width=%22300%22 height=%22300%22 filter=%22url(%23n)%22 opacity=%221%22/></svg>'); background-repeat: repeat;"></div>
+      <div class="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"></div>
+      <div class="absolute -right-32 top-0 h-[500px] w-[500px] rounded-full bg-amber-500/10 blur-[120px]"></div>
+      <div class="absolute -left-16 bottom-0 h-[300px] w-[300px] rounded-full bg-amber-600/5 blur-[80px]"></div>
 
-    <!-- Background gradient -->
-    <div class="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"></div>
-
-    <!-- Amber glow blob -->
-    <div class="absolute -right-32 top-0 h-[500px] w-[500px] rounded-full bg-amber-500/10 blur-[120px]"></div>
-    <div class="absolute -left-16 bottom-0 h-[300px] w-[300px] rounded-full bg-amber-600/5 blur-[80px]"></div>
-
-    <div class="relative z-10 grid min-h-[520px] grid-cols-1 items-center gap-8 px-4 py-12 md:grid-cols-2 md:px-8">
-      <!-- Left: Text -->
-      <div class="flex flex-col gap-6">
-        <div class="flex items-center gap-3">
-          <span class="h-px w-12 bg-amber-500"></span>
-          <span class="text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Now Reading</span>
-        </div>
-        <h1 class="text-5xl font-black leading-[0.95] tracking-tight text-white md:text-7xl">
-          THE<br /><span class="text-amber-500">BATMAN</span><br />WHO LAUGHS
-        </h1>
-        <p class="max-w-sm text-sm leading-relaxed text-slate-400">
-          Scott Snyder · Greg Capullo · 2018 &mdash; In the Dark Multiverse, a Bruce Wayne is infected by the Joker's dying breath, becoming something far worse than either.
-        </p>
-        <div class="flex items-center gap-4">
-          <a href="/series/1" class="group flex items-center gap-2 bg-amber-500 px-6 py-3 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400">
-            Continue Reading
-            <svg class="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-          </a>
-          <span class="text-sm text-slate-500">Issue #4 of 6</span>
-        </div>
-        <!-- Progress bar -->
-        <div class="flex flex-col gap-1.5">
-          <div class="flex justify-between text-xs text-slate-600">
-            <span class="uppercase tracking-widest">Progress</span>
-            <span class="text-amber-500 font-semibold">67%</span>
+      <div class="relative z-10 grid min-h-[520px] grid-cols-1 items-center gap-8 px-4 py-12 md:grid-cols-2 md:px-8">
+        <div class="flex flex-col gap-6">
+          <div class="flex items-center gap-3">
+            <span class="h-px w-12 bg-amber-500"></span>
+            <span class="text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Now Reading</span>
           </div>
-          <div class="h-1 w-full overflow-hidden bg-slate-800">
-            <div class="h-full w-[67%] bg-amber-500"></div>
+          <h1 class="text-5xl font-black leading-[0.95] tracking-tight text-white md:text-7xl">
+            {nowReading.series_name}
+          </h1>
+          {nowReading.issue_description && (
+            <p class="max-w-sm text-sm leading-relaxed text-slate-400 line-clamp-3">
+              {nowReading.issue_description}
+            </p>
+          )}
+          <div class="flex items-center gap-4">
+            <a
+              href={`/comic/${nowReading.issue_id}`}
+              class="group flex items-center gap-2 bg-amber-500 px-6 py-3 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400"
+            >
+              Continue Reading
+              <svg class="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+            <span class="text-sm text-slate-500">Issue #{nowReading.issue_number}</span>
+          </div>
+          {heroProgress !== null && (
+            <div class="flex flex-col gap-1.5">
+              <div class="flex justify-between text-xs text-slate-600">
+                <span class="uppercase tracking-widest">Progress</span>
+                <span class="text-amber-500 font-semibold">{heroProgress}%</span>
+              </div>
+              <div class="h-1 w-full overflow-hidden bg-slate-800">
+                <div class="h-full bg-amber-500" style={`width: ${heroProgress}%`}></div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div class="flex items-center justify-center md:justify-end md:pr-8">
+          <div class="relative h-[340px] w-[220px]">
+            <div class="absolute left-8 top-4 h-[320px] w-[210px] rotate-6 rounded-sm bg-slate-700 opacity-50 shadow-xl"></div>
+            <div class="absolute left-4 top-2 h-[320px] w-[210px] rotate-3 rounded-sm bg-slate-600 opacity-60 shadow-xl"></div>
+            <div class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10">
+              {nowReading.issue_cover_url ? (
+                <Image
+                  src={nowReading.issue_cover_url}
+                  alt={`Cover for ${nowReading.series_name} #${nowReading.issue_number}`}
+                  width={210}
+                  height={320}
+                  class="h-full w-full object-cover"
+                />
+              ) : (
+                <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900">
+                  <svg class="h-16 w-16 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+              )}
+              <div class="absolute bottom-0 left-0 right-0 bg-slate-950/80 px-3 py-2 backdrop-blur-sm">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-amber-500">Issue #{nowReading.issue_number}</p>
+              </div>
+            </div>
+            <div class="absolute -right-1 inset-y-0 w-1 bg-amber-500 opacity-80"></div>
           </div>
         </div>
       </div>
 
-      <!-- Right: Featured cover stack -->
-      <div class="flex items-center justify-center md:justify-end md:pr-8">
-        <div class="relative h-[340px] w-[220px]">
-          <!-- Shadow covers behind -->
-          <div class="absolute left-8 top-4 h-[320px] w-[210px] rotate-6 rounded-sm bg-slate-700 opacity-50 shadow-xl"></div>
-          <div class="absolute left-4 top-2 h-[320px] w-[210px] rotate-3 rounded-sm bg-slate-600 opacity-60 shadow-xl"></div>
-          <!-- Main cover placeholder -->
-          <div class="absolute inset-0 flex flex-col overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10">
-            <div class="flex-1 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex items-center justify-center">
-              <svg class="h-16 w-16 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            </div>
-            <div class="bg-slate-950 px-3 py-2">
-              <p class="text-[10px] font-bold uppercase tracking-widest text-amber-500">Issue #4</p>
-            </div>
-          </div>
-          <!-- Amber spine accent -->
-          <div class="absolute -right-1 inset-y-0 w-1 bg-amber-500 opacity-80"></div>
-        </div>
-      </div>
+      <div class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-900 to-transparent"></div>
     </div>
-
-    <!-- Bottom fade -->
-    <div class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-900 to-transparent"></div>
-  </div>
+  )}
 
   <!-- Continue Reading -->
-  <section class="mb-16">
-    <div class="mb-6 flex items-end justify-between">
-      <div>
-        <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Pick up where you left off</p>
-        <h2 class="text-2xl font-black tracking-tight text-white">Continue Reading</h2>
+  {continueReading.length > 0 && (
+    <section class="mb-16">
+      <div class="mb-6 flex items-end justify-between">
+        <div>
+          <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Pick up where you left off</p>
+          <h2 class="text-2xl font-black tracking-tight text-white">Continue Reading</h2>
+        </div>
+        <a href="/series" class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors">View all →</a>
       </div>
-      <a href="/series" class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors">View all →</a>
-    </div>
-    <ol class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-      {[
-        { title: "Saga", issue: "#54", pct: 82 },
-        { title: "Watchmen", issue: "#9", pct: 75 },
-        { title: "X-Men", issue: "#12", pct: 40 },
-        { title: "Daredevil", issue: "#7", pct: 15 },
-        { title: "Sandman", issue: "#3", pct: 55 },
-      ].map(({ title, issue, pct }) => (
-        <li class="group relative flex flex-col gap-2">
-          <a href="/series/1" class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10">
-            <!-- Cover placeholder (2:3 ratio) -->
-            <div class="aspect-[2/3] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex items-center justify-center">
-              <svg class="h-10 w-10 text-slate-600 transition-colors group-hover:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            </div>
-            <!-- Progress bar overlay at bottom of cover -->
-            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800">
-              <div class="h-full bg-amber-500" style={`width: ${pct}%`}></div>
-            </div>
-          </a>
-          <div class="flex flex-col gap-0.5 px-0.5">
-            <span class="text-sm font-bold leading-tight text-white truncate">{title}</span>
-            <span class="text-xs text-slate-500">{issue}</span>
-          </div>
-        </li>
-      ))}
-    </ol>
-  </section>
+      <ol class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {continueReading.map((issue) => {
+          const pct = issue.current_page && issue.issue_page_count
+            ? Math.round((issue.current_page / issue.issue_page_count) * 100)
+            : null;
+          return (
+            <li class="group flex flex-col gap-2">
+              <a href={`/comic/${issue.issue_id}`} class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10">
+                {issue.issue_cover_url ? (
+                  <Image
+                    src={issue.issue_cover_url}
+                    alt={`${issue.series_name} #${issue.issue_number}`}
+                    width={210}
+                    height={320}
+                    class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                  />
+                ) : (
+                  <div class="aspect-[2/3] flex items-center justify-center bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900">
+                    <svg class="h-10 w-10 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  </div>
+                )}
+                {pct !== null && (
+                  <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800">
+                    <div class="h-full bg-amber-500" style={`width: ${pct}%`}></div>
+                  </div>
+                )}
+              </a>
+              <div class="flex flex-col gap-0.5 px-0.5">
+                <span class="truncate text-sm font-bold leading-tight text-white">{issue.series_name}</span>
+                <span class="text-xs text-slate-500">#{issue.issue_number}</span>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  )}
 
   <!-- Recently Added -->
-  <section class="mb-16">
-    <div class="mb-6 flex items-end justify-between">
-      <div>
-        <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Fresh in your collection</p>
-        <h2 class="text-2xl font-black tracking-tight text-white">Recently Added</h2>
+  {recentlyAdded.length > 0 && (
+    <section class="mb-16">
+      <div class="mb-6 flex items-end justify-between">
+        <div>
+          <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Fresh in your collection</p>
+          <h2 class="text-2xl font-black tracking-tight text-white">Recently Added</h2>
+        </div>
+        <a href="/new" class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors">View all →</a>
       </div>
-      <a href="/new" class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors">View all →</a>
-    </div>
-    <ol class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-      {[
-        { title: "Monstress", year: "2022" },
-        { title: "Hellboy", year: "1994" },
-        { title: "Bone", year: "1991" },
-        { title: "The Boys", year: "2006" },
-        { title: "Black Hole", year: "1995" },
-        { title: "From Hell", year: "1991" },
-      ].map(({ title, year }) => (
-        <li class="group flex flex-col gap-2">
-          <a href="/series/1" class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10">
-            <div class="aspect-[2/3] bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 flex items-center justify-center">
-              <svg class="h-8 w-8 text-slate-600 transition-colors group-hover:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      <ol class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        {recentlyAdded.map((series) => (
+          <li class="group flex flex-col gap-2">
+            <a href={`/series/${series.series_id}`} class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10">
+              {series.series_cover_url ? (
+                <Image
+                  src={series.series_cover_url}
+                  alt={series.series_name}
+                  width={210}
+                  height={320}
+                  class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                />
+              ) : (
+                <div class="aspect-[2/3] flex items-center justify-center bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900">
+                  <svg class="h-8 w-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+              )}
+              <span class="absolute left-2 top-2 bg-amber-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-900">New</span>
+            </a>
+            <div class="flex flex-col gap-0.5 px-0.5">
+              <span class="truncate text-sm font-bold leading-tight text-white">{series.series_name}</span>
+              <span class="text-xs text-slate-500">{series.series_year}</span>
             </div>
-            <!-- NEW badge -->
-            <span class="absolute left-2 top-2 bg-amber-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-900">New</span>
-          </a>
-          <div class="flex flex-col gap-0.5 px-0.5">
-            <span class="text-sm font-bold leading-tight text-white truncate">{title}</span>
-            <span class="text-xs text-slate-500">{year}</span>
-          </div>
-        </li>
-      ))}
-    </ol>
-  </section>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )}
 
-  <!-- Series Browser -->
-  <section class="mb-12">
-    <div class="mb-6 flex items-end justify-between">
-      <div>
-        <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Your library</p>
-        <h2 class="text-2xl font-black tracking-tight text-white">Browse Series</h2>
+  <!-- Browse Series -->
+  {browseSeriesItems.length > 0 && (
+    <section class="mb-12">
+      <div class="mb-6 flex items-end justify-between">
+        <div>
+          <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Your library</p>
+          <h2 class="text-2xl font-black tracking-tight text-white">Browse Series</h2>
+        </div>
+        <a href="/series" class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors">All series →</a>
       </div>
-      <a href="/series" class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors">All series →</a>
-    </div>
-
-    <!-- Genre filter pills -->
-    <div class="mb-6 flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-      {["All", "Superhero", "Horror", "Sci-Fi", "Fantasy", "Crime", "Indie"].map((g, i) => (
-        <button
-          class={`shrink-0 rounded-none border px-4 py-1.5 text-xs font-bold uppercase tracking-widest transition-colors ${
-            i === 0
-              ? "border-amber-500 bg-amber-500 text-slate-900"
-              : "border-slate-700 text-slate-400 hover:border-amber-500 hover:text-amber-500"
-          }`}
-        >
-          {g}
-        </button>
-      ))}
-    </div>
-
-    <!-- Series grid rows: cover + info cards -->
-    <ol class="grid grid-cols-1 gap-px bg-slate-800 sm:grid-cols-2 lg:grid-cols-3">
-      {[
-        { title: "Saga", year: "2012", issues: 66, publisher: "Image Comics" },
-        { title: "Watchmen", year: "1986", issues: 12, publisher: "DC Comics" },
-        { title: "Monstress", year: "2015", issues: 48, publisher: "Image Comics" },
-        { title: "Sandman", year: "1989", issues: 75, publisher: "DC / Vertigo" },
-        { title: "Hellboy", year: "1994", issues: 60, publisher: "Dark Horse" },
-        { title: "Bone", year: "1991", issues: 55, publisher: "Cartoon Books" },
-      ].map(({ title, year, issues, publisher }) => (
-        <li class="bg-slate-900">
-          <a href="/series/1" class="group flex items-center gap-4 p-4 transition-colors hover:bg-slate-800">
-            <!-- Small cover thumbnail -->
-            <div class="relative aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-sm ring-1 ring-white/5 transition-all group-hover:ring-amber-500/30">
-              <div class="h-full w-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      <ol class="grid grid-cols-1 gap-px bg-slate-800 sm:grid-cols-2 lg:grid-cols-3">
+        {browseSeriesItems.map((series) => (
+          <li class="bg-slate-900">
+            <a href={`/series/${series.series_id}`} class="group flex items-center gap-4 p-4 transition-colors hover:bg-slate-800">
+              <div class="relative aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-sm ring-1 ring-white/5 transition-all group-hover:ring-amber-500/30">
+                {series.series_cover_url ? (
+                  <Image
+                    src={series.series_cover_url}
+                    alt={series.series_name}
+                    width={56}
+                    height={84}
+                    class="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
+                    <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  </div>
+                )}
               </div>
-            </div>
-            <!-- Info -->
-            <div class="flex flex-1 flex-col gap-1 overflow-hidden">
-              <span class="truncate text-base font-bold text-white group-hover:text-amber-400 transition-colors">{title}</span>
-              <span class="text-xs text-slate-500">{publisher} · {year}</span>
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-slate-600">{issues} issues</span>
-                <span class="h-1 w-1 rounded-full bg-slate-700"></span>
-                <span class="text-xs text-amber-600">12 unread</span>
+              <div class="flex flex-1 flex-col gap-1 overflow-hidden">
+                <span class="truncate text-base font-bold text-white transition-colors group-hover:text-amber-400">{series.series_name}</span>
+                <span class="text-xs text-slate-500">
+                  {[series.series_publisher, series.series_year].filter(Boolean).join(" · ")}
+                </span>
+                {series.series_total_issues && (
+                  <span class="text-xs text-slate-600">{series.series_total_issues} issues</span>
+                )}
               </div>
-            </div>
-            <!-- Arrow -->
-            <svg class="h-4 w-4 shrink-0 text-slate-700 transition-all group-hover:translate-x-1 group-hover:text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-          </a>
-        </li>
-      ))}
-    </ol>
-  </section>
+              <svg class="h-4 w-4 shrink-0 text-slate-700 transition-all group-hover:translate-x-1 group-hover:text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )}
 </Layout>
 
 <script>
   const overlay = document.getElementById("search-overlay");
   const closeBtn = document.getElementById("close-search");
 
-  // Open search via keyboard shortcut
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
