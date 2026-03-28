@@ -1,16 +1,24 @@
 ---
 import Layout from "@layouts/Layout.astro";
 import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
-import { getAllSeries } from "@data/elastic/queries";
+import { getAllSeries, type SeriesSort } from "@data/elastic/queries";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 
 const title = "Series";
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
-const series = await getAllSeries(currentPage);
+const validSorts: SeriesSort[] = ["title-asc", "title-desc", "date-asc", "date-desc"];
+const sortParam = Astro.url.searchParams.get("sort") as SeriesSort;
+const sort: SeriesSort = validSorts.includes(sortParam) ? sortParam : "title-asc";
+const series = await getAllSeries(currentPage, 20, sort);
 ---
 
 <Layout title={title}>
-  <h1 class="text-3xl font-bold">{title}</h1>
+  <!-- Page header -->
+  <div class="mb-8 border-b border-slate-800 pb-6">
+    <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Your library</p>
+    <h1 class="text-4xl font-black tracking-tight text-white">Series</h1>
+  </div>
+
   <IssueGrid currentPage={currentPage} totalNumberOfPages={series.totalPages}>
     {
       series.items.map((s) => (

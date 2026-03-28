@@ -43,10 +43,10 @@ if (props.type === "series") {
 }
 ---
 
-<li data-coverid={id}>
-  <a href={href} class="relative flex flex-wrap gap-2">
+<li data-coverid={id} class="group flex flex-col gap-2">
+  <a href={href} class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all duration-200 hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10">
     <Image
-      class={"rounded-md w-64"}
+      class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
       src={optimizableCoverSrc}
       widths={[183, 275, 366]}
       sizes="(max-width: 640px) 183px, 210px"
@@ -57,19 +57,23 @@ if (props.type === "series") {
       alt={alt as string}
       loading="lazy"
     />
-    <span class={"flex flex-col gap-2"}>
-      {
-        props.type === "Issue" ? (
-          label
-        ) : (
-          <>
-            <span class="text-lg font-bold leading-6 text-white sm:text-2xl">
-              {props.name}
-            </span>
-            <span class="text-sm text-gray-300">{props.year}</span>
-          </>
-        )
-      }
-    </span>
+    {readingStatus === "read" && (
+      <span class="absolute right-2 top-2 bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400 backdrop-blur-sm">
+        Read
+      </span>
+    )}
   </a>
+
+  <div class="flex flex-col gap-0.5 px-0.5">
+    {props.type === "Issue" ? (
+      <span class="text-sm font-bold text-white">{label}</span>
+    ) : (
+      <>
+        <span class="truncate text-sm font-bold leading-tight text-white transition-colors group-hover:text-amber-400">
+          {props.name}
+        </span>
+        <span class="text-xs text-slate-500">{props.year}</span>
+      </>
+    )}
+  </div>
 </li>

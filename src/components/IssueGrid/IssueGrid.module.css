@@ -1,0 +1,13 @@
+.util {
+  anchor-name: --util-anchor;
+}
+
+.popover {
+  position: fixed;
+  position-anchor: --util-anchor;
+  position-area: bottom;
+  width: 100vw;
+  left: 0;
+  right: 0;
+  margin-top: 0.5rem;
+}

@@ -21,6 +21,17 @@ export type PaginatedResult<T> = {
   totalPages: number;
 };
 
+export type SeriesSort = "title-asc" | "title-desc" | "date-asc" | "date-desc";
+
+type SortClause = Record<string, "asc" | "desc">;
+
+const SORT_CLAUSES: Record<SeriesSort, SortClause[]> = {
+  "title-asc":  [{ "series_name.keyword": "asc" },  { series_year: "asc" }],
+  "title-desc": [{ "series_name.keyword": "desc" }, { series_year: "desc" }],
+  "date-asc":   [{ series_year: "asc" },  { "series_name.keyword": "asc" }],
+  "date-desc":  [{ series_year: "desc" }, { "series_name.keyword": "asc" }],
+};
+
 /**
  * Fetches paginated series using field collapsing.
  *
@@ -33,6 +44,7 @@ export type PaginatedResult<T> = {
 export async function getAllSeries(
   page = 1,
   pageSize = 20,
+  sort: SeriesSort = "title-asc",
 ): Promise<PaginatedResult<SeriesSummary>> {
   const from = (Math.max(1, page) - 1) * pageSize;
 
@@ -49,10 +61,7 @@ export async function getAllSeries(
         _source: ["issue_cover_url"],
       },
     },
-    sort: [
-      { "series_name.keyword": "asc" },
-      { series_year: "asc" },
-    ],
+    sort: SORT_CLAUSES[sort],
     _source: ["series_id", "series_name", "series_year"],
     aggs: {
       total_series: {

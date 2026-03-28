@@ -1,16 +1,11 @@
 ---
-const { name, color } = Astro.props;
+const { name, color, class: className, ...rest } = Astro.props;
 
 const svgPath = `/icons/${name}.svg`;
 ---
 
-<style define:vars={{ color }}>
-  .icon {
-    aspect-ratio: 1;
-    background-color: var(--color, white);
-    height: 1.5rem;
-    width: 1.5rem;
-  }
-</style>
-
-<div style={{ mask: `url(${svgPath}) no-repeat center` }} class="icon"></div>
+<div
+  style={{ mask: `url(${svgPath}) no-repeat center`, backgroundColor: color ?? "white", maskSize: "contain" }}
+  class={`aspect-square ${className ?? "w-6 h-6"}`}
+  {...rest}
+></div>

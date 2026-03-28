@@ -1,5 +1,7 @@
 ---
+import Icon from "@components/Icon/Icon.astro";
 import PageNavigator from "../PageNavigator.astro";
+import styles from "./IssueGrid.module.css";
 
 type Props = {
   currentPage: number;
@@ -7,9 +9,74 @@ type Props = {
 };
 
 const { currentPage, totalNumberOfPages } = Astro.props;
+
+const sortParam = Astro.url.searchParams.get("sort");
+const sortLabels: Record<string, string> = {
+  "date-asc":   "Oldest first",
+  "date-desc":  "Newest first",
+  "title-asc":  "Title A–Z",
+  "title-desc": "Title Z–A",
+};
+const activeLabel = sortParam ? (sortLabels[sortParam] ?? null) : null;
 ---
 
-<ol class="grid gap-8 grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mt-8">
+<!-- Toolbar -->
+<section class={`${styles.util} mb-6 flex items-center justify-between`}>
+  <p class="text-xs text-slate-500">
+    Page <span class="font-semibold text-slate-300">{currentPage}</span> of <span class="font-semibold text-slate-300">{totalNumberOfPages}</span>
+  </p>
+  <button
+    type="button"
+    popovertarget="mypopover"
+    class="flex items-center gap-1.5 border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-300 transition-colors hover:border-amber-500 hover:text-amber-500"
+  >
+    <Icon name="sort" class="h-3.5 w-3.5" color="currentColor" />
+    Sort
+  </button>
+
+  <div id="mypopover" popover="manual" class={styles.popover} role="dialog">
+    <menu class="flex w-full flex-col border-t-2 border-amber-500 bg-slate-900 shadow-xl shadow-black/40">
+      <li>
+        <a href="?sort=date-asc" class="flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors hover:bg-slate-800 hover:text-amber-500">
+          <Icon name="sort-asc" class="h-4 w-4" color="currentColor" />
+          Oldest first
+        </a>
+      </li>
+      <li class="border-t border-slate-800">
+        <a href="?sort=date-desc" class="flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors hover:bg-slate-800 hover:text-amber-500">
+          <Icon name="sort-desc" class="h-4 w-4" color="currentColor" />
+          Newest first
+        </a>
+      </li>
+      <li class="border-t border-slate-800">
+        <a href="?sort=title-asc" class="flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors hover:bg-slate-800 hover:text-amber-500">
+          <Icon name="sort-asc" class="h-4 w-4" color="currentColor" />
+          Title A–Z
+        </a>
+      </li>
+      <li class="border-t border-slate-800">
+        <a href="?sort=title-desc" class="flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors hover:bg-slate-800 hover:text-amber-500">
+          <Icon name="sort-desc" class="h-4 w-4" color="currentColor" />
+          Title Z–A
+        </a>
+      </li>
+    </menu>
+  </div>
+</section>
+
+<!-- Active sort indicator -->
+<div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-4">
+  <span class="text-xs uppercase tracking-widest text-slate-600">Sorted by</span>
+  {activeLabel ? (
+    <span class="text-xs font-bold uppercase tracking-widest text-amber-500">{activeLabel}</span>
+  ) : (
+    <span class="text-xs font-bold uppercase tracking-widest text-slate-400">Default</span>
+  )}
+</div>
+
+<!-- Grid -->
+<ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
   <slot />
 </ol>
+
 <PageNavigator numberOfPages={totalNumberOfPages} currentPage={currentPage} />
