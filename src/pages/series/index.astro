@@ -9,7 +9,7 @@ const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
 const validSorts: SeriesSort[] = ["title-asc", "title-desc", "date-asc", "date-desc"];
 const sortParam = Astro.url.searchParams.get("sort") as SeriesSort;
 const sort: SeriesSort = validSorts.includes(sortParam) ? sortParam : "title-asc";
-const series = await getAllSeries(currentPage, 20, sort);
+const series = await getAllSeries(currentPage, 18, sort);
 ---
 
 <Layout title={title}>

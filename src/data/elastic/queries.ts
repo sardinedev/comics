@@ -38,6 +38,47 @@ const SORT_CLAUSES: Record<SeriesSort, SortClause[]> = {
 };
 
 /**
+ * Fetches paginated issues for a series, sorted by issue number ascending.
+ */
+export async function getSeriesIssues(
+  seriesId: string,
+  page = 1,
+  pageSize = 18,
+): Promise<{ series: SeriesSummary | null } & PaginatedResult<Issue>> {
+  const from = (Math.max(1, page) - 1) * pageSize;
+
+  const response = await elastic.search<Issue>({
+    index: ISSUES_INDEX,
+    size: pageSize,
+    from,
+    query: { term: { series_id: seriesId } },
+    sort: [{ issue_number: "asc" }],
+    track_total_hits: true,
+  });
+
+  const issues = response.hits.hits.map((h) => h._source!);
+  const total = typeof response.hits.total === "number"
+    ? response.hits.total
+    : (response.hits.total?.value ?? 0);
+  const totalPages = Math.ceil(total / pageSize);
+  const safePage = Math.max(1, Math.min(page, totalPages || 1));
+
+  const first = issues[0];
+  const series: SeriesSummary | null = first
+    ? {
+        series_id: first.series_id,
+        series_name: first.series_name ?? "",
+        series_year: first.series_year ?? "",
+        series_cover_url: first.series_cover_url,
+        series_publisher: first.series_publisher,
+        series_total_issues: first.series_total_issues,
+      }
+    : null;
+
+  return { series, items: issues, total, page: safePage, pageSize, totalPages };
+}
+
+/**
  * The most recently opened issue the user is currently reading.
  * Used for the homepage hero.
  */
@@ -113,7 +154,7 @@ export async function getRecentlyAdded(limit = 6): Promise<SeriesSummary[]> {
  */
 export async function getAllSeries(
   page = 1,
-  pageSize = 20,
+  pageSize = 18,
   sort: SeriesSort = "title-asc",
 ): Promise<PaginatedResult<SeriesSummary>> {
   const from = (Math.max(1, page) - 1) * pageSize;
