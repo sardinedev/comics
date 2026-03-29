@@ -2,77 +2,108 @@
 import { Image } from "astro:assets";
 
 type IssueCoverLeaf = {
-  cover: string;
-  id: string;
-  number: number;
-  status?: string;
   type: "Issue";
-  read: boolean;
+  cover?: string | null;
+  id: string;
+  number: number | string;
+  seriesName?: string;
+  seriesId?: string;
+  issueName?: string;
+  issueDate?: string;
+  badge?: "read" | "reading" | "new";
+  progress?: number | null;
 };
 
 type SeriesCoverLeaf = {
-  cover: string;
+  type: "series";
+  cover?: string | null;
   id: string;
   name: string;
-  type: "series";
-  year: string;
+  year?: string;
+  badge?: "new";
 };
 
 const { cover, id, ...props } = Astro.props as IssueCoverLeaf | SeriesCoverLeaf;
 
-const coverSrc = cover ?? "/logo.svg";
-const isLocalCoverRoute = coverSrc.startsWith("/covers/");
+const coverSrc = cover || null;
+const isLocalCoverRoute = coverSrc?.startsWith("/covers/");
 const optimizableCoverSrc = isLocalCoverRoute
-  ? new URL(coverSrc, Astro.url).toString()
+  ? new URL(coverSrc!, Astro.url).toString()
   : coverSrc;
 
-let label, alt, href, readingStatus;
+const href = props.type === "Issue" ? `/comic/${id}` : `/series/${id}`;
 
+const badge = props.badge;
+const progress = props.type === "Issue" ? props.progress : undefined;
+
+let alt: string;
 if (props.type === "Issue") {
-  const { number } = props;
-  label = `Issue #${number}`;
-  alt = `Cover for issue #${number}`;
-  href = `/comic/${id}`;
-  readingStatus = props.read ? "read" : "unread";
-}
-if (props.type === "series") {
-  const { name, year } = props;
-  alt = `Cover for ${name} (${year})`;
-  href = `/series/${id}`;
-  readingStatus = "unread";
+  alt = props.seriesName ? `${props.seriesName} #${props.number}` : `Issue #${props.number}`;
+} else {
+  alt = `Cover for ${props.name}${props.year ? ` (${props.year})` : ""}`;
 }
 ---
 
 <li data-coverid={id} class="group flex flex-col gap-2">
   <a href={href} class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all duration-200 hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10">
-    <Image
-      class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-      src={optimizableCoverSrc}
-      widths={[183, 275, 366]}
-      sizes="(max-width: 640px) 183px, 210px"
-      height={320}
-      width={210}
-      quality="mid"
-      format="avif"
-      alt={alt as string}
-      loading="lazy"
-    />
-    {readingStatus === "read" && (
-      <span class="absolute right-2 top-2 bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400 backdrop-blur-sm">
-        Read
-      </span>
+    {optimizableCoverSrc ? (
+      <Image
+        class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+        src={optimizableCoverSrc}
+        widths={[183, 275, 366]}
+        sizes="(max-width: 640px) 183px, 210px"
+        height={320}
+        width={210}
+        quality="mid"
+        format="avif"
+        alt={alt}
+        loading="lazy"
+      />
+    ) : (
+      <div class="aspect-[2/3] flex items-center justify-center bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900">
+        <svg class="h-8 w-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      </div>
+    )}
+    {badge === "read" && (
+      <span class="absolute right-2 top-2 bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400 backdrop-blur-sm">Read</span>
+    )}
+    {badge === "reading" && (
+      <span class="absolute right-2 top-2 bg-amber-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-900">Reading</span>
+    )}
+    {badge === "new" && (
+      <span class="absolute left-2 top-2 bg-amber-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-900">New</span>
+    )}
+    {progress != null && (
+      <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800">
+        <div class="h-full bg-amber-500" style={`width: ${progress}%`}></div>
+      </div>
     )}
   </a>
 
   <div class="flex flex-col gap-0.5 px-0.5">
     {props.type === "Issue" ? (
-      <span class="text-sm font-bold text-white">{label}</span>
+      props.seriesName ? (
+        <>
+          {props.seriesId ? (
+            <a href={`/series/${props.seriesId}`} class="truncate text-sm font-bold leading-tight text-white hover:text-amber-400 transition-colors">{props.seriesName}</a>
+          ) : (
+            <span class="truncate text-sm font-bold leading-tight text-white">{props.seriesName}</span>
+          )}
+          <span class="text-xs text-slate-500">#{props.number}</span>
+        </>
+      ) : (
+        <>
+          <span class="text-sm font-bold text-white">#{props.number}</span>
+          {props.issueName && <span class="truncate text-xs text-slate-500">{props.issueName}</span>}
+          {props.issueDate && <span class="text-xs text-slate-600">{props.issueDate}</span>}
+        </>
+      )
     ) : (
       <>
         <span class="truncate text-sm font-bold leading-tight text-white transition-colors group-hover:text-amber-400">
           {props.name}
         </span>
-        <a href={`/series?year=${props.year}&page=1`} class="text-xs text-slate-500 hover:text-amber-500 transition-colors">{props.year}</a>
+        {props.year && <a href={`/series?year=${props.year}&page=1`} class="text-xs text-slate-500 hover:text-amber-500 transition-colors">{props.year}</a>}
       </>
     )}
   </div>
