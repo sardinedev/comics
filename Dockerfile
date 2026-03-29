@@ -3,9 +3,12 @@ WORKDIR /app
 
 COPY . .
 
-RUN npm install --omit=dev
+RUN npm install
 
 RUN npm run build
+
+# Remove dev dependencies after build
+RUN npm prune --omit=dev
 
 ENV HOST=0.0.0.0
 ENV PORT=4321
@@ -16,4 +19,7 @@ EXPOSE 4321
 # Create covers directory for persistent storage
 RUN mkdir -p /data/covers
 
-ENTRYPOINT ["npm", "run", "start:prod"]
+COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
