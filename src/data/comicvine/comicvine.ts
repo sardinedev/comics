@@ -14,7 +14,7 @@ export type WeeklyComics = {
 };
 
 const COMICVINE_API_KEY =
-  import.meta.env.COMICVINE_API_KEY ?? process.env.COMICVINE_API_KEY;
+  import.meta.env?.COMICVINE_API_KEY ?? process.env.COMICVINE_API_KEY;
 const COMICVINE_URL = "https://comicvine.gamespot.com/api";
 
 /**
@@ -129,7 +129,7 @@ export async function getIssuesFromVolume(
   try {
     const data = await comicvine<ComicvineIssues[]>(
       "issues",
-      `filter=volume:${volumeId}&sort=cover_date:asc`
+      `filter=volume:${volumeId}&sort=cover_date:asc&offset=${offset}`
     );
     if (data) {
       return data.results;

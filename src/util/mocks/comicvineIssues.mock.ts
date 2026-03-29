@@ -1,4 +1,4 @@
-import type { ComicvineIssues } from "../comicvine.types";
+import type { ComicvineIssues } from "../../data/comicvine/comicvine.types";
 
 export const comicvineIssuesMock: ComicvineIssues = {
   aliases: null,

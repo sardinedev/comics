@@ -1,111 +1,358 @@
 ---
-import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
-import CoverStack from "@components/CoverStack.astro";
-import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
 import Layout from "@layouts/Layout.astro";
-import SortButton from "@components/SortButton.astro";
-import Breadcrumbs from "@components/Breadcrumbs.astro";
-import type { Issue } from "@util/comics.types";
-import { elasticGetSeries } from "@util/elastic";
-
-const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
-const page = Astro.url.searchParams.get("page")
-  ? Number(Astro.url.searchParams.get("page"))
-  : 1;
+import { getSeriesIssues } from "@data/elastic/queries";
+import {
+  getVolumeDetails,
+  getIssuesFromVolume,
+} from "@data/comicvine/comicvine";
+import type { ComicvineVolume } from "@data/comicvine/comicvine.types";
+import { Image } from "astro:assets";
+import PageNavigator from "@components/PageNavigator.astro";
+import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 
 const { id } = Astro.params;
-let series: Issue[] = [];
-let totalIssues = 0;
+const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
+const {
+  series,
+  items: issues,
+  totalPages,
+  total,
+} = await getSeriesIssues(id!, currentPage);
 
-try {
-  if (id) {
-    const { result, totalResults } = await elasticGetSeries(id, {
-      sort,
-      page,
-    });
-    series = result;
-    totalIssues = totalResults;
+const CV_PAGE_SIZE = 18;
+
+let cvVolume: ComicvineVolume | null = null;
+let cvPageIssues: Awaited<ReturnType<typeof getIssuesFromVolume>> = [];
+let cvTotalPages = 0;
+
+if (!series) {
+  try {
+    cvVolume = await getVolumeDetails(id!);
+  } catch {
+    cvVolume = null;
   }
-} catch (e) {
-  console.error(e);
+  if (!cvVolume) return Astro.redirect("/series");
+
+  const offset = (currentPage - 1) * CV_PAGE_SIZE;
+  cvPageIssues =
+    (await getIssuesFromVolume(id!, offset))?.slice(0, CV_PAGE_SIZE) ?? [];
+  cvTotalPages = Math.ceil((cvVolume.count_of_issues ?? 0) / CV_PAGE_SIZE);
 }
+
+// Normalise to a common shape for the template
+const name = series?.series_name ?? cvVolume!.name;
+const year = series?.series_year ?? cvVolume!.start_year;
+const publisher = series?.series_publisher ?? cvVolume!.publisher?.name;
+const totalIssues = series?.series_total_issues ?? cvVolume!.count_of_issues;
+
+const readCount = issues.filter((i) => i.reading_state === "read").length;
+const readingCount = issues.filter((i) => i.reading_state === "reading").length;
+const readPct = total ? Math.round((readCount / total) * 100) : 0;
+
+// Cover images for the stack
+const cover1 =
+  issues[0]?.issue_cover_url ?? cvVolume?.image?.medium_url ?? null;
+const cover2 = issues[1]?.issue_cover_url ?? null;
 ---
 
-<script>
-  const readButton = document.getElementById("series-read");
-  if (readButton) {
-    readButton.addEventListener("click", async (event) => {
-      const issues = document.querySelectorAll("li[data-coverid]");
-      const updateDoc = [];
-      for (const list of issues.values()) {
-        updateDoc.push({
-          issue_id: list.getAttribute("data-coverid"),
-          issue_read: true,
-          series_reading_status: "read",
-        });
+<Layout title={name}>
+  <!-- Series header -->
+  <div class="relative -mx-4 -mt-4 mb-10 border-b border-slate-800">
+    <div
+      class="flex flex-col gap-8 px-4 py-10 md:flex-row md:items-end md:px-8"
+    >
+      <!-- Cover stack -->
+      <div
+        class="relative h-[240px] w-[180px] shrink-0 self-center md:self-auto"
+      >
+        <!-- Issue #2 / fallback behind -->
+        {
+          cover2 ? (
+            <div class="absolute left-6 top-3 h-[220px] w-[148px] rotate-6 overflow-hidden rounded-sm shadow-xl ring-1 ring-white/10">
+              <Image
+                src={new URL(cover2!, Astro.url).toString()}
+                alt={`${name} #2`}
+                widths={[183, 275, 366]}
+                sizes="(max-width: 640px) 183px, 210px"
+                width={210}
+                height={320}
+                quality="mid"
+                format="avif"
+                width={148}
+                height={220}
+                class="h-full w-full object-cover"
+              />
+            </div>
+          ) : (
+            <div class="absolute left-6 top-3 h-[220px] w-[148px] rotate-6 rounded-sm bg-slate-700 opacity-50 shadow-xl" />
+          )
+        }
+        <!-- Issue #1 / series cover in front -->
+        <div
+          class="absolute inset-y-0 left-0 w-[148px] overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
+        >
+          {
+            cover1 ? (
+              <Image
+                src={new URL(cover1!, Astro.url).toString()}
+                alt={`${name} #2`}
+                widths={[183, 275, 366]}
+                sizes="(max-width: 640px) 183px, 210px"
+                width={210}
+                height={320}
+                quality="mid"
+                format="avif"
+                width={148}
+                height={220}
+                class="h-full w-full object-cover"
+              />
+            ) : (
+              <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
+                <svg
+                  class="h-12 w-12 text-slate-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1"
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+            )
+          }
+        </div>
+      </div>
+
+      <!-- Meta -->
+      <div class="flex flex-1 flex-col gap-4">
+        <div class="flex items-center gap-3">
+          <a
+            href="/series"
+            class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors"
+            >Series</a
+          >
+          <span class="text-slate-700">/</span>
+          <span
+            class="text-xs font-bold uppercase tracking-widest text-slate-400"
+            >{name}</span
+          >
+        </div>
+        <h1
+          class="text-4xl font-black leading-tight tracking-tight text-white md:text-5xl"
+        >
+          {name}
+        </h1>
+        <div class="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+          {
+            publisher && (
+              <a
+                href={`/series?publisher=${encodeURIComponent(publisher)}&page=1`}
+                class="hover:text-amber-500 transition-colors"
+              >
+                {publisher}
+              </a>
+            )
+          }
+          {
+            year && (
+              <>
+                <>
+                  <span class="text-slate-700">·</span>
+                  <a
+                    href={`/series?year=${year}&page=1`}
+                    class="hover:text-amber-500 transition-colors"
+                  >
+                    {year}
+                  </a>
+                </>
+              </>
+            )
+          }
+          {
+            totalIssues && (
+              <>
+                <>
+                  <span class="text-slate-700">·</span>
+                  <span>{totalIssues} issues</span>
+                </>
+              </>
+            )
+          }
+          {
+            readingCount > 0 && (
+              <>
+                <>
+                  <span class="text-slate-700">·</span>
+                  <span class="text-amber-500">{readingCount} in progress</span>
+                </>
+              </>
+            )
+          }
+          {
+            cvVolume && (
+              <>
+                <>
+                  <span class="text-slate-700">·</span>
+                  <span class="text-xs font-bold uppercase tracking-widest text-slate-600">
+                    Not in library
+                  </span>
+                </>
+              </>
+            )
+          }
+        </div>
+
+        {
+          cvVolume && (
+            <div class="flex items-center gap-3">
+              <button
+                id="add-to-library-btn"
+                data-series-id={id}
+                class="group flex items-center gap-2 bg-amber-500 px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <svg
+                  class="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Add to library
+              </button>
+              <span
+                id="add-to-library-status"
+                class="hidden text-xs font-bold uppercase tracking-widest"
+              />
+            </div>
+          )
+        }
+      </div>
+
+      {
+        readCount > 0 && (
+          <div class="flex max-w-sm flex-col gap-1.5">
+            <div class="flex justify-between text-xs text-slate-600">
+              <span class="uppercase tracking-widest">Read</span>
+              <span class="font-semibold text-amber-500">
+                {readCount} / {total}
+              </span>
+            </div>
+            <div class="h-1 w-full overflow-hidden bg-slate-800">
+              <div class="h-full bg-amber-500" style={`width: ${readPct}%`} />
+            </div>
+          </div>
+        )
       }
-      if (updateDoc.length > 0) {
-        const response = await fetch("/api/bulk-update", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updateDoc),
-        });
-        if (response.ok) {
-          window.location.reload();
+    </div>
+  </div>
+</Layout>
+
+<script>
+  const btn = document.getElementById(
+    "add-to-library-btn",
+  ) as HTMLButtonElement | null;
+  const status = document.getElementById("add-to-library-status");
+
+  btn?.addEventListener("click", async () => {
+    const seriesId = btn.dataset.seriesId;
+    btn.disabled = true;
+    btn.textContent = "Adding…";
+
+    try {
+      const res = await fetch("/api/library/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seriesId }),
+      });
+
+      if (res.ok) {
+        btn.classList.add("hidden");
+        if (status) {
+          status.textContent = "Added to library";
+          status.classList.remove("hidden");
+          status.classList.add("text-amber-500");
+        }
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = `<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add to library`;
+        if (status) {
+          status.textContent = "Failed — try again";
+          status.classList.remove("hidden");
+          status.classList.add("text-red-400");
         }
       }
-    });
-  }
+    } catch {
+      btn.disabled = false;
+      btn.innerHTML = `<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add to library`;
+    }
+  });
 </script>
 
-<Layout title={series?.[0].series_name ?? "Error loading series"}>
-  <Breadcrumbs
-  crumbs={[
-    { title: "Series", url: "/series" },
-    { title: series?.[0].series_name, },
-  ]}
-/>
-  {
-    series ? (
-      <>
-        <header class="flex flex-col">
-          <div>
-            <h1>
-              <span class="text-4xl">{series?.[0].series_name}</span> (
-              {series?.[0].series_year})
-            </h1>
-            <p>{totalIssues} issues</p>
-          </div>
-          <div class="flex items-end">
-            {/* <CoverStack covers={volumeCover} /> */}
-          </div>
-        </header>
-        <section class="mt-8">
-          <div class="border-t-2 border-b-2 py-2">
-            <SortButton />
-            <button type="button" id="series-read" data-series={id}>
-              {series?.[0].series_reading_status === "read"
-                ? "Mark series unread"
-                : "Mark series read"}
-            </button>
-          </div>
-          <IssueGrid totalNumberOfIssues={totalIssues} currentPage={page}>
-            {series.map((issue) => (
-              <CoverLeaf
-                type="Issue"
-                id={issue.issue_id}
-                cover={issue.issue_cover}
-                number={issue.issue_number}
-                read={issue.issue_read}
-              />
-            ))}
-          </IssueGrid>
-        </section>
-      </>
-    ) : (
-      <p>Error loading series</p>
-    )
-  }
-</Layout>
+<!-- Elastic: full issue grid with reading state -->
+{
+  issues.length > 0 && (
+    <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      {issues.map((issue) => (
+        <CoverLeaf
+          type="Issue"
+          id={issue.issue_id}
+          cover={issue.issue_cover_url}
+          number={issue.issue_number}
+          issueName={issue.issue_name}
+          issueDate={issue.issue_date?.slice(0, 7)}
+          badge={
+            issue.reading_state === "read"
+              ? "read"
+              : issue.reading_state === "reading"
+                ? "reading"
+                : undefined
+          }
+          progress={
+            issue.current_page && issue.issue_page_count
+              ? Math.round((issue.current_page / issue.issue_page_count) * 100)
+              : undefined
+          }
+        />
+      ))}
+    </ol>
+  )
+}
+
+<!-- ComicVine fallback: same issue grid with real covers -->
+{
+  cvVolume && cvPageIssues && cvPageIssues.length > 0 && (
+    <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      {cvPageIssues.map((issue) => (
+        <CoverLeaf
+          type="Issue"
+          id={String(issue.id)}
+          cover={issue.image?.medium_url}
+          number={issue.issue_number}
+          issueName={issue.name}
+          issueDate={issue.cover_date?.slice(0, 7)}
+        />
+      ))}
+    </ol>
+  )
+}
+
+{
+  issues.length > 0 && (
+    <PageNavigator numberOfPages={totalPages} currentPage={currentPage} />
+  )
+}
+{
+  cvVolume && cvTotalPages > 1 && (
+    <PageNavigator numberOfPages={cvTotalPages} currentPage={currentPage} />
+  )
+}

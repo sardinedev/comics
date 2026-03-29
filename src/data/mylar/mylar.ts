@@ -1,9 +1,9 @@
 import type { MylarComic, MylarComicWithIssues, MylarHistoryItem } from "./mylar.types";
 
 const MYLAR_API_KEY =
-  import.meta.env.MYLAR_API_KEY ?? process.env.MYLAR_API_KEY;
+  import.meta.env?.MYLAR_API_KEY ?? process.env.MYLAR_API_KEY;
 const MYLAR_URL =
-  import.meta.env.MYLAR_URL ?? process.env.MYLAR_URL ?? "http://192.168.50.190:8090";
+  import.meta.env?.MYLAR_URL ?? process.env.MYLAR_URL ?? "http://192.168.50.190:8090";
 
 export type MylarResponse<T> = {
   result: string;
@@ -122,16 +122,16 @@ export async function mylarDownloadIssue(issueId: string): Promise<Uint8Array | 
       console.error("Mylar downloadIssue returned error:", json);
       return null;
     }
-    
+
     const arrayBuffer = await res.arrayBuffer();
     const data = new Uint8Array(arrayBuffer);
-    
+
     // Detect archive type from magic bytes
     // ZIP (CBZ): starts with "PK" (0x50 0x4B)
     // RAR (CBR): starts with "Rar!" (0x52 0x61 0x72 0x21)
     const isZip = data.length >= 2 && data[0] === 0x50 && data[1] === 0x4B;
     const isRar = data.length >= 4 && data[0] === 0x52 && data[1] === 0x61 && data[2] === 0x72 && data[3] === 0x21;
-    
+
     if (isRar) {
       console.warn(
         `Issue ${issueId} is CBR (RAR format): ${(data.length / 1024 / 1024).toFixed(2)} MB - ` +
@@ -140,7 +140,7 @@ export async function mylarDownloadIssue(issueId: string): Promise<Uint8Array | 
       // Return data anyway - let covers.ts handle the fallback
       return data;
     }
-    
+
     if (!isZip) {
       console.error(
         `Mylar downloadIssue returned invalid data for ${issueId}: ` +
@@ -154,7 +154,7 @@ export async function mylarDownloadIssue(issueId: string): Promise<Uint8Array | 
       }
       return null;
     }
-    
+
     console.info(`Downloaded issue ${issueId} (CBZ): ${(data.length / 1024 / 1024).toFixed(2)} MB`);
     return data;
   } catch (error) {

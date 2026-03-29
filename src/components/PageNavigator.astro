@@ -39,23 +39,48 @@ if (numberOfPages > 8) {
 }
 ---
 
-<nav class="flex justify-center mt-8">
-  <ul class="flex gap-4">
-    {
-      pagesArray.map((page) => (
-        <li>
-          {page === "..." ? (
-            <span>{page}</span>
-          ) : (
-            <a
-              href={`${baseURL}?page=${page}&sort=${sort}`}
-              class={page === currentPage ? "underline" : ""}
-            >
-              {page}
-            </a>
-          )}
-        </li>
-      ))
-    }
-  </ul>
+<nav class="mt-12 flex items-center justify-center gap-1" aria-label="Pagination">
+  {currentPage > 1 && (
+    <a
+      href={`${baseURL}?page=${currentPage - 1}&sort=${sort}`}
+      class="flex h-8 w-8 items-center justify-center border border-slate-700 text-slate-400 transition-colors hover:border-amber-500 hover:text-amber-500"
+      aria-label="Previous page"
+    >
+      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
+  )}
+
+  {pagesArray.map((page) => (
+    <li class="list-none">
+      {page === "..." ? (
+        <span class="flex h-8 w-8 items-center justify-center text-xs text-slate-600">…</span>
+      ) : (
+        <a
+          href={`${baseURL}?page=${page}&sort=${sort}`}
+          class={`flex h-8 w-8 items-center justify-center border text-xs font-bold uppercase tracking-widest transition-colors ${
+            page === currentPage
+              ? "border-amber-500 bg-amber-500 text-slate-900"
+              : "border-slate-700 text-slate-400 hover:border-amber-500 hover:text-amber-500"
+          }`}
+          aria-current={page === currentPage ? "page" : undefined}
+        >
+          {page}
+        </a>
+      )}
+    </li>
+  ))}
+
+  {currentPage < numberOfPages && (
+    <a
+      href={`${baseURL}?page=${currentPage + 1}&sort=${sort}`}
+      class="flex h-8 w-8 items-center justify-center border border-slate-700 text-slate-400 transition-colors hover:border-amber-500 hover:text-amber-500"
+      aria-label="Next page"
+    >
+      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </a>
+  )}
 </nav>
