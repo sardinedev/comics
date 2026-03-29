@@ -88,6 +88,21 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
           {cvVolume && <><span class="text-slate-700">·</span><span class="text-xs font-bold uppercase tracking-widest text-slate-600">Not in library</span></>}
         </div>
 
+        {cvVolume && (
+          <div class="flex items-center gap-3">
+            <button
+              id="add-to-library-btn"
+              data-series-id={id}
+              class="group flex items-center gap-2 bg-amber-500 px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Add to library
+            </button>
+            <span id="add-to-library-status" class="hidden text-xs font-bold uppercase tracking-widest"></span>
+          </div>
+        )}
+        </div>
+
         {readCount > 0 && (
           <div class="flex max-w-sm flex-col gap-1.5">
             <div class="flex justify-between text-xs text-slate-600">
@@ -102,6 +117,45 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
       </div>
     </div>
   </div>
+
+<script>
+  const btn = document.getElementById("add-to-library-btn") as HTMLButtonElement | null;
+  const status = document.getElementById("add-to-library-status");
+
+  btn?.addEventListener("click", async () => {
+    const seriesId = btn.dataset.seriesId;
+    btn.disabled = true;
+    btn.textContent = "Adding…";
+
+    try {
+      const res = await fetch("/api/library/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seriesId }),
+      });
+
+      if (res.ok) {
+        btn.classList.add("hidden");
+        if (status) {
+          status.textContent = "Added to library";
+          status.classList.remove("hidden");
+          status.classList.add("text-amber-500");
+        }
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = `<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add to library`;
+        if (status) {
+          status.textContent = "Failed — try again";
+          status.classList.remove("hidden");
+          status.classList.add("text-red-400");
+        }
+      }
+    } catch {
+      btn.disabled = false;
+      btn.innerHTML = `<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add to library`;
+    }
+  });
+</script>
 
   <!-- Elastic: full issue grid with reading state -->
   {issues.length > 0 && (
