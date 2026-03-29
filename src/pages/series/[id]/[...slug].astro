@@ -17,11 +17,8 @@ const readPct = total ? Math.round((readCount / total) * 100) : 0;
 
 <Layout title={series.series_name}>
   <!-- Series header -->
-  <div class="relative -mx-4 -mt-4 mb-10 overflow-hidden">
-    <div class="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"></div>
-    <div class="absolute -right-24 top-0 h-[400px] w-[400px] rounded-full bg-amber-500/10 blur-[100px]"></div>
-
-    <div class="relative z-10 flex flex-col gap-8 px-4 py-10 md:flex-row md:items-end md:px-8">
+  <div class="relative -mx-4 -mt-4 mb-10 border-b border-slate-800">
+    <div class="flex flex-col gap-8 px-4 py-10 md:flex-row md:items-end md:px-8">
       <!-- Cover stack (first two issues) -->
       <div class="relative h-[240px] w-[180px] shrink-0 self-center md:self-auto">
         <!-- Issue #2 behind -->
@@ -67,8 +64,8 @@ const readPct = total ? Math.round((readCount / total) * 100) : 0;
           {series.series_name}
         </h1>
         <div class="flex flex-wrap items-center gap-4 text-sm text-slate-400">
-          {series.series_publisher && <span>{series.series_publisher}</span>}
-          {series.series_year && <><span class="text-slate-700">·</span><span>{series.series_year}</span></>}
+          {series.series_publisher && <a href={`/series?publisher=${encodeURIComponent(series.series_publisher)}&page=1`} class="hover:text-amber-500 transition-colors">{series.series_publisher}</a>}
+          {series.series_year && <><span class="text-slate-700">·</span><a href={`/series?year=${series.series_year}&page=1`} class="hover:text-amber-500 transition-colors">{series.series_year}</a></>}
           <span class="text-slate-700">·</span>
           <span>{issues.length} issues</span>
           {readingCount > 0 && (
@@ -91,7 +88,6 @@ const readPct = total ? Math.round((readCount / total) * 100) : 0;
       </div>
     </div>
 
-    <div class="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-slate-900 to-transparent"></div>
   </div>
 
   <!-- Issue list -->

@@ -28,6 +28,17 @@ export type PaginatedResult<T> = {
 
 export type SeriesSort = "title-asc" | "title-desc" | "date-asc" | "date-desc";
 
+export type SeriesFilters = {
+  publisher?: string;
+  year?: string;
+  readingState?: "unread" | "reading" | "read";
+};
+
+export type SeriesFilterOptions = {
+  publishers: string[];
+  years: string[];
+};
+
 type SortClause = Record<string, "asc" | "desc">;
 
 const SORT_CLAUSES: Record<SeriesSort, SortClause[]> = {
@@ -76,6 +87,18 @@ export async function getSeriesIssues(
     : null;
 
   return { series, items: issues, total, page: safePage, pageSize, totalPages };
+}
+
+/**
+ * Fetches a single issue by its ID.
+ */
+export async function getIssue(issueId: string): Promise<Issue | null> {
+  try {
+    const response = await elastic.get<Issue>({ index: ISSUES_INDEX, id: issueId });
+    return response._source ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -144,6 +167,26 @@ export async function getRecentlyAdded(limit = 6): Promise<SeriesSummary[]> {
 }
 
 /**
+ * Returns distinct publishers and years for filter UI.
+ */
+export async function getSeriesFilterOptions(): Promise<SeriesFilterOptions> {
+  const response = await elastic.search({
+    index: ISSUES_INDEX,
+    size: 0,
+    aggs: {
+      publishers: { terms: { field: "series_publisher", size: 200, order: { _key: "asc" } } },
+      years:      { terms: { field: "series_year",      size: 200, order: { _key: "desc" } } },
+    },
+  });
+
+  const aggs = response.aggregations as Record<string, { buckets: { key: string }[] }>;
+  return {
+    publishers: aggs.publishers.buckets.map((b) => b.key).filter(Boolean),
+    years:      aggs.years.buckets.map((b) => b.key).filter(Boolean),
+  };
+}
+
+/**
  * Fetches paginated series using field collapsing.
  *
  * Uses `collapse` on `series_id` so Elasticsearch handles deduplication,
@@ -156,13 +199,20 @@ export async function getAllSeries(
   page = 1,
   pageSize = 18,
   sort: SeriesSort = "title-asc",
+  filters: SeriesFilters = {},
 ): Promise<PaginatedResult<SeriesSummary>> {
   const from = (Math.max(1, page) - 1) * pageSize;
+
+  const filterClauses: object[] = [];
+  if (filters.publisher)    filterClauses.push({ term: { series_publisher: filters.publisher } });
+  if (filters.year)         filterClauses.push({ term: { series_year: filters.year } });
+  if (filters.readingState) filterClauses.push({ term: { reading_state: filters.readingState } });
 
   const response = await elastic.search<SeriesHitSource>({
     index: ISSUES_INDEX,
     size: pageSize,
     from,
+    ...(filterClauses.length > 0 && { query: { bool: { filter: filterClauses } } }),
     collapse: {
       field: "series_id",
       inner_hits: {

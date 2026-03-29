@@ -1,7 +1,156 @@
 ---
 import Layout from "@layouts/Layout.astro";
+import { getIssue } from "@data/elastic/queries";
+import { Image } from "astro:assets";
+
+const { id } = Astro.params;
+const issue = await getIssue(id!);
+
+if (!issue) return Astro.redirect("/series");
+
+const pct = issue.current_page && issue.issue_page_count
+  ? Math.round((issue.current_page / issue.issue_page_count) * 100)
+  : null;
+
+const creators: { label: string; names: string[] }[] = [
+  { label: "Writer",       names: issue.writers      ?? [] },
+  { label: "Artist",       names: issue.artists      ?? [] },
+  { label: "Colorist",     names: issue.colorists    ?? [] },
+  { label: "Letterer",     names: issue.letterers    ?? [] },
+  { label: "Cover",        names: issue.cover_artists ?? [] },
+  { label: "Editor",       names: issue.editors      ?? [] },
+].filter((c) => c.names.length > 0);
+
+const statusColors: Record<string, string> = {
+  reading: "bg-amber-500 text-slate-900",
+  read:    "bg-slate-700 text-slate-300",
+  unread:  "bg-slate-800 text-slate-400",
+};
+const statusColor = statusColors[issue.reading_state ?? "unread"] ?? statusColors.unread;
 ---
 
-<Layout title="Comic Issue">
-  <!-- UI for individual comic issue will be here -->
+<Layout title={`${issue.series_name} #${issue.issue_number}`}>
+  <!-- Breadcrumb -->
+  <nav class="mb-8 flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
+    <a href="/series" class="text-slate-500 hover:text-amber-500 transition-colors">Series</a>
+    <span class="text-slate-700">/</span>
+    <a href={`/series/${issue.series_id}`} class="text-slate-500 hover:text-amber-500 transition-colors">{issue.series_name}</a>
+    <span class="text-slate-700">/</span>
+    <span class="text-slate-400">#{issue.issue_number}</span>
+  </nav>
+
+  <div class="grid grid-cols-1 gap-10 md:grid-cols-[240px_1fr]">
+    <!-- Cover -->
+    <div class="flex flex-col gap-4">
+      <div class="relative overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10">
+        {issue.issue_cover_url ? (
+          <Image
+            src={issue.issue_cover_url}
+            alt={`${issue.series_name} #${issue.issue_number}`}
+            width={240}
+            height={360}
+            class="aspect-[2/3] w-full object-cover"
+          />
+        ) : (
+          <div class="aspect-[2/3] flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
+            <svg class="h-16 w-16 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </div>
+        )}
+      </div>
+
+      <!-- Reading state -->
+      <div class="flex flex-col gap-2">
+        <span class={`self-start px-2 py-1 text-[10px] font-black uppercase tracking-widest ${statusColor}`}>
+          {issue.reading_state ?? "Unread"}
+        </span>
+        {pct !== null && (
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between text-xs text-slate-600">
+              <span class="uppercase tracking-widest">Progress</span>
+              <span class="font-semibold text-amber-500">{pct}%</span>
+            </div>
+            <div class="h-1 overflow-hidden bg-slate-800">
+              <div class="h-full bg-amber-500" style={`width: ${pct}%`}></div>
+            </div>
+            <p class="text-xs text-slate-600">Page {issue.current_page} of {issue.issue_page_count}</p>
+          </div>
+        )}
+      </div>
+
+      <!-- Quick meta -->
+      <dl class="flex flex-col gap-2 border-t border-slate-800 pt-4">
+        {issue.issue_date && (
+          <div class="flex justify-between">
+            <dt class="text-xs uppercase tracking-widest text-slate-600">Released</dt>
+            <dd class="text-xs font-semibold text-slate-300">{issue.issue_date.slice(0, 10)}</dd>
+          </div>
+        )}
+        {issue.issue_page_count && (
+          <div class="flex justify-between">
+            <dt class="text-xs uppercase tracking-widest text-slate-600">Pages</dt>
+            <dd class="text-xs font-semibold text-slate-300">{issue.issue_page_count}</dd>
+          </div>
+        )}
+        {issue.series_publisher && (
+          <div class="flex justify-between">
+            <dt class="text-xs uppercase tracking-widest text-slate-600">Publisher</dt>
+            <dd class="text-xs font-semibold text-slate-300">{issue.series_publisher}</dd>
+          </div>
+        )}
+      </dl>
+    </div>
+
+    <!-- Details -->
+    <div class="flex flex-col gap-8">
+      <!-- Title block -->
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-3">
+          <span class="h-px w-8 bg-amber-500"></span>
+          <span class="text-xs font-bold uppercase tracking-[0.3em] text-amber-500">{issue.series_name}</span>
+        </div>
+        <h1 class="text-4xl font-black leading-tight tracking-tight text-white md:text-5xl">
+          {issue.issue_name
+            ? <>{issue.issue_name}<span class="ml-3 text-2xl font-bold text-slate-600">#{issue.issue_number}</span></>
+            : <>Issue <span class="text-amber-500">#{issue.issue_number}</span></>
+          }
+        </h1>
+        {issue.series_year && (
+          <p class="text-sm text-slate-500">{issue.series_name} · {issue.series_year}</p>
+        )}
+      </div>
+
+      <!-- Description -->
+      {issue.issue_description && (
+        <div class="flex flex-col gap-2">
+          <h2 class="text-xs font-bold uppercase tracking-widest text-slate-600">Synopsis</h2>
+          <p class="max-w-2xl text-sm leading-relaxed text-slate-300">{issue.issue_description}</p>
+        </div>
+      )}
+
+      <!-- Creators -->
+      {creators.length > 0 && (
+        <div class="flex flex-col gap-4">
+          <h2 class="text-xs font-bold uppercase tracking-widest text-slate-600">Creators</h2>
+          <dl class="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
+            {creators.map(({ label, names }) => (
+              <div class="flex flex-col gap-1">
+                <dt class="text-[10px] font-bold uppercase tracking-widest text-slate-600">{label}</dt>
+                {names.map((name) => (
+                  <dd class="text-sm text-slate-300">{name}</dd>
+                ))}
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+
+      <!-- File info -->
+      {issue.mylar_file_location && (
+        <div class="flex flex-col gap-2 border-t border-slate-800 pt-6">
+          <h2 class="text-xs font-bold uppercase tracking-widest text-slate-600">File</h2>
+          <p class="font-mono text-xs text-slate-500 break-all">{issue.mylar_file_location}</p>
+        </div>
+      )}
+    </div>
+  </div>
 </Layout>

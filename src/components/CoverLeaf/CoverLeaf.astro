@@ -72,7 +72,7 @@ if (props.type === "series") {
         <span class="truncate text-sm font-bold leading-tight text-white transition-colors group-hover:text-amber-400">
           {props.name}
         </span>
-        <span class="text-xs text-slate-500">{props.year}</span>
+        <a href={`/series?year=${props.year}&page=1`} class="text-xs text-slate-500 hover:text-amber-500 transition-colors">{props.year}</a>
       </>
     )}
   </div>

@@ -1,35 +1,133 @@
 ---
 import Layout from "@layouts/Layout.astro";
 import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
-import { getAllSeries, type SeriesSort } from "@data/elastic/queries";
+import { getAllSeries, getSeriesFilterOptions, type SeriesSort, type SeriesFilters } from "@data/elastic/queries";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 
 const title = "Series";
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
+
 const validSorts: SeriesSort[] = ["title-asc", "title-desc", "date-asc", "date-desc"];
 const sortParam = Astro.url.searchParams.get("sort") as SeriesSort;
 const sort: SeriesSort = validSorts.includes(sortParam) ? sortParam : "title-asc";
-const series = await getAllSeries(currentPage, 18, sort);
+
+const validStates = ["unread", "reading", "read"] as const;
+const stateParam = Astro.url.searchParams.get("state");
+const filters: SeriesFilters = {
+  publisher:    Astro.url.searchParams.get("publisher") || undefined,
+  year:         Astro.url.searchParams.get("year") || undefined,
+  readingState: validStates.includes(stateParam as typeof validStates[number])
+    ? (stateParam as SeriesFilters["readingState"])
+    : undefined,
+};
+
+const [series, filterOptions] = await Promise.all([
+  getAllSeries(currentPage, 18, sort, filters),
+  getSeriesFilterOptions(),
+]);
+
+const activeFilterCount = [filters.publisher, filters.year, filters.readingState].filter(Boolean).length;
+
+function filterUrl(key: string, value: string | null) {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  if (value) params.set(key, value);
+  else params.delete(key);
+  params.set("page", "1");
+  return `?${params.toString()}`;
+}
 ---
 
 <Layout title={title}>
-  <!-- Page header -->
   <div class="mb-8 border-b border-slate-800 pb-6">
     <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Your library</p>
     <h1 class="text-4xl font-black tracking-tight text-white">Series</h1>
   </div>
 
+  <!-- Filter popover (full-width, anchored to toolbar) -->
+  <div id="filter-popover" popover="manual" class="filter-popover" role="dialog">
+    <div class="flex w-full flex-col border-t-2 border-amber-500 bg-slate-900 shadow-xl shadow-black/40">
+
+      <!-- Reading state -->
+      <div class="flex flex-col gap-3 border-b border-slate-800 p-4">
+        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-600">Reading State</span>
+        <div class="flex flex-wrap gap-2">
+          {([["", "All"], ["unread", "Unread"], ["reading", "Reading"], ["read", "Read"]] as [string, string][]).map(([val, label]) => {
+            const active = (filters.readingState ?? "") === val;
+            return (
+              <a href={filterUrl("state", val || null)} class={`px-3 py-1.5 text-xs font-bold uppercase tracking-widest border transition-colors ${active ? "border-amber-500 bg-amber-500 text-slate-900" : "border-slate-700 text-slate-400 hover:border-amber-500 hover:text-amber-500"}`}>
+                {label}
+              </a>
+            );
+          })}
+        </div>
+      </div>
+
+      <!-- Publisher -->
+      {filterOptions.publishers.length > 0 && (
+        <div class="flex flex-col gap-3 border-b border-slate-800 p-4">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-600">Publisher</span>
+          <div class="flex flex-wrap gap-2">
+            <a href={filterUrl("publisher", null)} class={`px-3 py-1.5 text-xs font-bold uppercase tracking-widest border transition-colors ${!filters.publisher ? "border-amber-500 bg-amber-500 text-slate-900" : "border-slate-700 text-slate-400 hover:border-amber-500 hover:text-amber-500"}`}>All</a>
+            {filterOptions.publishers.map((pub) => (
+              <a href={filterUrl("publisher", pub)} class={`px-3 py-1.5 text-xs font-bold uppercase tracking-widest border transition-colors ${filters.publisher === pub ? "border-amber-500 bg-amber-500 text-slate-900" : "border-slate-700 text-slate-400 hover:border-amber-500 hover:text-amber-500"}`}>{pub}</a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <!-- Year -->
+      {filterOptions.years.length > 0 && (
+        <div class="flex flex-col gap-3 p-4">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-600">Year</span>
+          <div class="flex flex-wrap gap-2">
+            <a href={filterUrl("year", null)} class={`px-3 py-1.5 text-xs font-bold uppercase tracking-widest border transition-colors ${!filters.year ? "border-amber-500 bg-amber-500 text-slate-900" : "border-slate-700 text-slate-400 hover:border-amber-500 hover:text-amber-500"}`}>All</a>
+            {filterOptions.years.map((year) => (
+              <a href={filterUrl("year", year)} class={`px-3 py-1.5 text-xs font-bold uppercase tracking-widest border transition-colors ${filters.year === year ? "border-amber-500 bg-amber-500 text-slate-900" : "border-slate-700 text-slate-400 hover:border-amber-500 hover:text-amber-500"}`}>{year}</a>
+            ))}
+          </div>
+        </div>
+      )}
+
+    </div>
+  </div>
+
   <IssueGrid currentPage={currentPage} totalNumberOfPages={series.totalPages}>
-    {
-      series.items.map((s) => (
-        <CoverLeaf
-          id={s.series_id}
-          cover={s.series_cover_url}
-          name={s.series_name}
-          year={s.series_year}
-          type="series"
-        />
-      ))
-    }
+    <button
+      slot="toolbar"
+      type="button"
+      popovertarget="filter-popover"
+      id="filter-btn"
+      class={`flex items-center gap-1.5 border bg-slate-800 px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition-colors hover:border-amber-500 hover:text-amber-500 ${activeFilterCount > 0 ? "border-amber-500 text-amber-500" : "border-slate-700 text-slate-300"}`}
+    >
+      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M7 8h10M11 12h2"/></svg>
+      Filter
+      {activeFilterCount > 0 && (
+        <span class="flex h-4 w-4 items-center justify-center bg-amber-500 text-[9px] font-black text-slate-900">{activeFilterCount}</span>
+      )}
+    </button>
+
+    {series.items.map((s) => (
+      <CoverLeaf
+        id={s.series_id}
+        cover={s.series_cover_url}
+        name={s.series_name}
+        year={s.series_year}
+        type="series"
+      />
+    ))}
   </IssueGrid>
 </Layout>
+
+<style>
+  .filter-popover {
+    position: fixed;
+    left: 0;
+    right: 0;
+    width: 100vw;
+    max-width: 1600px;
+    margin-inline: auto;
+    margin-top: 0.5rem;
+    position-anchor: --util-anchor;
+    position-area: bottom;
+  }
+</style>

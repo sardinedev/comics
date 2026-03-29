@@ -18,6 +18,17 @@ const sortLabels: Record<string, string> = {
   "title-desc": "Title Z–A",
 };
 const activeLabel = sortParam ? (sortLabels[sortParam] ?? null) : null;
+
+const activeFilters: { label: string; clearUrl: string }[] = [];
+for (const [key, display] of [["state", "State"], ["publisher", "Publisher"], ["year", "Year"]] as [string, string][]) {
+  const val = Astro.url.searchParams.get(key);
+  if (val) {
+    const params = new URLSearchParams(Astro.url.searchParams);
+    params.delete(key);
+    params.set("page", "1");
+    activeFilters.push({ label: `${display}: ${val}`, clearUrl: `?${params.toString()}` });
+  }
+}
 ---
 
 <!-- Toolbar -->
@@ -25,6 +36,8 @@ const activeLabel = sortParam ? (sortLabels[sortParam] ?? null) : null;
   <p class="text-xs text-slate-500">
     Page <span class="font-semibold text-slate-300">{currentPage}</span> of <span class="font-semibold text-slate-300">{totalNumberOfPages}</span>
   </p>
+  <div class="flex items-center gap-2">
+    <slot name="toolbar" />
   <button
     type="button"
     popovertarget="mypopover"
@@ -62,15 +75,29 @@ const activeLabel = sortParam ? (sortLabels[sortParam] ?? null) : null;
       </li>
     </menu>
   </div>
+  </div>
 </section>
 
-<!-- Active sort indicator -->
-<div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-4">
-  <span class="text-xs uppercase tracking-widest text-slate-600">Sorted by</span>
-  {activeLabel ? (
-    <span class="text-xs font-bold uppercase tracking-widest text-amber-500">{activeLabel}</span>
-  ) : (
-    <span class="text-xs font-bold uppercase tracking-widest text-slate-400">Default</span>
+<!-- Active sort + filter indicator -->
+<div class="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-800 pb-4">
+  <div class="flex items-center gap-2">
+    <span class="text-xs uppercase tracking-widest text-slate-600">Sorted by</span>
+    {activeLabel ? (
+      <span class="text-xs font-bold uppercase tracking-widest text-amber-500">{activeLabel}</span>
+    ) : (
+      <span class="text-xs font-bold uppercase tracking-widest text-slate-400">Default</span>
+    )}
+  </div>
+  {activeFilters.length > 0 && (
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-xs uppercase tracking-widest text-slate-600">·</span>
+      {activeFilters.map(({ label, clearUrl }) => (
+        <a href={clearUrl} class="flex items-center gap-1 border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-widest text-amber-500 hover:bg-amber-500/20 transition-colors">
+          {label}
+          <span class="text-amber-600">&times;</span>
+        </a>
+      ))}
+    </div>
   )}
 </div>
 

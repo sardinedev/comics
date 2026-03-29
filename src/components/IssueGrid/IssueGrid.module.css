@@ -7,7 +7,9 @@
   position-anchor: --util-anchor;
   position-area: bottom;
   width: 100vw;
+  max-width: 1600px;
   left: 0;
   right: 0;
+  margin-inline: auto;
   margin-top: 0.5rem;
 }
