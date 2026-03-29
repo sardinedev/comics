@@ -1,6 +1,8 @@
 ---
 import Layout from "@layouts/Layout.astro";
 import { getSeriesIssues } from "@data/elastic/queries";
+import { getVolumeDetails, getIssuesFromVolume } from "@data/comicvine/comicvine";
+import type { ComicvineVolume } from "@data/comicvine/comicvine.types";
 import { Image } from "astro:assets";
 import PageNavigator from "@components/PageNavigator.astro";
 
@@ -8,43 +10,60 @@ const { id } = Astro.params;
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
 const { series, items: issues, totalPages, total } = await getSeriesIssues(id!, currentPage);
 
-if (!series) return Astro.redirect("/series");
+const CV_PAGE_SIZE = 18;
 
-const readCount = issues.filter((i) => i.reading_state === "read").length;
+let cvVolume: ComicvineVolume | null = null;
+let cvPageIssues: Awaited<ReturnType<typeof getIssuesFromVolume>> = [];
+let cvTotalPages = 0;
+
+if (!series) {
+  try {
+    cvVolume = await getVolumeDetails(id!);
+  } catch {
+    cvVolume = null;
+  }
+  if (!cvVolume) return Astro.redirect("/series");
+
+  const offset = (currentPage - 1) * CV_PAGE_SIZE;
+  cvPageIssues = (await getIssuesFromVolume(id!, offset))?.slice(0, CV_PAGE_SIZE) ?? [];
+  cvTotalPages = Math.ceil((cvVolume.count_of_issues ?? 0) / CV_PAGE_SIZE);
+}
+
+// Normalise to a common shape for the template
+const name        = series?.series_name        ?? cvVolume!.name;
+const year        = series?.series_year        ?? cvVolume!.start_year;
+const publisher   = series?.series_publisher   ?? cvVolume!.publisher?.name;
+const totalIssues = series?.series_total_issues ?? cvVolume!.count_of_issues;
+
+const readCount   = issues.filter((i) => i.reading_state === "read").length;
 const readingCount = issues.filter((i) => i.reading_state === "reading").length;
-const readPct = total ? Math.round((readCount / total) * 100) : 0;
+const readPct     = total ? Math.round((readCount / total) * 100) : 0;
+
+// Cover images for the stack
+const cover1 = issues[0]?.issue_cover_url ?? cvVolume?.image?.medium_url ?? null;
+const cover2 = issues[1]?.issue_cover_url ?? null;
+
 ---
 
-<Layout title={series.series_name}>
+<Layout title={name}>
   <!-- Series header -->
   <div class="relative -mx-4 -mt-4 mb-10 border-b border-slate-800">
     <div class="flex flex-col gap-8 px-4 py-10 md:flex-row md:items-end md:px-8">
-      <!-- Cover stack (first two issues) -->
+
+      <!-- Cover stack -->
       <div class="relative h-[240px] w-[180px] shrink-0 self-center md:self-auto">
-        <!-- Issue #2 behind -->
-        {issues[1]?.issue_cover_url ? (
+        <!-- Issue #2 / fallback behind -->
+        {cover2 ? (
           <div class="absolute left-6 top-3 h-[220px] w-[148px] rotate-6 overflow-hidden rounded-sm shadow-xl ring-1 ring-white/10">
-            <Image
-              src={issues[1].issue_cover_url}
-              alt={`${series.series_name} #${issues[1].issue_number}`}
-              width={148}
-              height={220}
-              class="h-full w-full object-cover"
-            />
+            <Image src={cover2} alt={`${name} #2`} width={148} height={220} class="h-full w-full object-cover" />
           </div>
         ) : (
           <div class="absolute left-6 top-3 h-[220px] w-[148px] rotate-6 rounded-sm bg-slate-700 opacity-50 shadow-xl"></div>
         )}
-        <!-- Issue #1 in front -->
+        <!-- Issue #1 / series cover in front -->
         <div class="absolute inset-y-0 left-0 w-[148px] overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10">
-          {issues[0]?.issue_cover_url ? (
-            <Image
-              src={issues[0].issue_cover_url}
-              alt={`${series.series_name} #${issues[0].issue_number}`}
-              width={148}
-              height={220}
-              class="h-full w-full object-cover"
-            />
+          {cover1 ? (
+            <Image src={cover1} alt={name} width={148} height={220} class="h-full w-full object-cover" />
           ) : (
             <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
               <svg class="h-12 w-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -58,27 +77,22 @@ const readPct = total ? Math.round((readCount / total) * 100) : 0;
         <div class="flex items-center gap-3">
           <a href="/series" class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors">Series</a>
           <span class="text-slate-700">/</span>
-          <span class="text-xs font-bold uppercase tracking-widest text-slate-400">{series.series_name}</span>
+          <span class="text-xs font-bold uppercase tracking-widest text-slate-400">{name}</span>
         </div>
-        <h1 class="text-4xl font-black leading-tight tracking-tight text-white md:text-5xl">
-          {series.series_name}
-        </h1>
+        <h1 class="text-4xl font-black leading-tight tracking-tight text-white md:text-5xl">{name}</h1>
         <div class="flex flex-wrap items-center gap-4 text-sm text-slate-400">
-          {series.series_publisher && <a href={`/series?publisher=${encodeURIComponent(series.series_publisher)}&page=1`} class="hover:text-amber-500 transition-colors">{series.series_publisher}</a>}
-          {series.series_year && <><span class="text-slate-700">·</span><a href={`/series?year=${series.series_year}&page=1`} class="hover:text-amber-500 transition-colors">{series.series_year}</a></>}
-          <span class="text-slate-700">·</span>
-          <span>{issues.length} issues</span>
-          {readingCount > 0 && (
-            <><span class="text-slate-700">·</span><span class="text-amber-500">{readingCount} in progress</span></>
-          )}
+          {publisher && <a href={`/series?publisher=${encodeURIComponent(publisher)}&page=1`} class="hover:text-amber-500 transition-colors">{publisher}</a>}
+          {year && <><span class="text-slate-700">·</span><a href={`/series?year=${year}&page=1`} class="hover:text-amber-500 transition-colors">{year}</a></>}
+          {totalIssues && <><span class="text-slate-700">·</span><span>{totalIssues} issues</span></>}
+          {readingCount > 0 && <><span class="text-slate-700">·</span><span class="text-amber-500">{readingCount} in progress</span></>}
+          {cvVolume && <><span class="text-slate-700">·</span><span class="text-xs font-bold uppercase tracking-widest text-slate-600">Not in library</span></>}
         </div>
 
-        <!-- Progress bar -->
         {readCount > 0 && (
           <div class="flex max-w-sm flex-col gap-1.5">
             <div class="flex justify-between text-xs text-slate-600">
               <span class="uppercase tracking-widest">Read</span>
-              <span class="font-semibold text-amber-500">{readCount} / {issues.length}</span>
+              <span class="font-semibold text-amber-500">{readCount} / {total}</span>
             </div>
             <div class="h-1 w-full overflow-hidden bg-slate-800">
               <div class="h-full bg-amber-500" style={`width: ${readPct}%`}></div>
@@ -87,26 +101,58 @@ const readPct = total ? Math.round((readCount / total) * 100) : 0;
         )}
       </div>
     </div>
-
   </div>
 
-  <!-- Issue list -->
-  <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-    {issues.map((issue) => {
-      const pct = issue.current_page && issue.issue_page_count
-        ? Math.round((issue.current_page / issue.issue_page_count) * 100)
-        : null;
+  <!-- Elastic: full issue grid with reading state -->
+  {issues.length > 0 && (
+    <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      {issues.map((issue) => {
+        const pct = issue.current_page && issue.issue_page_count
+          ? Math.round((issue.current_page / issue.issue_page_count) * 100)
+          : null;
+        return (
+          <li class="group flex flex-col gap-2">
+            <a href={`/comic/${issue.issue_id}`} class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all duration-200 hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10">
+              {issue.issue_cover_url ? (
+                <Image src={issue.issue_cover_url} alt={`${name} #${issue.issue_number}`} width={210} height={320} class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
+              ) : (
+                <div class="aspect-[2/3] flex items-center justify-center bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900">
+                  <svg class="h-8 w-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+              )}
+              {issue.reading_state === "read" && (
+                <span class="absolute right-2 top-2 bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400 backdrop-blur-sm">Read</span>
+              )}
+              {issue.reading_state === "reading" && (
+                <span class="absolute right-2 top-2 bg-amber-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-900">Reading</span>
+              )}
+              {pct !== null && (
+                <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800">
+                  <div class="h-full bg-amber-500" style={`width: ${pct}%`}></div>
+                </div>
+              )}
+            </a>
+            <div class="flex flex-col gap-0.5 px-0.5">
+              <span class="text-sm font-bold text-white">#{issue.issue_number}</span>
+              {issue.issue_name && <span class="truncate text-xs text-slate-500">{issue.issue_name}</span>}
+              {issue.issue_date && <span class="text-xs text-slate-600">{issue.issue_date.slice(0, 7)}</span>}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  )}
 
-      return (
+  <!-- ComicVine fallback: same issue grid with real covers -->
+  {cvVolume && cvPageIssues && cvPageIssues.length > 0 && (
+    <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      {cvPageIssues.map((issue) => (
         <li class="group flex flex-col gap-2">
-          <a
-            href={`/comic/${issue.issue_id}`}
-            class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all duration-200 hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10"
-          >
-            {issue.issue_cover_url ? (
+          <a href={`/comic/${issue.id}`} class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all duration-200 hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10">
+            {issue.image?.medium_url ? (
               <Image
-                src={issue.issue_cover_url}
-                alt={`${series.series_name} #${issue.issue_number}`}
+                src={issue.image.medium_url}
+                alt={`${name} #${issue.issue_number}`}
                 width={210}
                 height={320}
                 class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
@@ -117,36 +163,17 @@ const readPct = total ? Math.round((readCount / total) * 100) : 0;
                 <svg class="h-8 w-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
               </div>
             )}
-
-            <!-- Reading state badge -->
-            {issue.reading_state === "read" && (
-              <span class="absolute right-2 top-2 bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400 backdrop-blur-sm">Read</span>
-            )}
-            {issue.reading_state === "reading" && (
-              <span class="absolute right-2 top-2 bg-amber-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-900">Reading</span>
-            )}
-
-            <!-- Progress bar -->
-            {pct !== null && (
-              <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800">
-                <div class="h-full bg-amber-500" style={`width: ${pct}%`}></div>
-              </div>
-            )}
           </a>
-
           <div class="flex flex-col gap-0.5 px-0.5">
             <span class="text-sm font-bold text-white">#{issue.issue_number}</span>
-            {issue.issue_name && (
-              <span class="truncate text-xs text-slate-500">{issue.issue_name}</span>
-            )}
-            {issue.issue_date && (
-              <span class="text-xs text-slate-600">{issue.issue_date.slice(0, 7)}</span>
-            )}
+            {issue.name && <span class="truncate text-xs text-slate-500">{issue.name}</span>}
+            {issue.cover_date && <span class="text-xs text-slate-600">{issue.cover_date.slice(0, 7)}</span>}
           </div>
         </li>
-      );
-    })}
-  </ol>
+      ))}
+    </ol>
+  )}
 
-  <PageNavigator numberOfPages={totalPages} currentPage={currentPage} />
+  {issues.length > 0 && <PageNavigator numberOfPages={totalPages} currentPage={currentPage} />}
+  {cvVolume && cvTotalPages > 1 && <PageNavigator numberOfPages={cvTotalPages} currentPage={currentPage} />}
 </Layout>

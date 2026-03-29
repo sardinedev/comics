@@ -90,6 +90,20 @@ export async function getSeriesIssues(
 }
 
 /**
+ * The 12 most recently added issues, sorted by added_to_library_at desc.
+ */
+export async function getNewlyAddedIssues(): Promise<Issue[]> {
+  const response = await elastic.search<Issue>({
+    index: ISSUES_INDEX,
+    size: 12,
+    sort: [{ added_to_library_at: "desc" }],
+  });
+
+  return response.hits.hits.map((h) => h._source!);
+}
+
+
+/**
  * Fetches a single issue by its ID.
  */
 export async function getIssue(issueId: string): Promise<Issue | null> {
