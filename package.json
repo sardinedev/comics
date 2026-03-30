@@ -11,7 +11,7 @@
     "start:prod": "node ./dist/server/entry.mjs",
     "type:check": "astro check",
     "type:check:tsc": "tsc --noEmit",
-    "build": "astro build && npx esbuild src/data/sync/sync-mylar-to-elastic.ts --bundle --platform=node --format=esm --external:@aws-sdk/client-s3 --outfile=dist/sync/sync-mylar-to-elastic.mjs",
+    "build": "astro build && npx esbuild src/data/sync/sync-mylar-to-elastic.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/sync/sync-mylar-to-elastic.mjs",
     "sync": "node --env-file=.env.local --import tsx/esm src/data/sync/sync-mylar-to-elastic.ts",
     "preview": "npx wrangler pages dev ./dist",
     "astro": "astro"
