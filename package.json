@@ -24,7 +24,7 @@
     "@nanostores/preact": "1.0.0",
     "@tailwindcss/vite": "4.2.1",
     "@types/unzipper": "^0.10.11",
-    "astro": "6.0.4",
+    "astro": "6.1.1",
     "dotenv": "^17.2.3",
     "nanostores": "1.2.0",
     "preact": "10.29.0",
