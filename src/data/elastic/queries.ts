@@ -6,7 +6,7 @@ type SeriesHitSource = Pick<
   Issue,
   "series_id" | "series_name" | "series_year" | "series_publisher" | "series_total_issues"
 >;
-type CoverHitSource = Pick<Issue, "issue_cover_url">;
+type CoverHitSource = Pick<Issue, "issue_cover_url" | "issue_cover_thumb_hash">;
 type SeriesAggregations = { total_series: { value: number } };
 
 export type SeriesSummary = {
@@ -14,6 +14,7 @@ export type SeriesSummary = {
   series_name: string;
   series_year: string;
   series_cover_url?: string;
+  series_cover_thumb_hash?: string;
   series_publisher?: string;
   series_total_issues?: number;
 };
@@ -159,7 +160,7 @@ export async function getRecentlyAdded(limit = 6): Promise<SeriesSummary[]> {
         name: "latest_cover",
         size: 1,
         sort: [{ issue_date: "desc" }],
-        _source: ["issue_cover_url"],
+        _source: ["issue_cover_url", "issue_cover_thumb_hash"],
       },
     },
     sort: [{ added_to_library_at: "desc" }],
@@ -174,6 +175,7 @@ export async function getRecentlyAdded(limit = 6): Promise<SeriesSummary[]> {
       series_name: src.series_name ?? "",
       series_year: src.series_year ?? "",
       series_cover_url: cover?.issue_cover_url,
+      series_cover_thumb_hash: cover?.issue_cover_thumb_hash,
       series_publisher: src.series_publisher,
       series_total_issues: src.series_total_issues,
     };
@@ -233,7 +235,7 @@ export async function getAllSeries(
         name: "latest_issue",
         size: 1,
         sort: [{ issue_date: "desc" }],
-        _source: ["issue_cover_url"],
+        _source: ["issue_cover_url", "issue_cover_thumb_hash"],
       },
     },
     sort: SORT_CLAUSES[sort],
@@ -258,6 +260,7 @@ export async function getAllSeries(
       series_name: src.series_name ?? "",
       series_year: src.series_year ?? "",
       series_cover_url: innerHit?.issue_cover_url,
+      series_cover_thumb_hash: innerHit?.issue_cover_thumb_hash,
       series_publisher: src.series_publisher,
       series_total_issues: src.series_total_issues,
     };

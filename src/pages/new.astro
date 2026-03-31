@@ -55,6 +55,7 @@ const [addedIssues, weeklyComics] = await Promise.all([
             seriesName={issue.series_name}
             seriesId={issue.series_id}
             badge="new"
+            thumbHash={issue.issue_cover_thumb_hash}
           />
         ))}
       </ol>

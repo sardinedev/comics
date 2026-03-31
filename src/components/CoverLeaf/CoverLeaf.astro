@@ -1,5 +1,7 @@
 ---
 import { Image } from "astro:assets";
+import sharp from "sharp";
+import { thumbHashToRGBA } from "thumbhash";
 
 type IssueCoverLeaf = {
   type: "Issue";
@@ -12,6 +14,7 @@ type IssueCoverLeaf = {
   issueDate?: string;
   badge?: "read" | "reading" | "new";
   progress?: number | null;
+  thumbHash?: string;
 };
 
 type SeriesCoverLeaf = {
@@ -21,9 +24,10 @@ type SeriesCoverLeaf = {
   name: string;
   year?: string;
   badge?: "new";
+  thumbHash?: string;
 };
 
-const { cover, id, ...props } = Astro.props as IssueCoverLeaf | SeriesCoverLeaf;
+const { cover, id, thumbHash, ...props } = Astro.props as IssueCoverLeaf | SeriesCoverLeaf;
 
 const coverSrc = cover || null;
 const isLocalCoverRoute = coverSrc?.startsWith("/covers/");
@@ -36,6 +40,20 @@ const href = props.type === "Issue" ? `/comic/${id}` : `/series/${id}`;
 const badge = props.badge;
 const progress = props.type === "Issue" ? props.progress : undefined;
 
+let placeholderUrl: string | undefined;
+if (thumbHash) {
+  try {
+    const hashBytes = new Uint8Array(Buffer.from(thumbHash, "base64"));
+    const { w, h, rgba } = thumbHashToRGBA(hashBytes);
+    const png = await sharp(Buffer.from(rgba), {
+      raw: { width: w, height: h, channels: 4 },
+    }).png().toBuffer();
+    placeholderUrl = `data:image/png;base64,${png.toString("base64")}`;
+  } catch {
+    // no placeholder
+  }
+}
+
 let alt: string;
 if (props.type === "Issue") {
   alt = props.seriesName ? `${props.seriesName} #${props.number}` : `Issue #${props.number}`;
@@ -45,7 +63,11 @@ if (props.type === "Issue") {
 ---
 
 <li data-coverid={id} class="group flex flex-col gap-2">
-  <a href={href} class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all duration-200 hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10">
+  <a
+    href={href}
+    class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all duration-200 hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10"
+    style={placeholderUrl ? `background-image: url(${placeholderUrl}); background-size: cover; background-position: center;` : undefined}
+  >
     {optimizableCoverSrc ? (
       <Image
         class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
