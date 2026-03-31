@@ -192,6 +192,7 @@ const heroProgress =
                     )
                   : undefined
               }
+              thumbHash={issue.issue_cover_thumb_hash}
             />
           ))}
         </ol>
@@ -228,6 +229,7 @@ const heroProgress =
               name={series.series_name}
               year={series.series_year}
               badge="new"
+              thumbHash={series.series_cover_thumb_hash}
             />
           ))}
         </ol>
@@ -263,6 +265,7 @@ const heroProgress =
               cover={series.series_cover_url}
               name={series.series_name}
               year={series.series_year}
+              thumbHash={series.series_cover_thumb_hash}
             />
           ))}
         </ol>

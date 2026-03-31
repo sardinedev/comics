@@ -2,6 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Readable } from "node:stream";
 import { mylarDownloadIssue } from "../data/mylar/mylar";
+import sharp from "sharp";
+import { rgbaToThumbHash } from "thumbhash";
 
 // Use dynamic import for unzipper since it's a CJS module
 let unzipper: typeof import("unzipper") | null = null;
@@ -281,6 +283,30 @@ export async function extractCoverFromDownloadedIssue(
       success: false,
       reason: `Failed to save cover to disk: ${error instanceof Error ? error.message : String(error)}`,
     };
+  }
+}
+
+/**
+ * Generates a ThumbHash placeholder for a cached cover image.
+ * Resizes the image to fit within 100x100 (preserving aspect ratio),
+ * then encodes to a compact base64 hash for use as a loading placeholder.
+ *
+ * @param issueId The ComicVine issue ID
+ * @returns Base64 thumbhash string, or null if generation fails
+ */
+export async function generateThumbHash(issueId: string): Promise<string | null> {
+  try {
+    const filePath = getCoverFilePath(issueId);
+    const { data, info } = await sharp(filePath)
+      .resize(100, 100, { fit: "inside" })
+      .raw()
+      .ensureAlpha()
+      .toBuffer({ resolveWithObject: true });
+
+    const hash = rgbaToThumbHash(info.width, info.height, new Uint8Array(data));
+    return Buffer.from(hash).toString("base64");
+  } catch {
+    return null;
   }
 }
 

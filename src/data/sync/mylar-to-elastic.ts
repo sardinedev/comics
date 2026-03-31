@@ -1,7 +1,7 @@
 import { mylarGetAllSeries, mylarGetHistory, mylarGetSeries } from "../mylar/mylar";
 import type { MylarComic, MylarIssue, MylarHistoryItem, IssueStatus } from "../mylar/mylar.types";
 import { getComicIssueDetails } from "../comicvine/comicvine";
-import { ensureCoverCached } from "../../util/covers";
+import { ensureCoverCached, generateThumbHash } from "../../util/covers";
 import { ISSUES_INDEX } from "../elastic/models/issue.model";
 import { elasticBulkUpsertDocuments } from "../elastic/elastic";
 import type { ReadingState, Issue } from "../comics.types";
@@ -170,6 +170,7 @@ function buildIssueBaseDoc(
   opts: {
     nowIso: string;
     coverUrl?: string;
+    thumbHash?: string;
     issueDescription?: string;
     issueDate: string;
     addedToLibraryAt?: string;
@@ -187,6 +188,7 @@ function buildIssueBaseDoc(
     issue_description: opts.issueDescription,
     issue_date: opts.issueDate,
     issue_cover_url: opts.coverUrl,
+    issue_cover_thumb_hash: opts.thumbHash,
 
     ...seriesInfo,
 
@@ -349,6 +351,7 @@ export async function syncMylarToElastic(
       options.comicVineConcurrency ?? 3,
       async (issue) => {
         let coverUrl: string | undefined = issue.imageURL;
+        let thumbHash: string | undefined;
         let issueDescription: string | undefined;
         let comicVineStoreDate: string | undefined;
 
@@ -374,6 +377,7 @@ export async function syncMylarToElastic(
           if (cached) {
             coverUrl = cached;
             stats.coversCached += 1;
+            thumbHash = (await generateThumbHash(issue.id)) ?? undefined;
           }
         }
 
@@ -382,6 +386,7 @@ export async function syncMylarToElastic(
         const { doc, upsert } = buildIssueBaseDoc(issue, seriesInfo, {
           nowIso,
           coverUrl,
+          thumbHash,
           issueDescription,
           issueDate,
           addedToLibraryAt,

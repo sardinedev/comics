@@ -255,6 +255,67 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
       }
     </div>
   </div>
+  <!-- Elastic: full issue grid with reading state -->
+  {
+    issues.length > 0 && (
+      <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        {issues.map((issue) => (
+          <CoverLeaf
+            type="Issue"
+            id={issue.issue_id}
+            cover={issue.issue_cover_url}
+            number={issue.issue_number}
+            issueName={issue.issue_name}
+            issueDate={issue.issue_date?.slice(0, 7)}
+            badge={
+              issue.reading_state === "read"
+                ? "read"
+                : issue.reading_state === "reading"
+                  ? "reading"
+                  : undefined
+            }
+            progress={
+              issue.current_page && issue.issue_page_count
+                ? Math.round(
+                    (issue.current_page / issue.issue_page_count) * 100,
+                  )
+                : undefined
+            }
+            thumbHash={issue.issue_cover_thumb_hash}
+          />
+        ))}
+      </ol>
+    )
+  }
+
+  <!-- ComicVine fallback: same issue grid with real covers -->
+  {
+    cvVolume && cvPageIssues && cvPageIssues.length > 0 && (
+      <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        {cvPageIssues.map((issue) => (
+          <CoverLeaf
+            type="Issue"
+            id={String(issue.id)}
+            cover={issue.image?.medium_url}
+            number={issue.issue_number}
+            issueName={issue.name}
+            issueDate={issue.cover_date?.slice(0, 7)}
+          />
+        ))}
+      </ol>
+    )
+  }
+
+  {
+    issues.length > 0 && (
+      <PageNavigator numberOfPages={totalPages} currentPage={currentPage} />
+    )
+  }
+  {
+    cvVolume && cvTotalPages > 1 && (
+      <PageNavigator numberOfPages={cvTotalPages} currentPage={currentPage} />
+    )
+  }
 </Layout>
 
 <script>
@@ -297,62 +358,3 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
     }
   });
 </script>
-
-<!-- Elastic: full issue grid with reading state -->
-{
-  issues.length > 0 && (
-    <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-      {issues.map((issue) => (
-        <CoverLeaf
-          type="Issue"
-          id={issue.issue_id}
-          cover={issue.issue_cover_url}
-          number={issue.issue_number}
-          issueName={issue.issue_name}
-          issueDate={issue.issue_date?.slice(0, 7)}
-          badge={
-            issue.reading_state === "read"
-              ? "read"
-              : issue.reading_state === "reading"
-                ? "reading"
-                : undefined
-          }
-          progress={
-            issue.current_page && issue.issue_page_count
-              ? Math.round((issue.current_page / issue.issue_page_count) * 100)
-              : undefined
-          }
-        />
-      ))}
-    </ol>
-  )
-}
-
-<!-- ComicVine fallback: same issue grid with real covers -->
-{
-  cvVolume && cvPageIssues && cvPageIssues.length > 0 && (
-    <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-      {cvPageIssues.map((issue) => (
-        <CoverLeaf
-          type="Issue"
-          id={String(issue.id)}
-          cover={issue.image?.medium_url}
-          number={issue.issue_number}
-          issueName={issue.name}
-          issueDate={issue.cover_date?.slice(0, 7)}
-        />
-      ))}
-    </ol>
-  )
-}
-
-{
-  issues.length > 0 && (
-    <PageNavigator numberOfPages={totalPages} currentPage={currentPage} />
-  )
-}
-{
-  cvVolume && cvTotalPages > 1 && (
-    <PageNavigator numberOfPages={cvTotalPages} currentPage={currentPage} />
-  )
-}

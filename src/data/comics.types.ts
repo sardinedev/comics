@@ -29,6 +29,8 @@ export type Issue = {
   issue_date: string;
   /** URL to the issue's cover image (local cache or remote) */
   issue_cover_url?: string;
+  /** ThumbHash placeholder for the cover image (base64, only set for locally cached covers) */
+  issue_cover_thumb_hash?: string;
   /** Total number of pages in the issue */
   issue_page_count?: number;
 
