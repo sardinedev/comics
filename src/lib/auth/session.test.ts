@@ -66,6 +66,11 @@ describe("getSessionDid", () => {
     expect(session.getSessionDid(req)).toBeNull();
   });
 
+  it("returns null when the cookie value has malformed percent-encoding", () => {
+    const req = makeRequest("comics_session=%GG");
+    expect(session.getSessionDid(req)).toBeNull();
+  });
+
   it("round-trips correctly with setSessionCookie", () => {
     const setCookieHeader = session.setSessionCookie(DID);
     const cookieValue = setCookieHeader.match(/^comics_session=([^;]+)/)?.[1] ?? "";
@@ -153,20 +158,38 @@ describe("AUTH_SESSION_SECRET enforcement", () => {
     process.env.PUBLIC_URL = "http://localhost:3000";
   });
 
-  it("throws when PUBLIC_URL is https:// but AUTH_SESSION_SECRET is not set", async () => {
+  it("throws when PUBLIC_URL is https:// and AUTH_SESSION_SECRET is not set", async () => {
     vi.resetModules();
     delete process.env.AUTH_SESSION_SECRET;
     process.env.PUBLIC_URL = "https://example.com";
 
     await expect(import("./session")).rejects.toThrow(
-      "AUTH_SESSION_SECRET must be set when PUBLIC_URL is https://"
+      "AUTH_SESSION_SECRET must be set."
     );
   });
 
-  it("does NOT throw when PUBLIC_URL is http:// and AUTH_SESSION_SECRET is absent", async () => {
+  it("throws when PUBLIC_URL is a non-local http:// URL and AUTH_SESSION_SECRET is not set", async () => {
+    vi.resetModules();
+    delete process.env.AUTH_SESSION_SECRET;
+    process.env.PUBLIC_URL = "http://example.com";
+
+    await expect(import("./session")).rejects.toThrow(
+      "AUTH_SESSION_SECRET must be set."
+    );
+  });
+
+  it("does NOT throw when PUBLIC_URL is http://localhost and AUTH_SESSION_SECRET is absent", async () => {
     vi.resetModules();
     delete process.env.AUTH_SESSION_SECRET;
     process.env.PUBLIC_URL = "http://localhost:3000";
+
+    await expect(import("./session")).resolves.toBeDefined();
+  });
+
+  it("does NOT throw when PUBLIC_URL is http://127.0.0.1 and AUTH_SESSION_SECRET is absent", async () => {
+    vi.resetModules();
+    delete process.env.AUTH_SESSION_SECRET;
+    process.env.PUBLIC_URL = "http://127.0.0.1:3000";
 
     await expect(import("./session")).resolves.toBeDefined();
   });

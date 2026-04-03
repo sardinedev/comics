@@ -15,12 +15,28 @@ import { env } from "@lib/env";
 
 // Secure flag is only safe to set over HTTPS. In local dev (http://localhost)
 // the browser would silently drop a Secure cookie, breaking the auth flow.
-const isHttps = (env("PUBLIC_URL") ?? "").startsWith("https://");
+const publicUrl = env("PUBLIC_URL") ?? "";
+const isHttps = publicUrl.startsWith("https://");
+
+function isLocalDevUrl(value: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(value);
+    return (
+      protocol === "http:" &&
+      (hostname === "localhost" ||
+        hostname === "127.0.0.1" ||
+        hostname === "::1" ||
+        hostname === "[::1]")
+    );
+  } catch {
+    return false;
+  }
+}
 
 const _rawSecret = env("AUTH_SESSION_SECRET");
-if (isHttps && !_rawSecret) {
+if (!_rawSecret && !isLocalDevUrl(publicUrl)) {
   throw new Error(
-    "AUTH_SESSION_SECRET must be set when PUBLIC_URL is https://"
+    "AUTH_SESSION_SECRET must be set. Only local dev (http://localhost, http://127.0.0.1) may omit it."
   );
 }
 const SECRET = _rawSecret ?? "dev-secret-please-change-me";
@@ -66,8 +82,12 @@ export function getSessionDid(request: Request): string | null {
   for (const part of cookieHeader.split(";")) {
     const [name, ...rest] = part.trim().split("=");
     if (name === COOKIE_NAME) {
-      const value = decodeURIComponent(rest.join("="));
-      return verify(value);
+      try {
+        const value = decodeURIComponent(rest.join("="));
+        return verify(value);
+      } catch {
+        return null;
+      }
     }
   }
   return null;
