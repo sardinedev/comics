@@ -64,7 +64,9 @@ The ATProto spec has a special exception for `http://localhost` client IDs that 
 | Metadata served at `/client-metadata.json` | Not used by PDS | Fetched by PDS on every auth |
 | Signing key required | No | Yes (`ATPROTO_PRIVATE_KEY_JWK`) |
 
-**The `isLocalDev` check in `client.ts` is `!PUBLIC_URL.startsWith("https://")`** — everything non-HTTPS is treated as local dev.
+**The `isLocalDev` check in `client.ts` is `!PUBLIC_URL.startsWith("https://")`** — everything non-HTTPS is treated as local dev for the OAuth client configuration.
+
+> Note: `AUTH_SESSION_SECRET` uses a stricter check — the fallback dev secret is only allowed when `PUBLIC_URL` is a genuine local URL (`http://localhost` or `http://127.0.0.1`). Any other URL, including non-HTTPS remote URLs, requires the secret to be explicitly set.
 
 ## Session cookie
 
@@ -87,7 +89,9 @@ Both use `ElasticKeyedStore` backed by the `comics_oauth_store` index. Documents
 > Note: There is no automatic TTL on these documents. State entries are cleaned up by the OAuth client after a successful callback. If an auth flow is abandoned mid-way, orphaned state entries may accumulate. This is harmless for a single-user app but could be manually cleaned up with:
 > ```
 > POST comics_oauth_store/_delete_by_query
-> { "query": { "prefix": { "_id": "state:" } } }
+> {
+>   "query": { "prefix": { "_id": "state:" } }
+> }
 > ```
 
 ## Environment variables
@@ -96,7 +100,7 @@ Both use `ElasticKeyedStore` backed by the `comics_oauth_store` index. Documents
 |---|---|---|
 | `PUBLIC_URL` | Yes | Full origin of the app, e.g. `https://comics.example.com` or `http://localhost:4321` |
 | `AUTH_ALLOWED_DID` | Yes | The single DID allowed to log in, e.g. `did:plc:abc123` |
-| `AUTH_SESSION_SECRET` | Yes | Random secret for HMAC cookie signing. Generate with: `openssl rand -hex 32` |
+| `AUTH_SESSION_SECRET` | Yes (not required for `http://localhost` / `http://127.0.0.1`) | Random secret for HMAC cookie signing. Generate with: `openssl rand -hex 32` |
 | `ATPROTO_PRIVATE_KEY_JWK` | Prod only | ES256 private key JWK. Generate with: `node -e "import('@atproto/jwk-jose').then(({JoseKey})=>JoseKey.generate(['ES256']).then(k=>console.log(JSON.stringify(k.privateJwk))))"` |
 
 ## Finding your DID
