@@ -14,6 +14,7 @@
     "build": "astro build && npx esbuild src/data/sync/sync-mylar-to-elastic.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/sync/sync-mylar-to-elastic.mjs",
     "sync": "node --env-file=.env.local --import tsx/esm src/data/sync/sync-mylar-to-elastic.ts",
     "preview": "npx wrangler pages dev ./dist",
+    "test": "vitest run",
     "astro": "astro"
   },
   "dependencies": {
