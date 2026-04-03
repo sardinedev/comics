@@ -36,4 +36,14 @@ Validate request bodies before use.
 
 Declared in `src/env.d.ts`, accessed via `import.meta.env`.
 
+In files that run outside of Astro's SSR context (OAuth client, session module), env vars must be read as:
+```ts
+(import.meta as any).env?.VAR_NAME ?? process.env.VAR_NAME
+```
+See `src/lib/auth/` for examples and `docs/AUTH.md` for why.
+
+## Auth
+
+See [docs/AUTH.md](./AUTH.md) for the full ATProto OAuth flow, dev/prod differences, session cookie design, and environment variable reference.
+
 Note: `src/data/elastic/elastic.ts` currently hard-codes `ELASTIC_URL`. Only change this if you're intentionally wiring it to env.

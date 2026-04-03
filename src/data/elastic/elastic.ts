@@ -1,12 +1,9 @@
 import { Client } from "@elastic/elasticsearch";
 import type { estypes } from "@elastic/elasticsearch";
+import { env } from "@lib/env";
 
-const ELASTIC_API_KEY =
-  import.meta.env?.ELASTIC_API_KEY ?? process.env.ELASTIC_API_KEY;
-const ELASTIC_URL =
-  import.meta.env?.ELASTIC_URL ??
-  process.env.ELASTIC_URL ??
-  "http://192.168.50.190:30003";
+const ELASTIC_API_KEY = env("ELASTIC_API_KEY");
+const ELASTIC_URL = env("ELASTIC_URL") ?? "http://192.168.50.190:30003";
 
 if (!ELASTIC_API_KEY) {
   throw new Error(

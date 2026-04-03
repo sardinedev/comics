@@ -4,6 +4,8 @@ import node from "@astrojs/node";
 
 import tailwindcss from "@tailwindcss/vite";
 
+const isDev = process.env.NODE_ENV !== "production";
+
 // https://astro.build/config
 export default defineConfig({
   output: "server",
@@ -30,6 +32,10 @@ export default defineConfig({
       },
     ],
   },
+
+  ...(isDev && {
+    security: { checkOrigin: false },
+  }),
 
   vite: {
     plugins: [tailwindcss()],

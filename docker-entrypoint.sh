@@ -2,7 +2,7 @@
 set -e
 
 # Write env vars into a file crond can source (Alpine crond doesn't inherit env)
-printenv | grep -E '^(ELASTIC_|MYLAR_|COMICVINE_|COVERS_DIR)' > /etc/sync.env
+printenv | grep -E '^(ELASTIC_|MYLAR_|COMICVINE_|COVERS_DIR|AUTH_|PUBLIC_URL|ATPROTO_)' > /etc/sync.env
 
 # Write crontab
 # Hourly fast sync

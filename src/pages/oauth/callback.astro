@@ -1,0 +1,34 @@
+---
+import { getOAuthClient } from "@lib/auth/client";
+import { setSessionCookie } from "@lib/auth/session";
+import { env } from "@lib/env";
+
+const params = Astro.url.searchParams;
+
+if (params.get("error")) {
+  const desc = params.get("error_description") ?? params.get("error");
+  return Astro.redirect(`/login?error=${encodeURIComponent(desc ?? "oauth_error")}`);
+}
+
+try {
+  const client = await getOAuthClient();
+  const { session } = await client.callback(params);
+  const { did } = session;
+
+  const allowedDid = env("AUTH_ALLOWED_DID");
+  if (allowedDid && did !== allowedDid) {
+    return Astro.redirect("/login?error=unauthorized");
+  }
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: "/",
+      "Set-Cookie": setSessionCookie(did),
+    },
+  });
+} catch (err) {
+  console.error("[auth] callback error:", err);
+  return Astro.redirect("/login?error=callback_failed");
+}
+---
