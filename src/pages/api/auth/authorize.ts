@@ -6,7 +6,8 @@ export const GET: APIRoute = () =>
 
 export const POST: APIRoute = async ({ request }) => {
   const formData = await request.formData();
-  const handle = (formData.get("handle") as string)?.trim();
+  const handleValue = formData.get("handle");
+  const handle = typeof handleValue === "string" ? handleValue.trim() : "";
 
   if (!handle) {
     return new Response(null, {

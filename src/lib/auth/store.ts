@@ -27,11 +27,18 @@ export class ElasticKeyedStore<T = unknown> {
         id: `${this.prefix}:${key}`,
       });
       return res._source?.data;
-    } catch {
-      // Returns undefined for both "not found" and any ES errors —
-      // the OAuth client treats a missing key as a cache miss and will
-      // restart the flow rather than crashing.
-      return undefined;
+    } catch (error) {
+      const status =
+        typeof error === "object" && error !== null
+          ? ("statusCode" in error && typeof (error as { statusCode: unknown }).statusCode === "number"
+              ? (error as { statusCode: number }).statusCode
+              : "meta" in error &&
+                  typeof (error as { meta: { statusCode?: unknown } }).meta?.statusCode === "number"
+                ? (error as { meta: { statusCode: number } }).meta.statusCode
+                : undefined)
+          : undefined;
+      if (status === 404) return undefined;
+      throw error;
     }
   }
 
@@ -40,9 +47,9 @@ export class ElasticKeyedStore<T = unknown> {
       index: OAUTH_STORE_INDEX,
       id: `${this.prefix}:${key}`,
       document: { data: value, updated_at: new Date().toISOString() },
-      // refresh: true ensures the document is immediately visible to subsequent
-      // get() calls within the same request (ES is eventually consistent by default).
-      refresh: true,
+      // 'wait_for' ensures the document is visible to subsequent get() calls
+      // without forcing an immediate shard refresh on every write.
+      refresh: "wait_for",
     });
   }
 

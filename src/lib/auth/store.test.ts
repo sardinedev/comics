@@ -46,7 +46,7 @@ describe("ElasticKeyedStore", () => {
       );
     });
 
-    it("returns undefined when the document is not found (ES throws)", async () => {
+    it("returns undefined when the document is not found (statusCode 404)", async () => {
       const store = new ElasticKeyedStore("state");
       elasticMock.get.mockRejectedValue({ statusCode: 404 });
 
@@ -55,13 +55,28 @@ describe("ElasticKeyedStore", () => {
       expect(result).toBeUndefined();
     });
 
-    it("returns undefined on any Elasticsearch error", async () => {
+    it("returns undefined when the document is not found (nested meta.statusCode 404)", async () => {
       const store = new ElasticKeyedStore("state");
-      elasticMock.get.mockRejectedValue(new Error("Connection refused"));
+      elasticMock.get.mockRejectedValue({ meta: { statusCode: 404 } });
 
-      const result = await store.get("key1");
+      const result = await store.get("missing");
 
       expect(result).toBeUndefined();
+    });
+
+    it("rethrows non-404 Elasticsearch errors", async () => {
+      const store = new ElasticKeyedStore("state");
+      const err = new Error("Connection refused");
+      elasticMock.get.mockRejectedValue(err);
+
+      await expect(store.get("key1")).rejects.toThrow("Connection refused");
+    });
+
+    it("rethrows non-404 statusCode errors", async () => {
+      const store = new ElasticKeyedStore("state");
+      elasticMock.get.mockRejectedValue({ statusCode: 503 });
+
+      await expect(store.get("key1")).rejects.toMatchObject({ statusCode: 503 });
     });
 
     it("returns undefined when _source is absent", async () => {
@@ -90,14 +105,14 @@ describe("ElasticKeyedStore", () => {
       );
     });
 
-    it("sets refresh: true to ensure immediate read-your-writes consistency", async () => {
+    it("sets refresh: 'wait_for' for read-your-writes consistency without forcing a shard refresh", async () => {
       const store = new ElasticKeyedStore("session");
       elasticMock.index.mockResolvedValue({ result: "created" });
 
       await store.set("key1", {});
 
       expect(elasticMock.index).toHaveBeenCalledWith(
-        expect.objectContaining({ refresh: true })
+        expect.objectContaining({ refresh: "wait_for" })
       );
     });
 
