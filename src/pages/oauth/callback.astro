@@ -6,8 +6,8 @@ import { env } from "@lib/env";
 const params = Astro.url.searchParams;
 
 if (params.get("error")) {
-  const desc = params.get("error_description") ?? params.get("error");
-  return Astro.redirect(`/login?error=${encodeURIComponent(desc ?? "oauth_error")}`);
+  console.error("[auth] OAuth provider error:", params.get("error"), params.get("error_description"));
+  return Astro.redirect("/login?error=oauth_error");
 }
 
 try {
@@ -16,7 +16,11 @@ try {
   const { did } = session;
 
   const allowedDid = env("AUTH_ALLOWED_DID");
-  if (allowedDid && did !== allowedDid) {
+  if (!allowedDid) {
+    console.error("Missing required AUTH_ALLOWED_DID configuration.");
+    return new Response("Server misconfiguration: AUTH_ALLOWED_DID is not set.", { status: 500 });
+  }
+  if (did !== allowedDid) {
     return Astro.redirect("/login?error=unauthorized");
   }
 
