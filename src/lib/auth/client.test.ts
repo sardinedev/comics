@@ -21,7 +21,7 @@ vi.mock("@atproto/jwk-jose", () => ({
 
 vi.mock("./store", () => ({
   // Must be a regular function (not arrow) to be usable as a constructor.
-  ElasticKeyedStore: vi.fn(function () {}),
+  ElasticKeyedStore: vi.fn(function () { }),
 }));
 
 describe("getOAuthClient", () => {
@@ -83,7 +83,7 @@ describe("getOAuthClient", () => {
 
   it("throws when ATPROTO_PRIVATE_KEY_JWK is missing in production", async () => {
     process.env.PUBLIC_URL = "https://example.com";
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => { });
 
     const { getOAuthClient } = await import("./client");
 
@@ -94,10 +94,10 @@ describe("getOAuthClient", () => {
 
   it("calls JoseKey.generate and logs instructions when JWK is missing in production", async () => {
     process.env.PUBLIC_URL = "https://example.com";
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => { });
 
     const { getOAuthClient } = await import("./client");
-    await getOAuthClient().catch(() => {});
+    await getOAuthClient().catch(() => { });
 
     expect(JoseKeyMock.generate).toHaveBeenCalledWith(["ES256"]);
     expect(consoleSpy).toHaveBeenCalled();
