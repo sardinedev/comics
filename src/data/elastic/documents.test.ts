@@ -142,6 +142,7 @@ describe("elasticBulkUpsertDocuments", () => {
             series_id: "s1",
             issue_number: 1,
             issue_date: "2026-01-01",
+            download_status: "Downloaded",
             synced_at: "2026-01-01T00:00:00.000Z",
           },
         },
