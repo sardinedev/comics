@@ -36,6 +36,7 @@ vi.mock("../comicvine/comicvine", () => {
 vi.mock("../../util/covers", () => {
   return {
     ensureCoverCached: vi.fn(),
+    generateThumbHash: vi.fn(),
   };
 });
 
