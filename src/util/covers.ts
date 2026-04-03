@@ -4,6 +4,7 @@ import { Readable } from "node:stream";
 import { mylarDownloadIssue } from "../data/mylar/mylar";
 import sharp from "sharp";
 import { rgbaToThumbHash } from "thumbhash";
+import { env } from "@lib/env";
 
 // Use dynamic import for unzipper since it's a CJS module
 let unzipper: typeof import("unzipper") | null = null;
@@ -14,7 +15,7 @@ async function getUnzipper() {
   return unzipper;
 }
 
-const COVERS_DIR = import.meta.env?.COVERS_DIR ?? process.env.COVERS_DIR ?? "data/covers";
+const COVERS_DIR = env("COVERS_DIR") ?? "data/covers";
 
 /**
  * Image file extensions to look for in CBZ archives.

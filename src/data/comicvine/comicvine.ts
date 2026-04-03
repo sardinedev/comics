@@ -4,6 +4,7 @@ import type {
   ComicvineSingleIssueResponse,
   ComicvineVolume,
 } from "./comicvine.types";
+import { env } from "@lib/env";
 
 /**
  * Represents the weekly comics data.
@@ -13,8 +14,7 @@ export type WeeklyComics = {
   issues: ComicvineIssues[];
 };
 
-const COMICVINE_API_KEY =
-  import.meta.env?.COMICVINE_API_KEY ?? process.env.COMICVINE_API_KEY;
+const COMICVINE_API_KEY = env("COMICVINE_API_KEY");
 const COMICVINE_URL = "https://comicvine.gamespot.com/api";
 
 /**

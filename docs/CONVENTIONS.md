@@ -34,6 +34,15 @@ Validate request bodies before use.
 
 ## Env vars
 
-Declared in `src/env.d.ts`, accessed via `import.meta.env`.
+Declared in `src/env.d.ts`. Use the `env()` helper from `src/lib/env.ts` to access them:
+```ts
+import { env } from "@lib/env";
+const value = env("VAR_NAME");
+```
+This works in both Astro SSR context and Node scripts. See `docs/AUTH.md` for the full environment variable reference.
 
-Note: `src/data/elastic/elastic.ts` currently hard-codes `ELASTIC_URL`. Only change this if you're intentionally wiring it to env.
+## Auth
+
+See [docs/AUTH.md](./AUTH.md) for the full ATProto OAuth flow, dev/prod differences, session cookie design, and environment variable reference.
+
+Elasticsearch configuration should be read from environment variables rather than hard-coded values.
