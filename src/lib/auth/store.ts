@@ -1,3 +1,6 @@
+import { elastic } from "@data/elastic/elastic";
+import { OAUTH_STORE_INDEX } from "@data/elastic/models/oauth-store.model";
+
 /**
  * Elasticsearch-backed key/value store for ATProto OAuth state and sessions.
  *
@@ -14,11 +17,8 @@
  * after a successful callback. Abandoned flows leave orphaned `state:*` documents
  * that can be cleaned up manually. See docs/AUTH.md for details.
  */
-import { elastic } from "@data/elastic/elastic";
-import { OAUTH_STORE_INDEX } from "@data/elastic/models/oauth-store.model";
-
 export class ElasticKeyedStore<T = unknown> {
-  constructor(private readonly prefix: string) {}
+  constructor(private readonly prefix: string) { }
 
   async get(key: string): Promise<T | undefined> {
     try {

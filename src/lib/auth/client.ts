@@ -1,3 +1,11 @@
+import { NodeOAuthClient } from "@atproto/oauth-client-node";
+import { JoseKey } from "@atproto/jwk-jose";
+import { ElasticKeyedStore } from "./store";
+import { env } from "@lib/env";
+
+// Module-level singleton — initialised once per server process.
+let _client: NodeOAuthClient | null = null;
+
 /**
  * ATProto OAuth client singleton.
  *
@@ -17,14 +25,6 @@
  *
  * See docs/AUTH.md for the full flow and environment variable reference.
  */
-import { NodeOAuthClient } from "@atproto/oauth-client-node";
-import { JoseKey } from "@atproto/jwk-jose";
-import { ElasticKeyedStore } from "./store";
-import { env } from "@lib/env";
-
-// Module-level singleton — initialised once per server process.
-let _client: NodeOAuthClient | null = null;
-
 export async function getOAuthClient(): Promise<NodeOAuthClient> {
   if (_client) return _client;
 
