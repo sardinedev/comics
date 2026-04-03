@@ -40,6 +40,14 @@ describe("getOAuthClient", () => {
     );
   });
 
+  it("throws when PUBLIC_URL is a non-local http:// URL", async () => {
+    process.env.PUBLIC_URL = "http://example.com";
+    const { getOAuthClient } = await import("./client");
+    await expect(getOAuthClient()).rejects.toThrow(
+      'PUBLIC_URL "http://example.com" is not a valid ATProto client origin'
+    );
+  });
+
   it("creates a public (dev) client for a localhost URL", async () => {
     process.env.PUBLIC_URL = "http://localhost:3000";
     const { getOAuthClient } = await import("./client");

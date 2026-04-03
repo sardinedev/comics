@@ -31,8 +31,23 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
   const PUBLIC_URL = env("PUBLIC_URL");
   if (!PUBLIC_URL) throw new Error("PUBLIC_URL env var is required for auth");
 
-  const origin = new URL(PUBLIC_URL).origin;
-  const isLocalDev = !PUBLIC_URL.startsWith("https://");
+  const parsedUrl = new URL(PUBLIC_URL);
+  const origin = parsedUrl.origin;
+  const isHttps = parsedUrl.protocol === "https:";
+  const isLoopback =
+    parsedUrl.protocol === "http:" &&
+    (parsedUrl.hostname === "localhost" ||
+      parsedUrl.hostname === "127.0.0.1" ||
+      parsedUrl.hostname === "::1" ||
+      parsedUrl.hostname === "[::1]");
+
+  if (!isHttps && !isLoopback) {
+    throw new Error(
+      `PUBLIC_URL "${PUBLIC_URL}" is not a valid ATProto client origin. Use https:// for production or http://localhost / http://127.0.0.1 for local dev.`
+    );
+  }
+
+  const isLocalDev = isLoopback;
 
   if (isLocalDev) {
     // Public client for localhost dev — no signing key required.
