@@ -63,17 +63,22 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
   // The PDS fetches /client-metadata.json to verify the public key before issuing tokens.
   const rawKey = env("ATPROTO_PRIVATE_KEY_JWK");
   if (!rawKey) {
-    // Generate a throwaway key so we can print instructions, then bail.
-    const key = await JoseKey.generate(["ES256"]);
     console.error("\n[auth] ATPROTO_PRIVATE_KEY_JWK is not set.");
-    console.error("[auth] Generate a key and add this to your .env.local:\n");
     console.error(
-      `ATPROTO_PRIVATE_KEY_JWK='${JSON.stringify(key.privateJwk)}'\n`
+      "[auth] Generate the ES256 private JWK locally and set it in your environment."
+    );
+    console.error(
+      "[auth] Do not copy a private key from application logs. See docs/AUTH.md for the required format and setup steps.\n"
     );
     throw new Error("ATPROTO_PRIVATE_KEY_JWK not configured");
   }
 
-  const parsedKey = JSON.parse(rawKey);
+  let parsedKey: Record<string, unknown>;
+  try {
+    parsedKey = JSON.parse(rawKey) as Record<string, unknown>;
+  } catch {
+    throw new Error("ATPROTO_PRIVATE_KEY_JWK is not valid JSON");
+  }
   // `kid` (key ID) is required by the private_key_jwt auth method so the PDS
   // can match the assertion to the correct key in our JWKS.
   if (!parsedKey.kid) parsedKey.kid = "key-1";

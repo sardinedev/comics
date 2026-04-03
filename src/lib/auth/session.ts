@@ -13,11 +13,17 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "@lib/env";
 
-const SECRET = env("AUTH_SESSION_SECRET") ?? "dev-secret-please-change-me";
-
 // Secure flag is only safe to set over HTTPS. In local dev (http://localhost)
 // the browser would silently drop a Secure cookie, breaking the auth flow.
 const isHttps = (env("PUBLIC_URL") ?? "").startsWith("https://");
+
+const _rawSecret = env("AUTH_SESSION_SECRET");
+if (isHttps && !_rawSecret) {
+  throw new Error(
+    "AUTH_SESSION_SECRET must be set when PUBLIC_URL is https://"
+  );
+}
+const SECRET = _rawSecret ?? "dev-secret-please-change-me";
 
 const COOKIE_NAME = "comics_session";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2; // 2 years

@@ -2,9 +2,15 @@
 import { getSessionDid } from "@lib/auth/session";
 import { env } from "@lib/env";
 
+const allowedDid = env("AUTH_ALLOWED_DID");
+if (!allowedDid) {
+  return new Response("Server misconfiguration: AUTH_ALLOWED_DID is not set.", {
+    status: 500,
+  });
+}
+
 // Already logged in → redirect home
 const did = getSessionDid(Astro.request);
-const allowedDid = env("AUTH_ALLOWED_DID");
 if (did && did === allowedDid) {
   return Astro.redirect("/");
 }
@@ -16,7 +22,9 @@ const errorMessages: Record<string, string> = {
   callback_failed: "Sign-in failed. Please try again.",
   unauthorized: "This account is not authorised to access this app.",
 };
-const errorMessage = error ? (errorMessages[error] ?? "Something went wrong. Please try again.") : null;
+const errorMessage = error
+  ? (errorMessages[error] ?? "Something went wrong. Please try again.")
+  : null;
 ---
 
 <!doctype html>
@@ -31,49 +39,78 @@ const errorMessage = error ? (errorMessages[error] ?? "Something went wrong. Ple
     </style>
   </head>
   <body class="min-h-screen bg-slate-950 text-white antialiased">
-
     <!-- Background noise texture -->
-    <div class="pointer-events-none fixed inset-0 opacity-[0.025]"
-      style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%224%22 stitchTiles=%22stitch%22/></filter><rect width=%22300%22 height=%22300%22 filter=%22url(%23n)%22 opacity=%221%22/></svg>'); background-repeat: repeat;"></div>
+    <div
+      class="pointer-events-none fixed inset-0 opacity-[0.025]"
+      style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%224%22 stitchTiles=%22stitch%22/></filter><rect width=%22300%22 height=%22300%22 filter=%22url(%23n)%22 opacity=%221%22/></svg>'); background-repeat: repeat;"
+    >
+    </div>
 
     <!-- Ambient glow -->
     <div class="pointer-events-none fixed inset-0 overflow-hidden">
-      <div class="absolute -top-64 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-amber-500/5 blur-[140px]"></div>
+      <div
+        class="absolute -top-64 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-amber-500/5 blur-[140px]"
+      >
+      </div>
     </div>
 
-    <div class="relative flex min-h-screen flex-col items-center justify-center px-4">
-
+    <div
+      class="relative flex min-h-screen flex-col items-center justify-center px-4"
+    >
       <!-- Logo / app name -->
       <div class="mb-12 flex flex-col items-center gap-4">
         <img src="/logo.svg" alt="Logo" class="h-12 w-12 opacity-90" />
         <div class="text-center">
-          <p class="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500">Personal Library</p>
-          <h1 class="mt-1 text-3xl font-black tracking-tight text-white">Sardines Reading Comics</h1>
+          <p
+            class="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500"
+          >
+            Personal Library
+          </p>
+          <h1 class="mt-1 text-3xl font-black tracking-tight text-white">
+            Sardines Reading Comics
+          </h1>
         </div>
       </div>
 
       <!-- Sign-in card -->
       <div class="w-full max-w-sm">
-        <div class="border border-slate-800 bg-slate-900/80 p-8 backdrop-blur-sm">
-
+        <div
+          class="border border-slate-800 bg-slate-900/80 p-8 backdrop-blur-sm"
+        >
           <div class="mb-6">
-            <h2 class="text-lg font-black tracking-tight text-white">Sign in</h2>
-            <p class="mt-1 text-sm text-slate-500">Use your Bluesky account to continue.</p>
+            <h2 class="text-lg font-black tracking-tight text-white">
+              Sign in
+            </h2>
+            <p class="mt-1 text-sm text-slate-500">
+              Use your Bluesky account to continue.
+            </p>
           </div>
 
-          {errorMessage && (
-            <div class="mb-5 border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-400">
-              {errorMessage}
-            </div>
-          )}
+          {
+            errorMessage && (
+              <div class="mb-5 border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-400">
+                {errorMessage}
+              </div>
+            )
+          }
 
-          <form method="POST" action="/api/auth/authorize" class="flex flex-col gap-4">
+          <form
+            method="POST"
+            action="/api/auth/authorize"
+            class="flex flex-col gap-4"
+          >
             <div class="flex flex-col gap-1.5">
-              <label for="handle" class="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+              <label
+                for="handle"
+                class="text-[11px] font-bold uppercase tracking-widest text-slate-500"
+              >
                 Bluesky handle
               </label>
               <div class="relative">
-                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-sm select-none">@</span>
+                <span
+                  class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-sm select-none"
+                  >@</span
+                >
                 <input
                   id="handle"
                   name="handle"
@@ -93,17 +130,26 @@ const errorMessage = error ? (errorMessages[error] ?? "Something went wrong. Ple
               class="group flex items-center justify-center gap-2 bg-amber-500 py-2.5 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400 active:scale-[0.98]"
             >
               <!-- Bluesky butterfly icon -->
-              <svg class="h-4 w-4" viewBox="0 0 568 501" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.275 72.453-94.155 90.933-159.875 79.748C507.222 323.8 536.444 388.56 473.13 453.32c-119.86 122.992-172.352-30.859-185.816-70.257-2.314-6.782-3.39-9.945-3.314-7.253.076 2.692-1 5.471-3.314 7.253-13.464 39.398-65.956 193.25-185.816 70.257-63.314-64.76-34.092-129.52 80.653-149.07-65.72 11.185-139.6-7.295-159.875-79.748C9.945 203.66 0 75.293 0 57.947 0-28.906 76.135-1.61 123.121 33.664Z"/>
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 568 501"
+                fill="currentColor"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.275 72.453-94.155 90.933-159.875 79.748C507.222 323.8 536.444 388.56 473.13 453.32c-119.86 122.992-172.352-30.859-185.816-70.257-2.314-6.782-3.39-9.945-3.314-7.253.076 2.692-1 5.471-3.314 7.253-13.464 39.398-65.956 193.25-185.816 70.257-63.314-64.76-34.092-129.52 80.653-149.07-65.72 11.185-139.6-7.295-159.875-79.748C9.945 203.66 0 75.293 0 57.947 0-28.906 76.135-1.61 123.121 33.664Z"
+                ></path>
               </svg>
               Continue with Bluesky
             </button>
           </form>
-
         </div>
 
         <p class="mt-4 text-center text-xs text-slate-700">
-          Authorisation powered by <a href="https://atproto.com" class="hover:text-slate-500 transition-colors">AT Protocol</a>
+          Authorisation powered by <a
+            href="https://atproto.com"
+            class="hover:text-slate-500 transition-colors">AT Protocol</a
+          >
         </p>
       </div>
     </div>

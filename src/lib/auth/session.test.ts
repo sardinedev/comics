@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from "vitest";
 import { createHmac } from "node:crypto";
 
 // Set env vars before the module is loaded so the module-level constants
@@ -144,5 +144,30 @@ describe("setSessionCookie and clearSessionCookie (HTTPS)", () => {
 
   it("clearSessionCookie includes the Secure flag", () => {
     expect(sessionHttps.clearSessionCookie()).toContain("; Secure");
+  });
+});
+
+describe("AUTH_SESSION_SECRET enforcement", () => {
+  afterEach(() => {
+    process.env.AUTH_SESSION_SECRET = "test-secret-key";
+    process.env.PUBLIC_URL = "http://localhost:3000";
+  });
+
+  it("throws when PUBLIC_URL is https:// but AUTH_SESSION_SECRET is not set", async () => {
+    vi.resetModules();
+    delete process.env.AUTH_SESSION_SECRET;
+    process.env.PUBLIC_URL = "https://example.com";
+
+    await expect(import("./session")).rejects.toThrow(
+      "AUTH_SESSION_SECRET must be set when PUBLIC_URL is https://"
+    );
+  });
+
+  it("does NOT throw when PUBLIC_URL is http:// and AUTH_SESSION_SECRET is absent", async () => {
+    vi.resetModules();
+    delete process.env.AUTH_SESSION_SECRET;
+    process.env.PUBLIC_URL = "http://localhost:3000";
+
+    await expect(import("./session")).resolves.toBeDefined();
   });
 });

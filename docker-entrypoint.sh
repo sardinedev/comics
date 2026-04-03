@@ -1,8 +1,11 @@
 #!/bin/sh
 set -e
 
-# Write env vars into a file crond can source (Alpine crond doesn't inherit env)
-printenv | grep -E '^(ELASTIC_|MYLAR_|COMICVINE_|COVERS_DIR|AUTH_|PUBLIC_URL|ATPROTO_)' > /etc/sync.env
+# Write only the env vars needed by the sync script (not auth secrets).
+# crond on Alpine doesn't inherit the environment, so we persist a minimal
+# subset — auth/TLS vars are intentionally excluded to limit exposure.
+printenv | grep -E '^(ELASTIC_|MYLAR_|COMICVINE_|COVERS_DIR)' > /etc/sync.env
+chmod 600 /etc/sync.env
 
 # Write crontab
 # Hourly fast sync

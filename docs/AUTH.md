@@ -86,7 +86,8 @@ Both use `ElasticKeyedStore` backed by the `comics_oauth_store` index. Documents
 
 > Note: There is no automatic TTL on these documents. State entries are cleaned up by the OAuth client after a successful callback. If an auth flow is abandoned mid-way, orphaned state entries may accumulate. This is harmless for a single-user app but could be manually cleaned up with:
 > ```
-> DELETE comics_oauth_store/_query { "query": { "prefix": { "_id": "state:" } } }
+> POST comics_oauth_store/_delete_by_query
+> { "query": { "prefix": { "_id": "state:" } } }
 > ```
 
 ## Environment variables

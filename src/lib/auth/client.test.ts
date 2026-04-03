@@ -92,15 +92,26 @@ describe("getOAuthClient", () => {
     );
   });
 
-  it("calls JoseKey.generate and logs instructions when JWK is missing in production", async () => {
+  it("logs instructions without generating a key when JWK is missing in production", async () => {
     process.env.PUBLIC_URL = "https://example.com";
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => { });
 
     const { getOAuthClient } = await import("./client");
     await getOAuthClient().catch(() => { });
 
-    expect(JoseKeyMock.generate).toHaveBeenCalledWith(["ES256"]);
+    // Must NOT generate or log a private key — that would leak secrets via logs.
+    expect(JoseKeyMock.generate).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalled();
+  });
+
+  it("throws a clear error when ATPROTO_PRIVATE_KEY_JWK is not valid JSON", async () => {
+    process.env.PUBLIC_URL = "https://example.com";
+    process.env.ATPROTO_PRIVATE_KEY_JWK = "not-valid-json";
+
+    const { getOAuthClient } = await import("./client");
+    await expect(getOAuthClient()).rejects.toThrow(
+      "ATPROTO_PRIVATE_KEY_JWK is not valid JSON"
+    );
   });
 
   it("creates a confidential (production) client when JWK is configured", async () => {

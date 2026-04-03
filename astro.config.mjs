@@ -4,10 +4,8 @@ import node from "@astrojs/node";
 
 import tailwindcss from "@tailwindcss/vite";
 
-const isDev = process.env.NODE_ENV !== "production";
-
 // https://astro.build/config
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   output: "server",
   integrations: [ preact()],
 
@@ -33,11 +31,13 @@ export default defineConfig({
     ],
   },
 
-  ...(isDev && {
+  // Disable CSRF origin check in dev only. Using `command` (not NODE_ENV) so
+  // this is never accidentally disabled in a non-dev deployment.
+  ...(command === "dev" && {
     security: { checkOrigin: false },
   }),
 
   vite: {
     plugins: [tailwindcss()],
   },
-});
+}));

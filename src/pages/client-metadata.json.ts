@@ -7,8 +7,17 @@ export const GET: APIRoute = () => {
     return new Response("PUBLIC_URL not configured", { status: 500 });
   }
 
-  const rawKey = env("ATPROTO_PRIVATE_KEY_JWK") ?? "{}";
-  const parsedKey = JSON.parse(rawKey);
+  const rawKey = env("ATPROTO_PRIVATE_KEY_JWK");
+  if (!rawKey) {
+    return new Response("ATPROTO_PRIVATE_KEY_JWK not configured", { status: 500 });
+  }
+
+  let parsedKey: Record<string, unknown>;
+  try {
+    parsedKey = JSON.parse(rawKey) as Record<string, unknown>;
+  } catch {
+    return new Response("ATPROTO_PRIVATE_KEY_JWK is not valid JSON", { status: 500 });
+  }
   if (!parsedKey.kid) parsedKey.kid = "key-1";
   const { d: _d, ...publicJwk } = parsedKey;
 
