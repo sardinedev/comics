@@ -3,6 +3,7 @@ import Layout from "@layouts/Layout.astro";
 import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
 import { getAllSeries, getSeriesFilterOptions, type SeriesSort, type SeriesFilters } from "@data/elastic/queries";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
+import Icon from "@components/Icon/Icon.astro";
 
 const title = "Series";
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
@@ -99,7 +100,7 @@ function filterUrl(key: string, value: string | null) {
       id="filter-btn"
       class={`flex items-center gap-1.5 border bg-slate-800 px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition-colors hover:border-amber-500 hover:text-amber-500 ${activeFilterCount > 0 ? "border-amber-500 text-amber-500" : "border-slate-700 text-slate-300"}`}
     >
-      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M7 8h10M11 12h2"/></svg>
+      <Icon name="filter-list" class="h-3.5 w-3.5" color="currentColor" />
       Filter
       {activeFilterCount > 0 && (
         <span class="flex h-4 w-4 items-center justify-center bg-amber-500 text-[9px] font-black text-slate-900">{activeFilterCount}</span>

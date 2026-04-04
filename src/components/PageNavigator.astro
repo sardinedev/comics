@@ -1,4 +1,6 @@
 ---
+import Icon from "@components/Icon/Icon.astro";
+
 type Props = {
   numberOfPages: number;
   currentPage: number;
@@ -46,9 +48,7 @@ if (numberOfPages > 8) {
       class="flex h-8 w-8 items-center justify-center border border-slate-700 text-slate-400 transition-colors hover:border-amber-500 hover:text-amber-500"
       aria-label="Previous page"
     >
-      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-      </svg>
+      <Icon name="chevron-left" class="h-3.5 w-3.5" color="currentColor" />
     </a>
   )}
 
@@ -78,9 +78,7 @@ if (numberOfPages > 8) {
       class="flex h-8 w-8 items-center justify-center border border-slate-700 text-slate-400 transition-colors hover:border-amber-500 hover:text-amber-500"
       aria-label="Next page"
     >
-      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-      </svg>
+      <Icon name="chevron-right" class="h-3.5 w-3.5" color="currentColor" />
     </a>
   )}
 </nav>

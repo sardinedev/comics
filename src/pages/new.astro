@@ -4,6 +4,7 @@ import { getNewlyAddedIssues } from "@data/elastic/queries";
 import { getWeeklyComics } from "@data/comicvine/comicvine";
 import { Image } from "astro:assets";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
+import Icon from "@components/Icon/Icon.astro";
 
 const now = new Date();
 const dayOfWeek = now.getDay();
@@ -98,7 +99,7 @@ const [addedIssues, weeklyComics] = await Promise.all([
                   <span class="text-xs text-slate-600">{issue.store_date}</span>
                 )}
               </div>
-              <svg class="h-4 w-4 shrink-0 text-slate-700 transition-all group-hover:translate-x-1 group-hover:text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <Icon name="arrow-forward" class="h-4 w-4 shrink-0 transition-all group-hover:translate-x-1" color="currentColor" />
             </a>
           </li>
         ))}
