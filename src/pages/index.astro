@@ -10,6 +10,8 @@ import { Image } from "astro:assets";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import Icon from "@components/Icon/Icon.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
+import sharp from "sharp";
+import { thumbHashToRGBA } from "thumbhash";
 
 const [nowReading, continueReading, recentlyAdded, seriesResult] =
   await Promise.all([
@@ -25,6 +27,20 @@ const heroProgress =
   nowReading?.current_page && nowReading?.issue_page_count
     ? Math.round((nowReading.current_page / nowReading.issue_page_count) * 100)
     : null;
+
+let heroPlaceholderUrl: string | undefined;
+if (nowReading?.issue_cover_thumb_hash) {
+  try {
+    const hashBytes = new Uint8Array(Buffer.from(nowReading.issue_cover_thumb_hash, "base64"));
+    const { w, h, rgba } = thumbHashToRGBA(hashBytes);
+    const png = await sharp(Buffer.from(rgba), {
+      raw: { width: w, height: h, channels: 4 },
+    }).png().toBuffer();
+    heroPlaceholderUrl = `data:image/png;base64,${png.toString("base64")}`;
+  } catch {
+    // no placeholder
+  }
+}
 ---
 
 <Layout title="Comics">
@@ -57,14 +73,12 @@ const heroProgress =
   {
     nowReading && (
       <div class="relative -mx-4 -mt-4 mb-16 overflow-hidden">
-        <div
-          class="pointer-events-none absolute inset-0 z-10 opacity-[0.03]"
-          style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%224%22 stitchTiles=%22stitch%22/></filter><rect width=%22300%22 height=%22300%22 filter=%22url(%23n)%22 opacity=%221%22/></svg>'); background-repeat: repeat;"
-        />
-        <div class="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
-        <div class="absolute -right-32 top-0 h-[500px] w-[500px] rounded-full bg-amber-500/10 blur-[120px]" />
-        <div class="absolute -left-16 bottom-0 h-[300px] w-[300px] rounded-full bg-amber-600/5 blur-[80px]" />
-
+        {heroPlaceholderUrl && (
+          <div
+            class="pointer-events-none absolute inset-0 z-0 opacity-30 blur-2xl scale-110"
+            style={`background-image: url(${heroPlaceholderUrl}); background-size: cover; background-position: center;`}
+          />
+        )}
         <div class="relative z-10 grid min-h-[520px] grid-cols-1 items-center gap-8 px-4 py-12 md:grid-cols-2 md:px-8">
           <div class="flex flex-col gap-6">
             <EyebrowLabel>Now Reading</EyebrowLabel>
@@ -110,7 +124,7 @@ const heroProgress =
             <div class="relative h-[340px] w-[220px]">
               <div class="absolute left-8 top-4 h-[320px] w-[210px] rotate-6 rounded-sm bg-slate-700 opacity-50 shadow-xl" />
               <div class="absolute left-4 top-2 h-[320px] w-[210px] rotate-3 rounded-sm bg-slate-600 opacity-60 shadow-xl" />
-              <div class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10">
+              <div class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10" style={heroPlaceholderUrl ? `background-image: url(${heroPlaceholderUrl}); background-size: cover; background-position: center;` : undefined}>
                 <Image
                   src={new URL(
                     nowReading.issue_cover_url!,
@@ -135,7 +149,6 @@ const heroProgress =
             </div>
           </div>
         </div>
-
         <div class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-900 to-transparent" />
       </div>
     )
@@ -145,19 +158,17 @@ const heroProgress =
   {
     continueReading.length > 0 && (
       <section class="mb-16">
-        <div class="mb-6 flex items-end justify-between">
-          <div>
-            <EyebrowLabel class="mb-1">Pick up where you left off</EyebrowLabel>
-            <h2 class="text-2xl tracking-tight text-white">
-              Continue Reading
-            </h2>
+        <div class="mb-6">
+          <EyebrowLabel class="mb-1">Pick up where you left off</EyebrowLabel>
+          <div class="flex items-baseline justify-between">
+            <h2 class="text-2xl tracking-tight text-white">Continue Reading</h2>
+            <a
+              href="/series"
+              class="shrink-0 whitespace-nowrap text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors"
+            >
+              View all →
+            </a>
           </div>
-          <a
-            href="/series"
-            class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors"
-          >
-            View all →
-          </a>
         </div>
         <ol class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {continueReading.map((issue) => (
@@ -187,19 +198,17 @@ const heroProgress =
   {
     recentlyAdded.length > 0 && (
       <section class="mb-16">
-        <div class="mb-6 flex items-end justify-between">
-          <div>
-            <EyebrowLabel class="mb-1">Fresh in your collection</EyebrowLabel>
-            <h2 class="text-2xl tracking-tight text-white">
-              Recently Added
-            </h2>
+        <div class="mb-6">
+          <EyebrowLabel class="mb-1">Fresh in your collection</EyebrowLabel>
+          <div class="flex items-baseline justify-between">
+            <h2 class="text-2xl tracking-tight text-white">Recently Added</h2>
+            <a
+              href="/new"
+              class="shrink-0 whitespace-nowrap text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors"
+            >
+              View all →
+            </a>
           </div>
-          <a
-            href="/new"
-            class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors"
-          >
-            View all →
-          </a>
         </div>
         <ol class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {recentlyAdded.map((series) => (
@@ -222,19 +231,17 @@ const heroProgress =
   {
     browseSeriesItems.length > 0 && (
       <section class="mb-12">
-        <div class="mb-6 flex items-end justify-between">
-          <div>
-            <EyebrowLabel class="mb-1">Your library</EyebrowLabel>
-            <h2 class="text-2xl tracking-tight text-white">
-              Browse Series
-            </h2>
+        <div class="mb-6">
+          <EyebrowLabel class="mb-1">Your library</EyebrowLabel>
+          <div class="flex items-baseline justify-between">
+            <h2 class="text-2xl tracking-tight text-white">Browse Series</h2>
+            <a
+              href="/series"
+              class="shrink-0 whitespace-nowrap text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors"
+            >
+              All series →
+            </a>
           </div>
-          <a
-            href="/series"
-            class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors"
-          >
-            All series →
-          </a>
         </div>
         <ol class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {browseSeriesItems.map((series) => (
@@ -252,25 +259,3 @@ const heroProgress =
     )
   }
 </Layout>
-
-<script>
-  const overlay = document.getElementById("search-overlay");
-  const closeBtn = document.getElementById("close-search");
-
-  document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      overlay?.classList.toggle("hidden");
-      overlay?.classList.toggle("flex");
-    }
-    if (e.key === "Escape") {
-      overlay?.classList.add("hidden");
-      overlay?.classList.remove("flex");
-    }
-  });
-
-  closeBtn?.addEventListener("click", () => {
-    overlay?.classList.add("hidden");
-    overlay?.classList.remove("flex");
-  });
-</script>
