@@ -1,6 +1,7 @@
 ---
 import Icon from "@components/Icon/Icon.astro";
 import PageNavigator from "../PageNavigator.astro";
+import CoverGrid from "@components/CoverGrid.astro";
 import styles from "./IssueGrid.module.css";
 
 type Props = {
@@ -102,8 +103,8 @@ for (const [key, display] of [["state", "State"], ["publisher", "Publisher"], ["
 </div>
 
 <!-- Grid -->
-<ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+<CoverGrid>
   <slot />
-</ol>
+</CoverGrid>
 
 <PageNavigator numberOfPages={totalNumberOfPages} currentPage={currentPage} />
