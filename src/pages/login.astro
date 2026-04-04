@@ -1,6 +1,7 @@
 ---
 import { getSessionDid } from "@lib/auth/session";
 import { env } from "@lib/env";
+import "../styles/global.css";
 
 const allowedDid = env("AUTH_ALLOWED_DID");
 if (!allowedDid) {
@@ -34,9 +35,6 @@ const errorMessage = error
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sign in — Sardines Reading Comics</title>
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <style>
-      @import "tailwindcss";
-    </style>
   </head>
   <body class="min-h-screen bg-slate-950 text-white antialiased">
     <!-- Background noise texture -->

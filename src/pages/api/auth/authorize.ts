@@ -1,6 +1,8 @@
 import type { APIRoute } from "astro";
 import { getOAuthClient } from "@lib/auth/client";
 
+export const prerender = false;
+
 export const GET: APIRoute = () =>
   new Response(null, { status: 302, headers: { Location: "/login" } });
 
