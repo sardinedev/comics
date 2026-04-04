@@ -8,6 +8,7 @@ import {
 } from "@data/elastic/queries";
 import { Image } from "astro:assets";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
+import Icon from "@components/Icon/Icon.astro";
 
 const [nowReading, continueReading, recentlyAdded, seriesResult] =
   await Promise.all([
@@ -85,19 +86,7 @@ const heroProgress =
                 class="group flex items-center gap-2 bg-amber-500 px-6 py-3 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400"
               >
                 Continue Reading
-                <svg
-                  class="h-4 w-4 transition-transform group-hover:translate-x-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
+                <Icon name="arrow-forward" class="h-4 w-4 transition-transform group-hover:translate-x-1" color="currentColor" />
               </a>
               <span class="text-sm text-slate-500">
                 Issue #{nowReading.issue_number}
