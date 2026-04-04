@@ -1,4 +1,4 @@
-import { defineConfig } from "astro/config";
+import { defineConfig, fontProviders } from "astro/config";
 import preact from "@astrojs/preact";
 import node from "@astrojs/node";
 
@@ -6,6 +6,23 @@ import tailwindcss from "@tailwindcss/vite";
 
 // https://astro.build/config
 export default defineConfig({
+  fonts: [
+    {
+      provider: fontProviders.google(),
+      name: "Newsreader",
+      cssVariable: "--font-newsreader",
+      weights: [700],
+      styles: ["normal"],
+    },
+    {
+      provider: fontProviders.google(),
+      name: "Inter",
+      cssVariable: "--font-inter",
+      weights: [400, 700],
+      styles: ["normal"],
+    },
+  ],
+
   output: "server",
   integrations: [ preact()],
 
