@@ -7,9 +7,11 @@ import {
 } from "@data/comicvine/comicvine";
 import type { ComicvineVolume } from "@data/comicvine/comicvine.types";
 import { Image } from "astro:assets";
+import Breadcrumbs from "@components/Breadcrumbs.astro";
 import PageNavigator from "@components/PageNavigator.astro";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import Icon from "@components/Icon/Icon.astro";
+import PageHeading from "@components/PageHeading.astro";
 
 const { id } = Astro.params;
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
@@ -57,6 +59,12 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
 ---
 
 <Layout title={name}>
+  <Breadcrumbs
+    crumbs={[
+      { title: "Series", url: "/series" },
+      { title: name, url: `/series/${id}` },
+    ]}
+  />
   <!-- Series header -->
   <div class="relative -mx-4 -mt-4 mb-10 border-b border-slate-800">
     <div
@@ -109,7 +117,11 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
               />
             ) : (
               <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
-                <Icon name="image-placeholder" class="h-12 w-12" color="rgb(71 85 105)" />
+                <Icon
+                  name="image-placeholder"
+                  class="h-12 w-12"
+                  color="rgb(71 85 105)"
+                />
               </div>
             )
           }
@@ -118,23 +130,7 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
 
       <!-- Meta -->
       <div class="flex flex-1 flex-col gap-4">
-        <div class="flex items-center gap-3">
-          <a
-            href="/series"
-            class="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors"
-            >Series</a
-          >
-          <span class="text-slate-700">/</span>
-          <span
-            class="text-xs font-bold uppercase tracking-widest text-slate-400"
-            >{name}</span
-          >
-        </div>
-        <h1
-          class="text-4xl font-black leading-tight tracking-tight text-white md:text-5xl"
-        >
-          {name}
-        </h1>
+        <PageHeading>{name}</PageHeading>
         <div class="flex flex-wrap items-center gap-4 text-sm text-slate-400">
           {
             publisher && (

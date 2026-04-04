@@ -5,6 +5,8 @@ import { getWeeklyComics } from "@data/comicvine/comicvine";
 import { Image } from "astro:assets";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import Icon from "@components/Icon/Icon.astro";
+import EyebrowLabel from "@components/EyebrowLabel.astro";
+import PageHeading from "@components/PageHeading.astro";
 
 const now = new Date();
 const dayOfWeek = now.getDay();
@@ -29,16 +31,16 @@ const [addedIssues, weeklyComics] = await Promise.all([
 
 <Layout title="New this week">
   <div class="mb-10 border-b border-slate-800 pb-6">
-    <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Week of {weekLabel}</p>
-    <h1 class="text-4xl font-black tracking-tight text-white">New This Week</h1>
+    <EyebrowLabel class="mb-1">Week of {weekLabel}</EyebrowLabel>
+    <PageHeading>New This Week</PageHeading>
   </div>
 
   <!-- Recently added to library -->
   <section class="mb-16">
     <div class="mb-6 flex items-end justify-between">
       <div>
-        <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">In your collection</p>
-        <h2 class="text-2xl font-black tracking-tight text-white">Recently Added</h2>
+        <EyebrowLabel class="mb-1">In your collection</EyebrowLabel>
+        <h2 class="text-2xl tracking-tight text-white">Recently Added</h2>
       </div>
       <span class="text-xs font-bold uppercase tracking-widest text-slate-500">{addedIssues.length} issue{addedIssues.length !== 1 ? "s" : ""}</span>
     </div>
@@ -67,8 +69,8 @@ const [addedIssues, weeklyComics] = await Promise.all([
   <section class="mb-12">
     <div class="mb-6 flex items-end justify-between">
       <div>
-        <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">Store date {weekLabel}</p>
-        <h2 class="text-2xl font-black tracking-tight text-white">Published This Week</h2>
+        <EyebrowLabel class="mb-1">Store date {weekLabel}</EyebrowLabel>
+        <h2 class="text-2xl tracking-tight text-white">Published This Week</h2>
       </div>
       <span class="text-xs font-bold uppercase tracking-widest text-slate-500">{weeklyComics.totalResults} issue{weeklyComics.totalResults !== 1 ? "s" : ""}</span>
     </div>

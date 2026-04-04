@@ -3,6 +3,9 @@ import Layout from "@layouts/Layout.astro";
 import { getIssue } from "@data/elastic/queries";
 import { Image } from "astro:assets";
 import Icon from "@components/Icon/Icon.astro";
+import SubHeading from "@components/SubHeading.astro";
+import EyebrowLabel from "@components/EyebrowLabel.astro";
+import PageHeading from "@components/PageHeading.astro";
 
 const { id } = Astro.params;
 const issue = await getIssue(id!);
@@ -132,16 +135,8 @@ const statusColor =
   <div class="issue-layout">
     <!-- Title -->
     <div class="issue-title flex flex-col gap-3">
-      <div class="flex items-center gap-3">
-        <span class="h-px w-8 bg-amber-500"></span>
-        <span
-          class="text-xs font-bold uppercase tracking-[0.3em] text-amber-500"
-          >{issue.series_name} · {issue.series_year}</span
-        >
-      </div>
-      <h1
-        class="text-4xl font-black leading-tight tracking-tight text-white md:text-5xl"
-      >
+      <EyebrowLabel>{issue.series_name} · {issue.series_year}</EyebrowLabel>
+      <PageHeading>
         {
           issue.issue_name ? (
             <>
@@ -156,7 +151,7 @@ const statusColor =
             </>
           )
         }
-      </h1>
+      </PageHeading>
       <!-- Reading state inline — tablet only (shown via CSS, hidden on mobile/desktop) -->
       <div class={`issue-reading-inline flex-col gap-2`}>
         <span
@@ -281,9 +276,9 @@ const statusColor =
     {
       issue.issue_description && (
         <div class="issue-desc flex flex-col gap-2">
-          <h2 class="text-xs font-bold uppercase tracking-widest text-slate-600">
+          <SubHeading>
             Synopsis
-          </h2>
+          </SubHeading>
           <div
             class="max-w-2xl text-sm leading-relaxed text-slate-300"
             set:html={issue.issue_description}
@@ -296,9 +291,9 @@ const statusColor =
     {
       creators.length > 0 && (
         <div class="issue-creators flex flex-col gap-4">
-          <h2 class="text-xs font-bold uppercase tracking-widest text-slate-600">
+          <SubHeading>
             Creators
-          </h2>
+          </SubHeading>
           <dl class="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
             {creators.map(({ label, names }) => (
               <div class="flex flex-col gap-1">
@@ -319,9 +314,9 @@ const statusColor =
     {
       issue.mylar_file_location && (
         <div class="issue-file flex flex-col gap-2 border-t border-slate-800 pt-6">
-          <h2 class="text-xs font-bold uppercase tracking-widest text-slate-600">
+          <SubHeading>
             File
-          </h2>
+          </SubHeading>
           <p class="font-mono text-xs text-slate-500 break-all">
             {issue.mylar_file_location}
           </p>

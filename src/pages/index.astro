@@ -9,6 +9,7 @@ import {
 import { Image } from "astro:assets";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import Icon from "@components/Icon/Icon.astro";
+import EyebrowLabel from "@components/EyebrowLabel.astro";
 
 const [nowReading, continueReading, recentlyAdded, seriesResult] =
   await Promise.all([
@@ -66,12 +67,7 @@ const heroProgress =
 
         <div class="relative z-10 grid min-h-[520px] grid-cols-1 items-center gap-8 px-4 py-12 md:grid-cols-2 md:px-8">
           <div class="flex flex-col gap-6">
-            <div class="flex items-center gap-3">
-              <span class="h-px w-12 bg-amber-500" />
-              <span class="text-xs font-bold uppercase tracking-[0.3em] text-amber-500">
-                Now Reading
-              </span>
-            </div>
+            <EyebrowLabel>Now Reading</EyebrowLabel>
             <h1 class="text-5xl font-black leading-[0.95] tracking-tight text-white md:text-7xl">
               {nowReading.series_name}
             </h1>
@@ -151,10 +147,8 @@ const heroProgress =
       <section class="mb-16">
         <div class="mb-6 flex items-end justify-between">
           <div>
-            <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">
-              Pick up where you left off
-            </p>
-            <h2 class="text-2xl font-black tracking-tight text-white">
+            <EyebrowLabel class="mb-1">Pick up where you left off</EyebrowLabel>
+            <h2 class="text-2xl tracking-tight text-white">
               Continue Reading
             </h2>
           </div>
@@ -195,10 +189,8 @@ const heroProgress =
       <section class="mb-16">
         <div class="mb-6 flex items-end justify-between">
           <div>
-            <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">
-              Fresh in your collection
-            </p>
-            <h2 class="text-2xl font-black tracking-tight text-white">
+            <EyebrowLabel class="mb-1">Fresh in your collection</EyebrowLabel>
+            <h2 class="text-2xl tracking-tight text-white">
               Recently Added
             </h2>
           </div>
@@ -232,10 +224,8 @@ const heroProgress =
       <section class="mb-12">
         <div class="mb-6 flex items-end justify-between">
           <div>
-            <p class="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-500">
-              Your library
-            </p>
-            <h2 class="text-2xl font-black tracking-tight text-white">
+            <EyebrowLabel class="mb-1">Your library</EyebrowLabel>
+            <h2 class="text-2xl tracking-tight text-white">
               Browse Series
             </h2>
           </div>

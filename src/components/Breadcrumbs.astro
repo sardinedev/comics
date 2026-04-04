@@ -1,6 +1,4 @@
 ---
-import Icon from "@components/Icon/Icon.astro";
-
 type Crumb = {
   title: string;
   url?: string;
@@ -9,25 +7,19 @@ type Crumb = {
 const { crumbs } = Astro.props as { crumbs: Crumb[] };
 ---
 
-<nav class="mb-4" aria-label="Breadcrumb">
-  <ol class="flex items-center overflow-scroll">
-    <li>
-      <a href="/" class="text-gray-400 hover:text-gray-500">
-        <Icon name="home" class="size-5 shrink-0" color="currentColor" />
-        <span class="sr-only">Home</span>
-      </a>
-    </li>
-    {
-      crumbs.map((crumb) => (
-        <li class="flex items-center text-nowrap">
-          <Icon name="chevron-right" class="size-5 shrink-0 text-gray-400" color="currentColor" />
-          {crumb.url ? (
-            <a href={crumb.url}>{crumb.title}</a>
-          ) : (
-            <span>{crumb.title}</span>
-          )}
-        </li>
-      ))
-    }
-  </ol>
+<nav class="mb-8 flex items-center gap-2 text-xs font-bold uppercase tracking-widest" aria-label="Breadcrumb">
+  {
+    crumbs.map((crumb, i) => (
+      <>
+        {i > 0 && <span class="text-slate-700">/</span>}
+        {crumb.url ? (
+          <a href={crumb.url} class="text-slate-500 hover:text-amber-500 transition-colors">
+            {crumb.title}
+          </a>
+        ) : (
+          <span class="text-slate-400">{crumb.title}</span>
+        )}
+      </>
+    ))
+  }
 </nav>
