@@ -4,7 +4,7 @@ import { getNewlyAddedIssues } from "@data/elastic/queries";
 import { getWeeklyComics } from "@data/comicvine/comicvine";
 import { Image } from "astro:assets";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
-import Icon from "@components/Icon/Icon.astro";
+import CoverGrid from "@components/CoverGrid.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
 import PageHeading from "@components/PageHeading.astro";
 
@@ -48,7 +48,7 @@ const [addedIssues, weeklyComics] = await Promise.all([
     {addedIssues.length === 0 ? (
       <p class="text-sm text-slate-600">Nothing added yet.</p>
     ) : (
-      <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      <CoverGrid>
         {addedIssues.map((issue) => (
           <CoverLeaf
             type="Issue"
@@ -61,7 +61,7 @@ const [addedIssues, weeklyComics] = await Promise.all([
             thumbHash={issue.issue_cover_thumb_hash}
           />
         ))}
-      </ol>
+      </CoverGrid>
     )}
   </section>
 
@@ -78,31 +78,26 @@ const [addedIssues, weeklyComics] = await Promise.all([
     {weeklyComics.issues.length === 0 ? (
       <p class="text-sm text-slate-600">No issues this week.</p>
     ) : (
-      <ol class="grid grid-cols-1 gap-px bg-slate-800 sm:grid-cols-2 lg:grid-cols-3">
+      <ol class="grid grid-cols-3 gap-x-4 gap-y-8 md:grid-cols-5 lg:grid-cols-8">
         {weeklyComics.issues.map((issue) => (
-          <li class="bg-slate-900">
-            <a href={`/series/${issue.volume.id}`} class="group flex items-center gap-4 p-4 transition-colors hover:bg-slate-800">
-              <div class="relative aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-sm ring-1 ring-white/5 transition-all group-hover:ring-amber-500/30">
-                <Image
-                  src={issue.image.small_url}
-                  alt={`${issue.volume.name} #${issue.issue_number}`}
-                  width={56}
-                  height={84}
-                  class="h-full w-full object-cover"
-                  loading="lazy"
-                />
-              </div>
-              <div class="flex flex-1 flex-col gap-1 overflow-hidden">
-                <span class="truncate text-base font-bold text-white transition-colors group-hover:text-amber-400">{issue.volume.name}</span>
-                <span class="text-xs text-slate-500">
-                  #{issue.issue_number}{issue.name ? ` — ${issue.name}` : ""}
-                </span>
-                {issue.store_date && (
-                  <span class="text-xs text-slate-600">{issue.store_date}</span>
-                )}
-              </div>
-              <Icon name="arrow-forward" class="h-4 w-4 shrink-0 transition-all group-hover:translate-x-1" color="currentColor" />
+          <li class="group flex flex-col gap-2">
+            <a
+              href={`/series/${issue.volume.id}`}
+              class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all duration-200 hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10"
+            >
+              <img
+                src={issue.image.small_url}
+                alt={`${issue.volume.name} #${issue.issue_number}`}
+                width={210}
+                height={320}
+                class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                loading="lazy"
+              />
             </a>
+            <div class="flex flex-col gap-0.5 px-0.5">
+              <span class="truncate text-sm font-bold leading-tight text-white transition-colors group-hover:text-amber-400">{issue.volume.name}</span>
+              <span class="text-xs text-slate-500">#{issue.issue_number}{issue.name ? ` — ${issue.name}` : ""}</span>
+            </div>
           </li>
         ))}
       </ol>

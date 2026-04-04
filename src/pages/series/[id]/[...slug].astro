@@ -12,6 +12,7 @@ import PageNavigator from "@components/PageNavigator.astro";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import Icon from "@components/Icon/Icon.astro";
 import PageHeading from "@components/PageHeading.astro";
+import CoverGrid from "@components/CoverGrid.astro";
 
 const { id } = Astro.params;
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
@@ -231,7 +232,7 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
   <!-- Elastic: full issue grid with reading state -->
   {
     issues.length > 0 && (
-      <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      <CoverGrid>
         {issues.map((issue) => (
           <CoverLeaf
             type="Issue"
@@ -257,14 +258,14 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
             thumbHash={issue.issue_cover_thumb_hash}
           />
         ))}
-      </ol>
+      </CoverGrid>
     )
   }
 
   <!-- ComicVine fallback: same issue grid with real covers -->
   {
     cvVolume && cvPageIssues && cvPageIssues.length > 0 && (
-      <ol class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      <CoverGrid>
         {cvPageIssues.map((issue) => (
           <CoverLeaf
             type="Issue"
@@ -275,7 +276,7 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
             issueDate={issue.cover_date?.slice(0, 7)}
           />
         ))}
-      </ol>
+      </CoverGrid>
     )
   }
 
