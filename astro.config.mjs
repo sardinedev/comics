@@ -49,9 +49,13 @@ export default defineConfig({
     ],
   },
 
-  // this is never accidentally disabled in a non-dev deployment.
+  // checkOrigin is disabled because the app runs behind a reverse proxy that
+  // rewrites the Host header, causing Astro's CSRF check to always fail.
+  // This is safe: the only POST endpoint (/api/auth/authorize) performs no
+  // mutations — it just kicks off the ATProto OAuth redirect flow, which
+  // carries its own CSRF protection via the OAuth state parameter.
   security: {
-    checkOrigin: process.env.NODE_ENV !== "development",
+    checkOrigin: false,
   },
 
   vite: {
