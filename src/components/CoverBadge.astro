@@ -1,0 +1,25 @@
+---
+type Props = {
+  variant: "read" | "reading" | "new" | "wanted";
+};
+
+const { variant } = Astro.props;
+
+const styles: Record<string, string> = {
+  read:    "absolute right-2 top-2 bg-slate-900/80 backdrop-blur-sm text-slate-400",
+  reading: "absolute right-2 top-2 bg-amber-500 text-slate-900",
+  new:     "absolute left-2 top-2 bg-amber-500 text-slate-900",
+  wanted:  "absolute left-2 top-2 bg-slate-900/80 backdrop-blur-sm text-slate-400",
+};
+
+const labels: Record<string, string> = {
+  read:    "Read",
+  reading: "Reading",
+  new:     "New",
+  wanted:  "Wanted",
+};
+---
+
+<span class={`${styles[variant]} px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest`}>
+  {labels[variant]}
+</span>

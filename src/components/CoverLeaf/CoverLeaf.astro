@@ -1,6 +1,7 @@
 ---
 import { Image } from "astro:assets";
 import Icon from "@components/Icon/Icon.astro";
+import CoverBadge from "@components/CoverBadge.astro";
 import sharp from "sharp";
 import { thumbHashToRGBA } from "thumbhash";
 
@@ -13,7 +14,7 @@ type IssueCoverLeaf = {
   seriesId?: string;
   issueName?: string;
   issueDate?: string;
-  badge?: "read" | "reading" | "new";
+  badge?: "read" | "reading" | "new" | "wanted";
   progress?: number | null;
   thumbHash?: string;
 };
@@ -24,7 +25,7 @@ type SeriesCoverLeaf = {
   id: string;
   name: string;
   year?: string;
-  badge?: "new";
+  badge?: "new" | "wanted";
   thumbHash?: string;
 };
 
@@ -87,15 +88,7 @@ if (props.type === "Issue") {
         <Icon name="image-placeholder" class="h-8 w-8" color="currentColor" />
       </div>
     )}
-    {badge === "read" && (
-      <span class="absolute right-2 top-2 bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400 backdrop-blur-sm">Read</span>
-    )}
-    {badge === "reading" && (
-      <span class="absolute right-2 top-2 bg-amber-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-900">Reading</span>
-    )}
-    {badge === "new" && (
-      <span class="absolute left-2 top-2 bg-amber-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-900">New</span>
-    )}
+    {badge && <CoverBadge variant={badge} />}
     {progress != null && (
       <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800">
         <div class="h-full bg-amber-500" style={`width: ${progress}%`}></div>

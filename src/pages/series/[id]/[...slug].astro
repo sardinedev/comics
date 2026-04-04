@@ -246,7 +246,9 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
                 ? "read"
                 : issue.reading_state === "reading"
                   ? "reading"
-                  : undefined
+                  : issue.download_status !== "Downloaded"
+                    ? "wanted"
+                    : undefined
             }
             progress={
               issue.current_page && issue.issue_page_count
