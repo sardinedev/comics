@@ -62,6 +62,9 @@ export const issuesMappings: estypes.MappingTypeMapping = {
     // === STORY ARCS (references to story_arcs index) ===
     story_arc_ids: { type: "keyword" }, // Array of arc IDs this issue belongs to
 
+    // === CHARACTERS ===
+    characters: { type: "keyword" }, // Array of character names (from ComicVine enrichment)
+
     // === MYLAR STATUS ===
     download_status: { type: "keyword" },
     mylar_file_location: { type: "keyword" },

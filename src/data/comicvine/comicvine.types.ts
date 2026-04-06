@@ -131,7 +131,7 @@ export type ComicvineSingleIssueResponse = {
   /** URL pointing to the issue detail resource. */
   api_detail_url: string;
   /** List of characters that appear in the issue. */
-  character_credits: Record<string, unknown>[];
+  character_credits: { id: number; name: string; api_detail_url: string; site_detail_url: string }[];
   /** List of characters that died in the issue. */
   characters_died_in: Record<string, unknown>[];
   /** List of concepts that appear in the issue. */

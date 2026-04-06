@@ -1,9 +1,9 @@
 import { mylarGetAllSeries, mylarGetHistory, mylarGetSeries } from "../mylar/mylar";
-import type { MylarComic, MylarIssue, MylarHistoryItem, IssueStatus } from "../mylar/mylar.types";
+import type { MylarComic, MylarIssue, MylarHistoryItem } from "../mylar/mylar.types";
 import { getComicIssueDetails } from "../comicvine/comicvine";
 import { ensureCoverCached, generateThumbHash } from "../../util/covers";
 import { ISSUES_INDEX } from "../elastic/models/issue.model";
-import { elasticBulkUpsertDocuments } from "../elastic/elastic";
+import { elastic, elasticBulkUpsertDocuments } from "../elastic/elastic";
 import type { ReadingState, Issue } from "../comics.types";
 
 /**
@@ -174,6 +174,7 @@ function buildIssueBaseDoc(
     issueDescription?: string;
     issueDate: string;
     addedToLibraryAt?: string;
+    characters?: string[];
   }
 ): { doc: IssueElasticDoc; upsert: IssueElasticUpsert } {
   const seriesInfo = buildSeriesInfo(series);
@@ -189,12 +190,10 @@ function buildIssueBaseDoc(
     issue_date: opts.issueDate,
     issue_cover_url: opts.coverUrl,
     issue_cover_thumb_hash: opts.thumbHash,
-
+    characters: opts.characters,
     ...seriesInfo,
-
     download_status: issue.status,
     added_to_library_at: opts.addedToLibraryAt,
-
     synced_at: opts.nowIso,
   };
 
@@ -209,44 +208,6 @@ function buildIssueBaseDoc(
   return { doc, upsert };
 }
 
-/**
- * Simple promise-based concurrency limiter.
- *
- * Processes items in parallel with a maximum concurrency limit.
- * Useful for rate-limiting external API calls (ComicVine enrichment).
- *
- * @param items - Array of items to process
- * @param limit - Max concurrent operations (1 = sequential)
- * @param fn - Async function to run for each item
- * @returns Array of results in original order
- */
-async function mapLimit<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T, idx: number) => Promise<R>
-): Promise<R[]> {
-  // Sequential processing for limit <= 1
-  if (limit <= 1) {
-    const out: R[] = [];
-    for (let i = 0; i < items.length; i++) out.push(await fn(items[i], i));
-    return out;
-  }
-
-  const out = new Array<R>(items.length);
-  let nextIndex = 0;
-
-  // Spawn worker promises that pull from shared index counter
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (true) {
-      const idx = nextIndex++;
-      if (idx >= items.length) return;
-      out[idx] = await fn(items[idx], idx);
-    }
-  });
-
-  await Promise.all(workers);
-  return out;
-}
 
 /**
  * Build a map of issue IDs to their "added to library" timestamps.
@@ -283,6 +244,16 @@ function buildDownloadedAtMap(history: MylarHistoryItem[]): Map<string, string> 
   }
 
   return map;
+}
+
+/**
+ * Simple sleep utility to pause execution for a given number of milliseconds.
+ * Used to throttle ComicVine API calls to avoid rate limits.
+ *
+ * @param ms - Milliseconds to sleep
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -337,6 +308,22 @@ export async function syncMylarToElastic(
     coversCached: 0,
   };
 
+  // Pre-fetch IDs of issues already enriched with character data so we can skip
+  // them during enrichment — avoids re-hitting ComicVine for the full library
+  // on every nightly run (5000 issues would exhaust the 200 req/hour limit).
+  const alreadyEnrichedIds = new Set<string>();
+  if (options.enrichFromComicVine) {
+    const enrichedResp = await elastic.search<{ issue_id: string }>({
+      index: ISSUES_INDEX,
+      size: 10_000,
+      _source: ["issue_id"],
+      query: { exists: { field: "characters" } },
+    });
+    for (const hit of enrichedResp.hits.hits) {
+      if (hit._source?.issue_id) alreadyEnrichedIds.add(hit._source.issue_id);
+    }
+  }
+
   // === TRANSFORM & LOAD: Process each series sequentially ===
   // Sequential processing keeps Mylar load predictable (avoid overwhelming the API)
   for (const seriesEntry of series) {
@@ -345,65 +332,68 @@ export async function syncMylarToElastic(
     const seriesInfo = seriesDetailResp.data.comic[0];
     const issues = seriesDetailResp.data.issues;
 
-    // Process issues concurrently (with limit) for faster enrichment
-    const issueDocs = await mapLimit(
-      issues,
-      options.comicVineConcurrency ?? 3,
-      async (issue) => {
-        let coverUrl: string | undefined = issue.imageURL;
-        let thumbHash: string | undefined;
-        let issueDescription: string | undefined;
-        let comicVineStoreDate: string | undefined;
+    const issueDocs: { id: string; doc: IssueElasticDoc; upsert: IssueElasticUpsert }[] = [];
 
-        // Optional: Enrich with ComicVine metadata (better dates, descriptions)
-        if (options.enrichFromComicVine) {
-          const cv = await getComicIssueDetails(issue.id);
-          comicVineStoreDate = cv.store_date;
-          issueDescription = cv.description;
-          // Prefer ComicVine cover for remote, unless we cache local
-          coverUrl = cv.image?.original_url ?? coverUrl;
-          stats.issuesEnriched += 1;
-        }
+    for (const issue of issues) {
+      let coverUrl: string | undefined = issue.imageURL;
+      let thumbHash: string | undefined;
+      let issueDescription: string | undefined;
+      let comicVineStoreDate: string | undefined;
+      let characters: string[] | undefined;
 
-        // Derive "added to library" timestamp from Mylar history
-        const addedToLibraryAt =
-          issue.status === "Downloaded"
-            ? downloadedAtByIssueId.get(issue.id)
-            : undefined;
-
-        // Optional: Cache cover image locally
-        if (options.cacheCovers && issue.status === "Downloaded") {
-          const cached = await ensureCoverCached(issue.id);
-          if (cached) {
-            coverUrl = cached;
-            stats.coversCached += 1;
-            thumbHash = (await generateThumbHash(issue.id)) ?? undefined;
-          }
-        }
-
-        const issueDate = pickIssueDate(issue, comicVineStoreDate);
-
-        const { doc, upsert } = buildIssueBaseDoc(issue, seriesInfo, {
-          nowIso,
-          coverUrl,
-          thumbHash,
-          issueDescription,
-          issueDate,
-          addedToLibraryAt,
-        });
-
-        // Remove undefined values to avoid null overwrites in Elasticsearch
-        // (undefined fields are not sent, so existing values are preserved)
-        for (const [key, value] of Object.entries(doc)) {
-          if (value === undefined) {
-            // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-            delete (doc as any)[key];
-          }
-        }
-
-        return { id: issue.id, doc, upsert };
+      // Optional: Enrich with ComicVine metadata (better dates, descriptions, characters).
+      // Skips issues already enriched to stay within the 200 req/hour API limit.
+      // Throttled to 1 request per 20s (~180/hour) to avoid velocity blocks.
+      if (options.enrichFromComicVine && !alreadyEnrichedIds.has(issue.id)) {
+        const cv = await getComicIssueDetails(issue.id);
+        comicVineStoreDate = cv.store_date;
+        issueDescription = cv.description;
+        // Prefer ComicVine cover for remote, unless we cache local
+        coverUrl = cv.image?.original_url ?? coverUrl;
+        characters = cv.character_credits.map((c) => c.name);
+        stats.issuesEnriched += 1;
+        await sleep(20_000);
       }
-    );
+
+      // Derive "added to library" timestamp from Mylar history
+      const addedToLibraryAt =
+        issue.status === "Downloaded"
+          ? downloadedAtByIssueId.get(issue.id)
+          : undefined;
+
+      // Optional: Cache cover image locally
+      if (options.cacheCovers && issue.status === "Downloaded") {
+        const cached = await ensureCoverCached(issue.id);
+        if (cached) {
+          coverUrl = cached;
+          stats.coversCached += 1;
+          thumbHash = (await generateThumbHash(issue.id)) ?? undefined;
+        }
+      }
+
+      const issueDate = pickIssueDate(issue, comicVineStoreDate);
+
+      const { doc, upsert } = buildIssueBaseDoc(issue, seriesInfo, {
+        nowIso,
+        coverUrl,
+        thumbHash,
+        issueDescription,
+        issueDate,
+        addedToLibraryAt,
+        characters,
+      });
+
+      // Remove undefined values to avoid null overwrites in Elasticsearch
+      // (undefined fields are not sent, so existing values are preserved)
+      for (const [key, value] of Object.entries(doc)) {
+        if (value === undefined) {
+          // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+          delete (doc as any)[key];
+        }
+      }
+
+      issueDocs.push({ id: issue.id, doc, upsert });
+    }
 
     // Bulk upsert all issues for this series
     await elasticBulkUpsertDocuments(ISSUES_INDEX, issueDocs, {
