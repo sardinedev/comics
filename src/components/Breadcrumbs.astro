@@ -13,7 +13,7 @@ const { crumbs } = Astro.props as { crumbs: Crumb[] };
       <>
         {i > 0 && <span class="text-slate-700">/</span>}
         {crumb.url ? (
-          <a href={crumb.url} class="text-slate-500 hover:text-amber-500 transition-colors">
+          <a href={crumb.url} class="inline-flex items-center py-3 text-slate-500 hover:text-amber-500 transition-colors">
             {crumb.title}
           </a>
         ) : (

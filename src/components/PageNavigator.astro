@@ -12,54 +12,42 @@ const baseURL = Astro.url.pathname;
 
 let pagesArray: (string | number)[] = [];
 
-if (numberOfPages > 8) {
-  if (currentPage < 5) {
-    pagesArray = [1, 2, 3, 4, 5, "...", numberOfPages];
-  } else if (currentPage > numberOfPages - 4) {
-    pagesArray = [
-      1,
-      "...",
-      numberOfPages - 4,
-      numberOfPages - 3,
-      numberOfPages - 2,
-      numberOfPages - 1,
-      numberOfPages,
-    ];
+if (numberOfPages > 3) {
+  if (currentPage <= 2) {
+    pagesArray = [1, 2, "...", numberOfPages];
+  } else if (currentPage >= numberOfPages - 1) {
+    pagesArray = [1, "...", numberOfPages - 1, numberOfPages];
   } else {
-    pagesArray = [
-      1,
-      "...",
-      currentPage - 1,
-      currentPage,
-      currentPage + 1,
-      "...",
-      numberOfPages,
-    ];
+    pagesArray = [1, "...", currentPage, "...", numberOfPages];
   }
 } else {
   pagesArray = Array.from({ length: numberOfPages }, (_, i) => i + 1);
 }
 ---
 
-<nav class="mt-12 flex items-center justify-center gap-1" aria-label="Pagination">
-  {currentPage > 1 && (
+<nav class="mt-12 flex items-center justify-center gap-2" aria-label="Pagination">
+  {currentPage > 1 ? (
     <a
       href={`${baseURL}?page=${currentPage - 1}&sort=${sort}`}
-      class="flex h-8 w-8 items-center justify-center border border-slate-700 text-slate-400 transition-colors hover:border-amber-500 hover:text-amber-500"
+      class="flex h-12 w-12 shrink-0 items-center justify-center border border-slate-700 text-slate-400 transition-colors hover:border-amber-500 hover:text-amber-500"
       aria-label="Previous page"
     >
       <Icon name="chevron-left" class="h-3.5 w-3.5" color="currentColor" />
     </a>
+  ) : (
+    <span class="flex h-12 w-12 shrink-0 items-center justify-center border border-slate-800 text-slate-700" aria-hidden="true">
+      <Icon name="chevron-left" class="h-3.5 w-3.5" color="currentColor" />
+    </span>
   )}
 
   {pagesArray.map((page) => (
     <li class="list-none">
       {page === "..." ? (
-        <span class="flex h-8 w-8 items-center justify-center text-xs text-slate-600">…</span>
+        <span class="flex h-12 w-12 items-center justify-center text-xs text-slate-600">…</span>
       ) : (
         <a
           href={`${baseURL}?page=${page}&sort=${sort}`}
-          class={`flex h-8 w-8 items-center justify-center border text-xs font-bold uppercase tracking-widest transition-colors ${
+          class={`flex h-12 w-12 items-center justify-center border text-xs font-bold uppercase tracking-widest transition-colors ${
             page === currentPage
               ? "border-amber-500 bg-amber-500 text-slate-900"
               : "border-slate-700 text-slate-400 hover:border-amber-500 hover:text-amber-500"
@@ -72,13 +60,17 @@ if (numberOfPages > 8) {
     </li>
   ))}
 
-  {currentPage < numberOfPages && (
+  {currentPage < numberOfPages ? (
     <a
       href={`${baseURL}?page=${currentPage + 1}&sort=${sort}`}
-      class="flex h-8 w-8 items-center justify-center border border-slate-700 text-slate-400 transition-colors hover:border-amber-500 hover:text-amber-500"
+      class="flex h-12 w-12 shrink-0 items-center justify-center border border-slate-700 text-slate-400 transition-colors hover:border-amber-500 hover:text-amber-500"
       aria-label="Next page"
     >
       <Icon name="chevron-right" class="h-3.5 w-3.5" color="currentColor" />
     </a>
+  ) : (
+    <span class="flex h-12 w-12 shrink-0 items-center justify-center border border-slate-800 text-slate-700" aria-hidden="true">
+      <Icon name="chevron-right" class="h-3.5 w-3.5" color="currentColor" />
+    </span>
   )}
 </nav>

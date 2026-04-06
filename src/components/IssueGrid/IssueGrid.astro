@@ -42,7 +42,7 @@ for (const [key, display] of [["state", "State"], ["publisher", "Publisher"], ["
   <button
     type="button"
     popovertarget="mypopover"
-    class="flex items-center gap-1.5 border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-300 transition-colors hover:border-amber-500 hover:text-amber-500"
+    class="flex h-12 items-center gap-1.5 border border-slate-700 bg-slate-800 px-3 text-xs font-bold uppercase tracking-widest text-slate-300 transition-colors hover:border-amber-500 hover:text-amber-500"
   >
     <Icon name="sort" class="h-3.5 w-3.5" color="currentColor" />
     Sort
@@ -93,7 +93,7 @@ for (const [key, display] of [["state", "State"], ["publisher", "Publisher"], ["
     <div class="flex flex-wrap items-center gap-2">
       <span class="text-xs uppercase tracking-widest text-slate-600">·</span>
       {activeFilters.map(({ label, clearUrl }) => (
-        <a href={clearUrl} class="flex items-center gap-1 border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-widest text-amber-500 hover:bg-amber-500/20 transition-colors">
+        <a href={clearUrl} class="flex min-h-12 items-center gap-1 border border-amber-500/40 bg-amber-500/10 px-3 text-xs font-bold uppercase tracking-widest text-amber-500 hover:bg-amber-500/20 transition-colors">
           {label}
           <span class="text-amber-600">&times;</span>
         </a>
