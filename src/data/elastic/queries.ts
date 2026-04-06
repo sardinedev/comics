@@ -43,10 +43,10 @@ export type SeriesFilterOptions = {
 type SortClause = Record<string, "asc" | "desc">;
 
 const SORT_CLAUSES: Record<SeriesSort, SortClause[]> = {
-  "title-asc":  [{ "series_name.keyword": "asc" },  { series_year: "asc" }],
+  "title-asc": [{ "series_name.keyword": "asc" }, { series_year: "asc" }],
   "title-desc": [{ "series_name.keyword": "desc" }, { series_year: "desc" }],
-  "date-asc":   [{ series_year: "asc" },  { "series_name.keyword": "asc" }],
-  "date-desc":  [{ series_year: "desc" }, { "series_name.keyword": "asc" }],
+  "date-asc": [{ series_year: "asc" }, { "series_name.keyword": "asc" }],
+  "date-desc": [{ series_year: "desc" }, { "series_name.keyword": "asc" }],
 };
 
 /**
@@ -78,13 +78,13 @@ export async function getSeriesIssues(
   const first = issues[0];
   const series: SeriesSummary | null = first
     ? {
-        series_id: first.series_id,
-        series_name: first.series_name ?? "",
-        series_year: first.series_year ?? "",
-        series_cover_url: first.series_cover_url,
-        series_publisher: first.series_publisher,
-        series_total_issues: first.series_total_issues,
-      }
+      series_id: first.series_id,
+      series_name: first.series_name ?? "",
+      series_year: first.series_year ?? "",
+      series_cover_url: first.series_cover_url,
+      series_publisher: first.series_publisher,
+      series_total_issues: first.series_total_issues,
+    }
     : null;
 
   return { series, items: issues, total, page: safePage, pageSize, totalPages };
@@ -191,14 +191,14 @@ export async function getSeriesFilterOptions(): Promise<SeriesFilterOptions> {
     size: 0,
     aggs: {
       publishers: { terms: { field: "series_publisher", size: 200, order: { _key: "asc" } } },
-      years:      { terms: { field: "series_year",      size: 200, order: { _key: "desc" } } },
+      years: { terms: { field: "series_year", size: 200, order: { _key: "desc" } } },
     },
   });
 
   const aggs = response.aggregations as Record<string, { buckets: { key: string }[] }>;
   return {
     publishers: aggs.publishers.buckets.map((b) => b.key).filter(Boolean),
-    years:      aggs.years.buckets.map((b) => b.key).filter(Boolean),
+    years: aggs.years.buckets.map((b) => b.key).filter(Boolean),
   };
 }
 
@@ -220,8 +220,8 @@ export async function getAllSeries(
   const from = (Math.max(1, page) - 1) * pageSize;
 
   const filterClauses: object[] = [];
-  if (filters.publisher)    filterClauses.push({ term: { series_publisher: filters.publisher } });
-  if (filters.year)         filterClauses.push({ term: { series_year: filters.year } });
+  if (filters.publisher) filterClauses.push({ term: { series_publisher: filters.publisher } });
+  if (filters.year) filterClauses.push({ term: { series_year: filters.year } });
   if (filters.readingState) filterClauses.push({ term: { reading_state: filters.readingState } });
 
   const response = await elastic.search<SeriesHitSource>({
@@ -232,9 +232,9 @@ export async function getAllSeries(
     collapse: {
       field: "series_id",
       inner_hits: {
-        name: "latest_issue",
+        name: "first_issue",
         size: 1,
-        sort: [{ issue_date: "desc" }],
+        sort: [{ issue_date: "asc" }],
         _source: ["issue_cover_url", "issue_cover_thumb_hash"],
       },
     },
@@ -254,7 +254,7 @@ export async function getAllSeries(
 
   const items: SeriesSummary[] = response.hits.hits.map((hit) => {
     const src = hit._source!;
-    const innerHit = hit.inner_hits?.latest_issue?.hits?.hits?.[0]?._source as CoverHitSource | undefined;
+    const innerHit = hit.inner_hits?.first_issue?.hits?.hits?.[0]?._source as CoverHitSource | undefined;
     return {
       series_id: src.series_id,
       series_name: src.series_name ?? "",

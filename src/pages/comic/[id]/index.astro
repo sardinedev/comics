@@ -6,6 +6,7 @@ import Icon from "@components/Icon/Icon.astro";
 import SubHeading from "@components/SubHeading.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
 import PageHeading from "@components/PageHeading.astro";
+import { thumbHashToBase64 } from "@util/thumbHashToBase64";
 
 const { id } = Astro.params;
 const issue = await getIssue(id!);
@@ -33,6 +34,11 @@ const statusColors: Record<string, string> = {
 };
 const statusColor =
   statusColors[issue.reading_state ?? "unread"] ?? statusColors.unread;
+
+let heroPlaceholderUrl: string | undefined;
+if (issue.issue_cover_thumb_hash) {
+  heroPlaceholderUrl = await thumbHashToBase64(issue.issue_cover_thumb_hash);
+}
 ---
 
 <Layout title={`${issue.series_name} #${issue.issue_number}`}>
@@ -205,21 +211,30 @@ const statusColor =
 
     <!-- Cover -->
     <div
-      class="issue-cover relative overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
+      class="issue-cover relative overflow-hidden h-[360px] w-[240px] mx-auto"
     >
       {
         issue.issue_cover_url ? (
-          <Image
-            src={new URL(issue.issue_cover_url, Astro.url).toString()}
-            alt={`${issue.series_name} #${issue.issue_number}`}
-            widths={[240, 343, 480, 686]}
-            sizes="(max-width: 767px) 343px, 240px"
-            width={240}
-            height={360}
-            quality="mid"
-            format="avif"
-            class="aspect-[2/3] w-full object-cover"
-          />
+          <div
+            class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
+            style={
+              heroPlaceholderUrl
+                ? `background-image: url(${heroPlaceholderUrl}); background-size: cover; background-position: center;`
+                : undefined
+            }
+          >
+            <Image
+              src={new URL(issue.issue_cover_url, Astro.url).toString()}
+              alt={`${issue.series_name} #${issue.issue_number}`}
+              widths={[240, 343, 480, 686]}
+              sizes="(max-width: 767px) 343px, 240px"
+              width={240}
+              height={360}
+              quality="mid"
+              format="avif"
+              class="aspect-[2/3] w-full object-cover"
+            />
+          </div>
         ) : (
           <div class="aspect-[2/3] flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
             <Icon
@@ -276,9 +291,7 @@ const statusColor =
     {
       issue.issue_description && (
         <div class="issue-desc flex flex-col gap-2">
-          <SubHeading>
-            Synopsis
-          </SubHeading>
+          <SubHeading>Synopsis</SubHeading>
           <div
             class="max-w-2xl text-sm leading-relaxed text-slate-300"
             set:html={issue.issue_description}
@@ -291,9 +304,7 @@ const statusColor =
     {
       creators.length > 0 && (
         <div class="issue-creators flex flex-col gap-4">
-          <SubHeading>
-            Creators
-          </SubHeading>
+          <SubHeading>Creators</SubHeading>
           <dl class="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
             {creators.map(({ label, names }) => (
               <div class="flex flex-col gap-1">
@@ -314,9 +325,7 @@ const statusColor =
     {
       issue.mylar_file_location && (
         <div class="issue-file flex flex-col gap-2 border-t border-slate-800 pt-6">
-          <SubHeading>
-            File
-          </SubHeading>
+          <SubHeading>File</SubHeading>
           <p class="font-mono text-xs text-slate-500 break-all">
             {issue.mylar_file_location}
           </p>

@@ -10,8 +10,7 @@ import { Image } from "astro:assets";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import Icon from "@components/Icon/Icon.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
-import sharp from "sharp";
-import { thumbHashToRGBA } from "thumbhash";
+import { thumbHashToBase64 } from "@util/thumbHashToBase64";
 
 const [nowReading, continueReading, recentlyAdded, seriesResult] =
   await Promise.all([
@@ -20,9 +19,7 @@ const [nowReading, continueReading, recentlyAdded, seriesResult] =
     getRecentlyAdded(6),
     getAllSeries(1, 6),
   ]);
-
 const browseSeriesItems = seriesResult.items;
-
 const heroProgress =
   nowReading?.current_page && nowReading?.issue_page_count
     ? Math.round((nowReading.current_page / nowReading.issue_page_count) * 100)
@@ -30,16 +27,9 @@ const heroProgress =
 
 let heroPlaceholderUrl: string | undefined;
 if (nowReading?.issue_cover_thumb_hash) {
-  try {
-    const hashBytes = new Uint8Array(Buffer.from(nowReading.issue_cover_thumb_hash, "base64"));
-    const { w, h, rgba } = thumbHashToRGBA(hashBytes);
-    const png = await sharp(Buffer.from(rgba), {
-      raw: { width: w, height: h, channels: 4 },
-    }).png().toBuffer();
-    heroPlaceholderUrl = `data:image/png;base64,${png.toString("base64")}`;
-  } catch {
-    // no placeholder
-  }
+  heroPlaceholderUrl = await thumbHashToBase64(
+    nowReading.issue_cover_thumb_hash,
+  );
 }
 ---
 
@@ -71,7 +61,11 @@ if (nowReading?.issue_cover_thumb_hash) {
                 class="group flex items-center gap-2 bg-amber-500 px-6 py-3 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400"
               >
                 Continue Reading
-                <Icon name="arrow-forward" class="h-4 w-4 transition-transform group-hover:translate-x-1" color="currentColor" />
+                <Icon
+                  name="arrow-forward"
+                  class="h-4 w-4 transition-transform group-hover:translate-x-1"
+                  color="currentColor"
+                />
               </a>
               <span class="text-sm text-slate-500">
                 Issue #{nowReading.issue_number}
@@ -99,7 +93,14 @@ if (nowReading?.issue_cover_thumb_hash) {
             <div class="relative h-[340px] w-[220px]">
               <div class="absolute left-8 top-4 h-[320px] w-[210px] rotate-6 rounded-sm bg-slate-700 opacity-50 shadow-xl" />
               <div class="absolute left-4 top-2 h-[320px] w-[210px] rotate-3 rounded-sm bg-slate-600 opacity-60 shadow-xl" />
-              <div class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10" style={heroPlaceholderUrl ? `background-image: url(${heroPlaceholderUrl}); background-size: cover; background-position: center;` : undefined}>
+              <div
+                class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
+                style={
+                  heroPlaceholderUrl
+                    ? `background-image: url(${heroPlaceholderUrl}); background-size: cover; background-position: center;`
+                    : undefined
+                }
+              >
                 <Image
                   src={new URL(
                     nowReading.issue_cover_url!,

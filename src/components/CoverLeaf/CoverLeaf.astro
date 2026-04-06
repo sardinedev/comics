@@ -2,8 +2,7 @@
 import { Image } from "astro:assets";
 import Icon from "@components/Icon/Icon.astro";
 import CoverBadge from "@components/CoverBadge.astro";
-import sharp from "sharp";
-import { thumbHashToRGBA } from "thumbhash";
+import { thumbHashToBase64 } from "@util/thumbHashToBase64";
 
 type IssueCoverLeaf = {
   type: "Issue";
@@ -29,36 +28,28 @@ type SeriesCoverLeaf = {
   thumbHash?: string;
 };
 
-const { cover, id, thumbHash, ...props } = Astro.props as IssueCoverLeaf | SeriesCoverLeaf;
-
+const { cover, id, thumbHash, ...props } = Astro.props as
+  | IssueCoverLeaf
+  | SeriesCoverLeaf;
 const coverSrc = cover || null;
 const isLocalCoverRoute = coverSrc?.startsWith("/covers/");
 const optimizableCoverSrc = isLocalCoverRoute
   ? new URL(coverSrc!, Astro.url).toString()
   : coverSrc;
-
 const href = props.type === "Issue" ? `/comic/${id}` : `/series/${id}`;
-
 const badge = props.badge;
 const progress = props.type === "Issue" ? props.progress : undefined;
 
 let placeholderUrl: string | undefined;
 if (thumbHash) {
-  try {
-    const hashBytes = new Uint8Array(Buffer.from(thumbHash, "base64"));
-    const { w, h, rgba } = thumbHashToRGBA(hashBytes);
-    const png = await sharp(Buffer.from(rgba), {
-      raw: { width: w, height: h, channels: 4 },
-    }).png().toBuffer();
-    placeholderUrl = `data:image/png;base64,${png.toString("base64")}`;
-  } catch {
-    // no placeholder
-  }
+  placeholderUrl = await thumbHashToBase64(thumbHash);
 }
 
 let alt: string;
 if (props.type === "Issue") {
-  alt = props.seriesName ? `${props.seriesName} #${props.number}` : `Issue #${props.number}`;
+  alt = props.seriesName
+    ? `${props.seriesName} #${props.number}`
+    : `Issue #${props.number}`;
 } else {
   alt = `Cover for ${props.name}${props.year ? ` (${props.year})` : ""}`;
 }
@@ -68,59 +59,87 @@ if (props.type === "Issue") {
   <a
     href={href}
     class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all duration-200 hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10"
-    style={placeholderUrl ? `background-image: url(${placeholderUrl}); background-size: cover; background-position: center;` : undefined}
+    style={placeholderUrl
+      ? `background-image: url(${placeholderUrl}); background-size: cover; background-position: center;`
+      : undefined}
   >
-    {optimizableCoverSrc ? (
-      <Image
-        class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-        src={optimizableCoverSrc}
-        widths={[183, 275, 366]}
-        sizes="(max-width: 640px) 183px, 210px"
-        height={320}
-        width={210}
-        quality="mid"
-        format="avif"
-        alt={alt}
-        loading="lazy"
-      />
-    ) : (
-      <div class="aspect-[2/3] flex items-center justify-center bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900">
-        <Icon name="image-placeholder" class="h-8 w-8" color="currentColor" />
-      </div>
-    )}
+    {
+      optimizableCoverSrc ? (
+        <Image
+          class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+          src={optimizableCoverSrc}
+          widths={[183, 275, 366]}
+          sizes="(max-width: 640px) 183px, 210px"
+          height={320}
+          width={210}
+          quality="mid"
+          format="avif"
+          alt={alt}
+          loading="lazy"
+        />
+      ) : (
+        <div class="aspect-[2/3] flex items-center justify-center bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900">
+          <Icon name="image-placeholder" class="h-8 w-8" color="currentColor" />
+        </div>
+      )
+    }
     {badge && <CoverBadge variant={badge} />}
-    {progress != null && (
-      <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800">
-        <div class="h-full bg-amber-500" style={`width: ${progress}%`}></div>
-      </div>
-    )}
+    {
+      progress != null && (
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800">
+          <div class="h-full bg-amber-500" style={`width: ${progress}%`} />
+        </div>
+      )
+    }
   </a>
 
   <div class="flex flex-col gap-0.5 px-0.5">
-    {props.type === "Issue" ? (
-      props.seriesName ? (
-        <>
-          {props.seriesId ? (
-            <a href={`/series/${props.seriesId}`} class="truncate text-sm font-bold leading-tight text-white hover:text-amber-400 transition-colors">{props.seriesName}</a>
-          ) : (
-            <span class="truncate text-sm font-bold leading-tight text-white">{props.seriesName}</span>
-          )}
-          <span class="text-xs text-slate-500">#{props.number}</span>
-        </>
+    {
+      props.type === "Issue" ? (
+        props.seriesName ? (
+          <>
+            {props.seriesId ? (
+              <a
+                href={`/series/${props.seriesId}`}
+                class="truncate text-sm font-bold leading-tight text-white hover:text-amber-400 transition-colors"
+              >
+                {props.seriesName}
+              </a>
+            ) : (
+              <span class="truncate text-sm font-bold leading-tight text-white">
+                {props.seriesName}
+              </span>
+            )}
+            <span class="text-xs text-slate-500">#{props.number}</span>
+          </>
+        ) : (
+          <>
+            <span class="text-sm font-bold text-white">#{props.number}</span>
+            {props.issueName && (
+              <span class="truncate text-xs text-slate-500">
+                {props.issueName}
+              </span>
+            )}
+            {props.issueDate && (
+              <span class="text-xs text-slate-600">{props.issueDate}</span>
+            )}
+          </>
+        )
       ) : (
         <>
-          <span class="text-sm font-bold text-white">#{props.number}</span>
-          {props.issueName && <span class="truncate text-xs text-slate-500">{props.issueName}</span>}
-          {props.issueDate && <span class="text-xs text-slate-600">{props.issueDate}</span>}
+          <span class="truncate text-sm font-bold leading-tight text-white transition-colors group-hover:text-amber-400">
+            {props.name}
+          </span>
+          {props.year && (
+            <a
+              href={`/series?year=${props.year}&page=1`}
+              class="text-xs text-slate-500 hover:text-amber-500 transition-colors"
+            >
+              {props.year}
+            </a>
+          )}
         </>
       )
-    ) : (
-      <>
-        <span class="truncate text-sm font-bold leading-tight text-white transition-colors group-hover:text-amber-400">
-          {props.name}
-        </span>
-        {props.year && <a href={`/series?year=${props.year}&page=1`} class="text-xs text-slate-500 hover:text-amber-500 transition-colors">{props.year}</a>}
-      </>
-    )}
+    }
   </div>
 </li>
