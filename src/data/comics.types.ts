@@ -68,6 +68,10 @@ export type Issue = {
   /** List of story arc IDs this issue belongs to */
   story_arc_ids?: string[];
 
+  // === CHARACTERS ===
+  /** List of character names that appear in this issue (from ComicVine enrichment) */
+  characters?: string[];
+
   // === MYLAR STATUS ===
   /** Download/library status from Mylar (Wanted, Downloaded, Skipped, etc.) */
   download_status?: IssueStatus;

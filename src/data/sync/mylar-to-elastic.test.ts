@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Env before imports
 process.env.ELASTIC_API_KEY = "test-api-key";
@@ -6,6 +6,7 @@ process.env.ELASTIC_URL = "http://localhost:9200";
 
 const elasticState = {
   bulk: vi.fn(),
+  search: vi.fn(),
 };
 
 vi.mock("@elastic/elasticsearch", () => {
@@ -14,6 +15,7 @@ vi.mock("@elastic/elasticsearch", () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       constructor(_opts: unknown) { }
       bulk = (...args: any[]) => elasticState.bulk(...args);
+      search = (...args: any[]) => elasticState.search(...args);
       indices = {};
     },
   };
@@ -47,12 +49,18 @@ const sync = await import("./mylar-to-elastic");
 
 describe("syncMylarToElastic", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
 
     elasticState.bulk.mockResolvedValue({
       took: 1,
       errors: false,
       items: [],
+    });
+
+    // Default: no issues already enriched
+    elasticState.search.mockResolvedValue({
+      hits: { hits: [] },
     });
 
     (mylar.mylarGetAllSeries as any).mockResolvedValue({
@@ -122,9 +130,17 @@ describe("syncMylarToElastic", () => {
       store_date: "2026-01-03",
       description: "desc",
       image: { original_url: "http://example.com/i1-cv.jpg" },
+      character_credits: [
+        { id: 1, name: "Alana", api_detail_url: "", site_detail_url: "" },
+        { id: 2, name: "Marko", api_detail_url: "", site_detail_url: "" },
+      ],
     });
 
     (covers.ensureCoverCached as any).mockResolvedValue("/covers/i1.jpg");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("bulk upserts issues and preserves reading fields by using update+upsert", async () => {
@@ -148,11 +164,13 @@ describe("syncMylarToElastic", () => {
   });
 
   it("optionally enriches from ComicVine and caches covers", async () => {
-    await sync.syncMylarToElastic({
+    const syncPromise = sync.syncMylarToElastic({
       refresh: "false",
       enrichFromComicVine: true,
       cacheCovers: true,
     });
+    await vi.runAllTimersAsync();
+    await syncPromise;
 
     expect(comicvine.getComicIssueDetails).toHaveBeenCalledWith("i1");
     expect(covers.ensureCoverCached).toHaveBeenCalledWith("i1");
@@ -161,6 +179,17 @@ describe("syncMylarToElastic", () => {
     expect(payload.doc.issue_date).toBe("2026-01-03");
     expect(payload.doc.issue_description).toBe("desc");
     expect(payload.doc.issue_cover_url).toBe("/covers/i1.jpg");
+    expect(payload.doc.characters).toEqual(["Alana", "Marko"]);
+  });
+
+  it("skips ComicVine call for issues already enriched", async () => {
+    elasticState.search.mockResolvedValue({
+      hits: { hits: [{ _source: { issue_id: "i1" } }] },
+    });
+
+    await sync.syncMylarToElastic({ refresh: "false", enrichFromComicVine: true });
+
+    expect(comicvine.getComicIssueDetails).not.toHaveBeenCalled();
   });
 
   it("returns stats with correct counts", async () => {
