@@ -16,14 +16,13 @@ import CoverGrid from "@components/CoverGrid.astro";
 
 const { id } = Astro.params;
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
+const CV_PAGE_SIZE = 24;
 const {
   series,
   items: issues,
   totalPages,
   total,
-} = await getSeriesIssues(id!, currentPage);
-
-const CV_PAGE_SIZE = 18;
+} = await getSeriesIssues(id!, currentPage, CV_PAGE_SIZE);
 
 let cvVolume: ComicvineVolume | null = null;
 let cvPageIssues: Awaited<ReturnType<typeof getIssuesFromVolume>> = [];

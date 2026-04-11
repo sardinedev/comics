@@ -120,22 +120,31 @@ export type VolumeSearchResult = {
   id: number;
   name: string;
   start_year: string;
-  image: Pick<ComicvineImage, "thumb_url">;
+  image: Pick<ComicvineImage, "thumb_url" | "small_url">;
   publisher: { name: string } | null;
 };
 
 /**
  * Searches ComicVine volumes (series) by name.
+ * Returns matched results and the total number of matches for pagination.
+ *
+ * Note: year filtering is applied client-side after fetching. Combining
+ * `name` with other CV filter conditions changes `name` from substring to
+ * exact match, which breaks search results.
  */
-export async function searchVolumes(query: string, limit = 5): Promise<VolumeSearchResult[]> {
+export async function searchVolumes(
+  query: string,
+  limit = 5,
+  offset = 0,
+): Promise<{ results: VolumeSearchResult[]; total: number }> {
   try {
     const data = await comicvine<VolumeSearchResult[]>(
       "volumes",
-      `filter=name:${encodeURIComponent(query)}&field_list=id,name,start_year,image,publisher&limit=${limit}&sort=start_year:desc`,
+      `filter=name:${encodeURIComponent(query)}&field_list=id,name,start_year,image,publisher&limit=${limit}&offset=${offset}&sort=start_year:desc`,
     );
-    return data.results ?? [];
+    return { results: data.results ?? [], total: data.number_of_total_results ?? 0 };
   } catch {
-    return [];
+    return { results: [], total: 0 };
   }
 }
 

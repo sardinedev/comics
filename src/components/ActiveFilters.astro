@@ -1,0 +1,65 @@
+---
+/**
+ * Displays the active sort label and dismissible filter chips.
+ * Reads all state from URL params — no props required for current values.
+ */
+type Props = {
+  /** Label shown when no sort param is set. */
+  defaultSortLabel?: string;
+};
+
+const { defaultSortLabel = "Default" } = Astro.props;
+
+const SORT_LABELS: Record<string, string> = {
+  "date-asc":   "Oldest first",
+  "date-desc":  "Newest first",
+  "title-asc":  "Title A–Z",
+  "title-desc": "Title Z–A",
+};
+
+const sortParam = Astro.url.searchParams.get("sort") ?? "";
+const sortLabel = SORT_LABELS[sortParam] ?? null;
+
+function clearUrl(key: string) {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.delete(key);
+  params.set("page", "1");
+  return `?${params.toString()}`;
+}
+
+const activeFilters: { label: string; clearUrl: string }[] = [];
+for (const [key, display] of [
+  ["state", "State"],
+  ["publisher", "Publisher"],
+  ["year", "Year"],
+] as [string, string][]) {
+  const val = Astro.url.searchParams.get(key);
+  if (val) activeFilters.push({ label: `${display}: ${val}`, clearUrl: clearUrl(key) });
+}
+---
+
+<div class="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-800 pb-4">
+  <div class="flex items-center gap-2">
+    <span class="text-xs uppercase tracking-widest text-slate-600">Sorted by</span>
+    {sortLabel ? (
+      <span class="text-xs font-bold uppercase tracking-widest text-amber-500">{sortLabel}</span>
+    ) : (
+      <span class="text-xs font-bold uppercase tracking-widest text-slate-400">{defaultSortLabel}</span>
+    )}
+  </div>
+
+  {activeFilters.length > 0 && (
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-xs uppercase tracking-widest text-slate-600">·</span>
+      {activeFilters.map(({ label, clearUrl }) => (
+        <a
+          href={clearUrl}
+          class="flex min-h-12 items-center gap-1 border border-amber-500/40 bg-amber-500/10 px-3 text-xs font-bold uppercase tracking-widest text-amber-500 transition-colors hover:bg-amber-500/20"
+        >
+          {label}
+          <span class="text-amber-600">&times;</span>
+        </a>
+      ))}
+    </div>
+  )}
+</div>

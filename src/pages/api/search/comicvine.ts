@@ -11,7 +11,7 @@ export const GET: APIRoute = async ({ url }) => {
     });
   }
 
-  const results = await searchVolumes(q, SEARCH_RESULT_LIMIT);
+  const { results } = await searchVolumes(q, SEARCH_RESULT_LIMIT);
 
   const items = results.map((v) => ({
     id: v.id,
