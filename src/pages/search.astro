@@ -70,11 +70,23 @@ const hasResults = libraryResults.items.length > 0 || cvResults.length > 0;
   <div class="mb-8 border-b border-slate-800 pb-6">
     <EyebrowLabel class="mb-1">Search results</EyebrowLabel>
     <PageHeading>{q || "Search"}</PageHeading>
+    <form method="get" action="/search" class="mt-4 flex gap-2">
+      <input
+        type="search"
+        name="q"
+        value={q}
+        placeholder="Search series…"
+        autofocus={!q}
+        class="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
+      />
+      <button
+        type="submit"
+        class="rounded border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:border-slate-500 hover:text-white"
+      >
+        Search
+      </button>
+    </form>
   </div>
-
-  {!q && (
-    <p class="text-sm text-slate-500">Enter a search term using the search button above.</p>
-  )}
 
   {q && q.length < 2 && (
     <p class="text-sm text-slate-500">Query too short — enter at least 2 characters.</p>
