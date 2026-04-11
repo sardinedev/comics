@@ -9,6 +9,50 @@ servers:
     description: Local development
 
 paths:
+  /search:
+    get:
+      summary: Search series in the library
+      operationId: searchLibrary
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query (minimum 2 characters)
+          schema:
+            type: string
+            minLength: 2
+      responses:
+        "200":
+          description: Matching series from the library
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LibrarySearchResult"
+
+  /search/comicvine:
+    get:
+      summary: Search series on ComicVine
+      operationId: searchComicVine
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query (minimum 2 characters)
+          schema:
+            type: string
+            minLength: 2
+      responses:
+        "200":
+          description: Matching series from ComicVine
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ComicVineSearchResult"
+
   /series:
     get:
       summary: List all series
@@ -60,6 +104,40 @@ components:
           type: integer
         totalPages:
           type: integer
+
+    LibrarySearchResult:
+      type: object
+      required: [series_id, series_name, series_year]
+      properties:
+        series_id:
+          type: string
+        series_name:
+          type: string
+        series_year:
+          type: string
+        series_publisher:
+          type: string
+          nullable: true
+        series_cover_url:
+          type: string
+          nullable: true
+
+    ComicVineSearchResult:
+      type: object
+      required: [id, name, start_year]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        start_year:
+          type: string
+        publisher:
+          type: string
+          nullable: true
+        cover_url:
+          type: string
+          nullable: true
 
     PaginatedSeriesSummary:
       allOf:
