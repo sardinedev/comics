@@ -60,7 +60,7 @@ if (q.length >= 2) {
 const totalPages = Math.max(
   libraryResults.totalPages,
   Math.ceil(cvTotal / PAGE_SIZE),
-  page,
+  1,
 );
 
 const hasResults = libraryResults.items.length > 0 || cvResults.length > 0;

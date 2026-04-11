@@ -16,11 +16,10 @@ paths:
       parameters:
         - name: q
           in: query
-          required: true
-          description: Search query (minimum 2 characters)
+          required: false
+          description: Search query. Returns an empty array if omitted or shorter than 2 characters.
           schema:
             type: string
-            minLength: 2
       responses:
         "200":
           description: Matching series from the library
@@ -38,11 +37,10 @@ paths:
       parameters:
         - name: q
           in: query
-          required: true
-          description: Search query (minimum 2 characters)
+          required: false
+          description: Search query. Returns an empty array if omitted or shorter than 2 characters.
           schema:
             type: string
-            minLength: 2
       responses:
         "200":
           description: Matching series from ComicVine
@@ -120,6 +118,12 @@ components:
           nullable: true
         series_cover_url:
           type: string
+          nullable: true
+        series_cover_thumb_hash:
+          type: string
+          nullable: true
+        series_total_issues:
+          type: integer
           nullable: true
 
     ComicVineSearchResult:

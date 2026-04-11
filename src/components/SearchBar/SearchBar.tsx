@@ -84,7 +84,7 @@ function onKeyDown(e: KeyboardEvent) {
     e.preventDefault();
     const hit = allResults.value[activeIndex.value];
     if (hit?.type === "library") window.location.href = `/series/${hit.series_id}`;
-    if (hit?.type === "cv") window.location.href = `/series/comicvine/${hit.id}`;
+    if (hit?.type === "cv") window.location.href = `/series/${hit.id}`;
   }
 }
 
@@ -211,7 +211,7 @@ export function SearchBar() {
             ref={inputRef}
             type="search"
             autoComplete="off"
-            spellcheck={false}
+            spellCheck={false}
             placeholder="Search series…"
             aria-label="Search series"
             aria-autocomplete="list"
