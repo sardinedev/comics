@@ -116,6 +116,29 @@ export async function getVolumeDetails(
   }
 }
 
+export type VolumeSearchResult = {
+  id: number;
+  name: string;
+  start_year: string;
+  image: Pick<ComicvineImage, "thumb_url">;
+  publisher: { name: string } | null;
+};
+
+/**
+ * Searches ComicVine volumes (series) by name.
+ */
+export async function searchVolumes(query: string, limit = 5): Promise<VolumeSearchResult[]> {
+  try {
+    const data = await comicvine<VolumeSearchResult[]>(
+      "volumes",
+      `filter=name:${encodeURIComponent(query)}&field_list=id,name,start_year,image,publisher&limit=${limit}&sort=start_year:desc`,
+    );
+    return data.results ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Retrieves the issues of a volume based on the specified volume ID.
  * @param volumeId - The ID of the volume.

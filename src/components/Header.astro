@@ -35,10 +35,12 @@ import { SearchBar } from "@components/SearchBar/SearchBar";
   </div>
 </header>
 
-<SearchBar client:load />
+<SearchBar client:only="preact" />
 
 <script>
-  document.getElementById("header-search-btn")?.addEventListener("click", () => {
-    window.dispatchEvent(new CustomEvent("open-search"));
+  document.addEventListener("click", (e) => {
+    if ((e.target as Element)?.closest("#header-search-btn")) {
+      window.dispatchEvent(new CustomEvent("open-search"));
+    }
   });
 </script>

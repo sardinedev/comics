@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { elastic } from "@data/elastic/elastic";
 import { ISSUES_INDEX } from "@data/elastic/models/issue.model";
 import type { Issue } from "@data/comics.types";
+import { SEARCH_RESULT_LIMIT } from "@data/search.constants";
 
 type SeriesHitSource = Pick<
   Issue,
@@ -20,7 +21,7 @@ export const GET: APIRoute = async ({ url }) => {
 
   const response = await elastic.search<SeriesHitSource>({
     index: ISSUES_INDEX,
-    size: 8,
+    size: SEARCH_RESULT_LIMIT,
     query: {
       bool: {
         should: [
@@ -40,6 +41,8 @@ export const GET: APIRoute = async ({ url }) => {
         ],
       },
     },
+    // collapse deduplicates hits by series so each series appears once,
+    // while inner_hits fetches the earliest issue's cover for the thumbnail.
     collapse: {
       field: "series_id",
       inner_hits: {
