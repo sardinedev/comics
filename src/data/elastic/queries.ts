@@ -55,7 +55,7 @@ const SORT_CLAUSES: Record<SeriesSort, SortClause[]> = {
 export async function getSeriesIssues(
   seriesId: string,
   page = 1,
-  pageSize = 18,
+  pageSize = 24,
 ): Promise<{ series: SeriesSummary | null } & PaginatedResult<Issue>> {
   const from = (Math.max(1, page) - 1) * pageSize;
 
@@ -263,6 +263,97 @@ export async function getAllSeries(
       series_cover_thumb_hash: innerHit?.issue_cover_thumb_hash,
       series_publisher: src.series_publisher,
       series_total_issues: src.series_total_issues,
+    };
+  });
+
+  return { items, total, page: safePage, pageSize, totalPages };
+}
+
+/**
+ * Full-text search across series in the library.
+ * Supports the same sort and filter options as getAllSeries.
+ * Uses a cardinality aggregation on series_id for accurate paginated totals.
+ */
+export async function searchLibrarySeries(
+  q: string,
+  page = 1,
+  pageSize = 24,
+  sort?: SeriesSort,
+  filters: SeriesFilters = {},
+): Promise<PaginatedResult<SeriesSummary>> {
+  const from = (Math.max(1, page) - 1) * pageSize;
+
+  const filterClauses: object[] = [];
+  if (filters.publisher) filterClauses.push({ term: { series_publisher: filters.publisher } });
+  if (filters.year) filterClauses.push({ term: { series_year: filters.year } });
+  if (filters.readingState) filterClauses.push({ term: { reading_state: filters.readingState } });
+
+  const response = await elastic.search<SeriesHitSource>({
+    index: ISSUES_INDEX,
+    size: pageSize,
+    from,
+    query: {
+      bool: {
+        // must keeps the search required when filter clauses are present.
+        // A plain should+filter would set minimum_should_match to 0,
+        // returning all documents matching the filter regardless of the query.
+        must: [
+          {
+            bool: {
+              should: [
+                {
+                  multi_match: {
+                    query: q,
+                    fields: ["series_name^3", "series_publisher"],
+                    type: "best_fields",
+                    fuzziness: "AUTO",
+                  },
+                },
+                {
+                  prefix: {
+                    "series_name.keyword": { value: q, boost: 2 },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+        ...(filterClauses.length > 0 && { filter: filterClauses }),
+      },
+    },
+    ...(sort && { sort: SORT_CLAUSES[sort] }),
+    // collapse deduplicates hits by series, inner_hits fetches the cover.
+    // cardinality aggregation gives the true total unique-series count for pagination.
+    collapse: {
+      field: "series_id",
+      inner_hits: {
+        name: "first_issue",
+        size: 1,
+        sort: [{ issue_date: "asc" }],
+        _source: ["issue_cover_url", "issue_cover_thumb_hash"],
+      },
+    },
+    _source: ["series_id", "series_name", "series_year", "series_publisher"],
+    aggs: {
+      total_series: { cardinality: { field: "series_id" } },
+    },
+  });
+
+  const aggs = response.aggregations as SeriesAggregations | undefined;
+  const total = aggs?.total_series.value ?? 0;
+  const totalPages = Math.ceil(total / pageSize);
+  const safePage = Math.max(1, Math.min(page, totalPages || 1));
+
+  const items: SeriesSummary[] = response.hits.hits.map((hit) => {
+    const src = hit._source!;
+    const innerHit = hit.inner_hits?.first_issue?.hits?.hits?.[0]?._source as CoverHitSource | undefined;
+    return {
+      series_id: src.series_id,
+      series_name: src.series_name ?? "",
+      series_year: src.series_year ?? "",
+      series_cover_url: innerHit?.issue_cover_url,
+      series_cover_thumb_hash: innerHit?.issue_cover_thumb_hash,
+      series_publisher: src.series_publisher,
     };
   });
 

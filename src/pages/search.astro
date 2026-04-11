@@ -1,0 +1,172 @@
+---
+import Layout from "@layouts/Layout.astro";
+import { searchLibrarySeries, getSeriesFilterOptions, type SeriesSort, type SeriesFilters } from "@data/elastic/queries";
+import { searchVolumes } from "@data/comicvine/comicvine";
+import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
+import CoverGrid from "@components/CoverGrid.astro";
+import EyebrowLabel from "@components/EyebrowLabel.astro";
+import PageHeading from "@components/PageHeading.astro";
+import FilterControls from "@components/FilterControls.astro";
+import SortControls from "@components/SortControls.astro";
+import ActiveFilters from "@components/ActiveFilters.astro";
+import PageNavigator from "@components/PageNavigator.astro";
+
+const q = Astro.url.searchParams.get("q")?.trim() ?? "";
+const page = Math.max(1, parseInt(Astro.url.searchParams.get("page") ?? "1", 10));
+
+const validSorts: SeriesSort[] = ["title-asc", "title-desc", "date-asc", "date-desc"];
+const sortParam = Astro.url.searchParams.get("sort") as SeriesSort;
+const sort: SeriesSort | undefined = validSorts.includes(sortParam) ? sortParam : undefined;
+
+const validStates = ["unread", "reading", "read"] as const;
+const stateParam = Astro.url.searchParams.get("state");
+const filters: SeriesFilters = {
+  publisher:    Astro.url.searchParams.get("publisher") || undefined,
+  year:         Astro.url.searchParams.get("year") || undefined,
+  readingState: validStates.includes(stateParam as typeof validStates[number])
+    ? (stateParam as SeriesFilters["readingState"])
+    : undefined,
+};
+
+const PAGE_SIZE = 24;
+
+let libraryResults: Awaited<ReturnType<typeof searchLibrarySeries>> = {
+  items: [], total: 0, page: 1, pageSize: PAGE_SIZE, totalPages: 0,
+};
+let cvResults: { id: number; name: string; start_year: string; publisher?: string; cover_url?: string }[] = [];
+let cvTotal = 0;
+let filterOptions = { publishers: [] as string[], years: [] as string[] };
+
+if (q.length >= 2) {
+  [libraryResults, { results: cvResults, total: cvTotal }, filterOptions] = await Promise.all([
+    searchLibrarySeries(q, page, PAGE_SIZE, sort, filters),
+    searchVolumes(q, PAGE_SIZE, (page - 1) * PAGE_SIZE).then(({ results, total }) => ({
+      // Year/publisher filters are not forwarded to ComicVine: combining name with
+      // other filter conditions switches name matching from substring to exact match,
+      // breaking results. CV results always show all matches for the query.
+      results: results.map((v) => ({
+        id: v.id,
+        name: v.name,
+        start_year: v.start_year,
+        publisher: v.publisher?.name,
+        cover_url: v.image?.small_url,
+      })),
+      total,
+    })),
+    getSeriesFilterOptions(),
+  ]);
+}
+
+const totalPages = Math.max(
+  libraryResults.totalPages,
+  Math.ceil(cvTotal / PAGE_SIZE),
+  1,
+);
+
+const hasResults = libraryResults.items.length > 0 || cvResults.length > 0;
+---
+
+<Layout title={q ? `Search: ${q}` : "Search"}>
+  <div class="mb-8 border-b border-slate-800 pb-6">
+    <EyebrowLabel class="mb-1">Search results</EyebrowLabel>
+    <PageHeading>{q || "Search"}</PageHeading>
+    <form method="get" action="/search" class="mt-4 flex gap-2">
+      <input
+        type="search"
+        name="q"
+        value={q}
+        placeholder="Search series…"
+        autofocus={!q}
+        class="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
+      />
+      <button
+        type="submit"
+        class="rounded border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:border-slate-500 hover:text-white"
+      >
+        Search
+      </button>
+    </form>
+  </div>
+
+  {q && q.length < 2 && (
+    <p class="text-sm text-slate-500">Query too short — enter at least 2 characters.</p>
+  )}
+
+  {q.length >= 2 && (
+    <>
+      <section class="mb-6 flex items-center justify-between" style="anchor-name: --util-anchor">
+        <p class="text-xs text-slate-500">
+          Page <span class="font-semibold text-slate-300">{page}</span> of{" "}
+          <span class="font-semibold text-slate-300">{totalPages || 1}</span>
+        </p>
+        <div class="flex items-center gap-2">
+          <FilterControls filterOptions={filterOptions} />
+          <SortControls />
+        </div>
+      </section>
+
+      <ActiveFilters defaultSortLabel="Relevance" />
+
+      {!hasResults && (
+        <p class="text-sm text-slate-500">
+          No results for <span class="text-slate-300">"{q}"</span>.
+        </p>
+      )}
+
+      {libraryResults.items.length > 0 && (
+        <section class="mb-16">
+          <div class="mb-6 flex items-end justify-between border-b border-slate-800 pb-4">
+            <div>
+              <EyebrowLabel class="mb-1">Your library</EyebrowLabel>
+              <h2 class="text-2xl tracking-tight text-white">In your library</h2>
+            </div>
+            <span class="text-xs font-bold uppercase tracking-widest text-slate-500">
+              {libraryResults.total} series
+            </span>
+          </div>
+          <CoverGrid>
+            {libraryResults.items.map((s) => (
+              <CoverLeaf
+                type="series"
+                id={s.series_id}
+                name={s.series_name}
+                year={s.series_year}
+                cover={s.series_cover_url}
+                thumbHash={s.series_cover_thumb_hash}
+              />
+            ))}
+          </CoverGrid>
+        </section>
+      )}
+
+      {cvResults.length > 0 && (
+        <section class="mb-16">
+          <div class="mb-6 flex items-end justify-between border-b border-slate-800 pb-4">
+            <div>
+              <EyebrowLabel class="mb-1">ComicVine</EyebrowLabel>
+              <h2 class="text-2xl tracking-tight text-white">On ComicVine</h2>
+            </div>
+            <span class="text-xs font-bold uppercase tracking-widest text-slate-500">
+              {cvTotal} series
+            </span>
+          </div>
+          <CoverGrid>
+            {cvResults.map((v) => (
+              <CoverLeaf
+                type="series"
+                id={String(v.id)}
+                name={v.name}
+                year={v.start_year}
+                cover={v.cover_url}
+              />
+            ))}
+          </CoverGrid>
+        </section>
+      )}
+
+      {totalPages > 1 && (
+        <PageNavigator numberOfPages={totalPages} currentPage={page} />
+      )}
+    </>
+  )}
+</Layout>

@@ -1,0 +1,72 @@
+---
+import Icon from "@components/Icon/Icon.astro";
+
+type SortOption = {
+  value: string;
+  label: string;
+  icon: "sort-asc" | "sort-desc";
+};
+
+type Props = {
+  options?: SortOption[];
+};
+
+const DEFAULT_OPTIONS: SortOption[] = [
+  { value: "date-desc", label: "Newest first", icon: "sort-desc" },
+  { value: "date-asc",  label: "Oldest first", icon: "sort-asc"  },
+  { value: "title-asc", label: "Title A–Z",    icon: "sort-asc"  },
+  { value: "title-desc", label: "Title Z–A",   icon: "sort-desc" },
+];
+
+const { options = DEFAULT_OPTIONS } = Astro.props;
+const currentSort = Astro.url.searchParams.get("sort") ?? "";
+
+function sortUrl(value: string) {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.set("sort", value);
+  params.set("page", "1");
+  return `?${params.toString()}`;
+}
+---
+
+<button
+  type="button"
+  popovertarget="sort-popover"
+  class="flex h-12 items-center gap-1.5 border border-slate-700 bg-slate-800 px-3 text-xs font-bold uppercase tracking-widest text-slate-300 transition-colors hover:border-amber-500 hover:text-amber-500"
+>
+  <Icon name="sort" class="h-3.5 w-3.5" color="currentColor" />
+  Sort
+</button>
+
+<div id="sort-popover" popover="manual" class="sort-popover" role="dialog">
+  <menu class="flex w-full flex-col border-t-2 border-amber-500 bg-slate-900 shadow-xl shadow-black/40">
+    {options.map((opt, i) => (
+      <li class:list={[{ "border-t border-slate-800": i > 0 }]}>
+        <a
+          href={sortUrl(opt.value)}
+          class:list={[
+            "flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-slate-800 hover:text-amber-500",
+            currentSort === opt.value ? "text-amber-500" : "text-slate-400",
+          ]}
+        >
+          <Icon name={opt.icon} class="h-4 w-4" color="currentColor" />
+          {opt.label}
+        </a>
+      </li>
+    ))}
+  </menu>
+</div>
+
+<style>
+  .sort-popover {
+    position: fixed;
+    position-anchor: --util-anchor;
+    position-area: bottom;
+    width: 100vw;
+    max-width: 1600px;
+    left: 0;
+    right: 0;
+    margin-inline: auto;
+    margin-top: 0.5rem;
+  }
+</style>

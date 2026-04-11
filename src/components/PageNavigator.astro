@@ -7,8 +7,12 @@ type Props = {
 };
 
 const { numberOfPages, currentPage } = Astro.props;
-const sort = Astro.url.searchParams.get("sort") === "asc" ? "asc" : "desc";
-const baseURL = Astro.url.pathname;
+
+function pageUrl(page: number) {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.set("page", String(page));
+  return `${Astro.url.pathname}?${params.toString()}`;
+}
 
 let pagesArray: (string | number)[] = [];
 
@@ -28,7 +32,7 @@ if (numberOfPages > 3) {
 <nav class="mt-12 flex items-center justify-center gap-2" aria-label="Pagination">
   {currentPage > 1 ? (
     <a
-      href={`${baseURL}?page=${currentPage - 1}&sort=${sort}`}
+      href={pageUrl(currentPage - 1)}
       class="flex h-12 w-12 shrink-0 items-center justify-center border border-slate-700 text-slate-400 transition-colors hover:border-amber-500 hover:text-amber-500"
       aria-label="Previous page"
     >
@@ -46,7 +50,7 @@ if (numberOfPages > 3) {
         <span class="flex h-12 w-12 items-center justify-center text-xs text-slate-600">…</span>
       ) : (
         <a
-          href={`${baseURL}?page=${page}&sort=${sort}`}
+          href={pageUrl(page as number)}
           class={`flex h-12 w-12 items-center justify-center border text-xs font-bold uppercase tracking-widest transition-colors ${
             page === currentPage
               ? "border-amber-500 bg-amber-500 text-slate-900"
@@ -62,7 +66,7 @@ if (numberOfPages > 3) {
 
   {currentPage < numberOfPages ? (
     <a
-      href={`${baseURL}?page=${currentPage + 1}&sort=${sort}`}
+      href={pageUrl(currentPage + 1)}
       class="flex h-12 w-12 shrink-0 items-center justify-center border border-slate-700 text-slate-400 transition-colors hover:border-amber-500 hover:text-amber-500"
       aria-label="Next page"
     >

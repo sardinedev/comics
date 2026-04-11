@@ -1,5 +1,6 @@
 ---
 import Icon from "@components/Icon/Icon.astro";
+import { SearchBar } from "@components/SearchBar/SearchBar";
 ---
 
 <header class="sticky top-0 z-40 border-b border-slate-800 bg-slate-900/95 backdrop-blur-sm">
@@ -34,12 +35,12 @@ import Icon from "@components/Icon/Icon.astro";
   </div>
 </header>
 
+<SearchBar client:only="preact" />
+
 <script>
-  const btn = document.getElementById("header-search-btn");
-  btn?.addEventListener("click", () => {
-    const overlay = document.getElementById("search-overlay");
-    overlay?.classList.remove("hidden");
-    overlay?.classList.add("flex");
-    overlay?.querySelector("input")?.focus();
+  document.addEventListener("click", (e) => {
+    if ((e.target as Element)?.closest("#header-search-btn")) {
+      window.dispatchEvent(new CustomEvent("open-search"));
+    }
   });
 </script>
