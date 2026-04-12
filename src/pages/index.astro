@@ -51,9 +51,10 @@ if (nowReading?.issue_cover_thumb_hash) {
               {nowReading.series_name}
             </h1>
             {nowReading.issue_description && (
-              <p class="max-w-sm text-sm leading-relaxed text-slate-400 line-clamp-3">
-                {nowReading.issue_description}
-              </p>
+              <div
+                set:html={nowReading.issue_description}
+                class="max-w-sm text-sm leading-relaxed text-slate-400 line-clamp-3"
+              />
             )}
             <div class="flex items-center gap-4">
               <a
