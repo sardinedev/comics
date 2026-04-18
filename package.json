@@ -28,7 +28,7 @@
     "@preact/signals": "^2.9.0",
     "@tailwindcss/vite": "4.2.2",
     "@types/unzipper": "^0.10.11",
-    "astro": "6.1.4",
+    "astro": "6.1.8",
     "nanostores": "1.2.0",
     "preact": "10.29.1",
     "sharp": "^0.34.5",
