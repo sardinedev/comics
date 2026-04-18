@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@astrojs/node": "10.0.4",
-    "@astrojs/preact": "5.0.0",
+    "@astrojs/preact": "5.1.1",
     "@atproto/jwk-jose": "^0.1.11",
     "@atproto/oauth-client-node": "^0.3.17",
     "@elastic/elasticsearch": "8.17.1",
