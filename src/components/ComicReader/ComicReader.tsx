@@ -1,6 +1,6 @@
 import { useComputed, useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
-import { Unzip, UnzipInflate } from "fflate";
+import { unzip } from "fflate";
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
@@ -56,7 +56,25 @@ async function downloadCbz(
   }
 
   const contentLength = Number(res.headers.get("Content-Length") ?? 0);
-  const reader = res.body!.getReader();
+
+  // Fall back to arrayBuffer() if the response body isn't a readable stream
+  // (rare, but possible in some environments / response types).
+  if (!res.body) {
+    const buffer = await res.arrayBuffer();
+    onProgress(1);
+    const cbz = new Uint8Array(buffer);
+    if (cache) {
+      await cache.put(
+        url,
+        new Response(cbz, {
+          headers: { "Content-Type": "application/octet-stream" },
+        }),
+      );
+    }
+    return cbz;
+  }
+
+  const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
   let received = 0;
 
@@ -82,7 +100,7 @@ async function downloadCbz(
   if (cache) {
     await cache.put(
       url,
-      new Response(cbz.buffer, {
+      new Response(cbz, {
         headers: { "Content-Type": "application/octet-stream" },
       }),
     );
@@ -93,64 +111,36 @@ async function downloadCbz(
 
 function extractPages(cbz: Uint8Array): Promise<string[]> {
   return new Promise((resolve, reject) => {
-    const fileMap = new Map<string, Uint8Array[]>();
-    const unzip = new Unzip();
-    unzip.register(UnzipInflate);
-
-    unzip.onfile = (file) => {
-      // Skip macOS metadata and non-image files
-      if (file.name.startsWith("__MACOSX/") || !isImageFile(file.name)) {
-        file.ondata = () => {};
-        return;
-      }
-
-      const fileChunks: Uint8Array[] = [];
-      fileMap.set(file.name, fileChunks);
-
-      file.ondata = (_err, data, final) => {
-        if (_err) return;
-        fileChunks.push(data);
-        if (final) {
-          // nothing else to do — we sort and create URLs after all files are processed
+    // Async unzip runs in a Web Worker so large archives don't block the main thread.
+    unzip(
+      cbz,
+      {
+        filter: (file) =>
+          !file.name.startsWith("__MACOSX/") && isImageFile(file.name),
+      },
+      (err, entries) => {
+        if (err) {
+          reject(new Error("Comic archive is corrupted or unreadable", { cause: err }));
+          return;
         }
-      };
 
-      file.start();
-    };
+        const sortedNames = Object.keys(entries).sort((a, b) => a.localeCompare(b));
 
-    // Feed data in chunks to allow streaming
-    const chunkSize = 65536;
-    for (let i = 0; i < cbz.length; i += chunkSize) {
-      const end = Math.min(i + chunkSize, cbz.length);
-      const isLast = end === cbz.length;
-      unzip.push(cbz.slice(i, end), isLast);
-    }
+        if (sortedNames.length === 0) {
+          reject(new Error("No pages found in archive"));
+          return;
+        }
 
-    // After push with final=true, all file callbacks should have fired
-    // Sort filenames alphabetically (same order as covers.ts)
-    const sortedNames = [...fileMap.keys()].sort((a, b) =>
-      a.localeCompare(b),
+        const urls = sortedNames.map((name) => {
+          // Cast: fflate returns Uint8Array<ArrayBufferLike>, but Blob's lib.dom types
+          // require Uint8Array<ArrayBuffer>. The runtime value is always a valid BlobPart.
+          const blob = new Blob([entries[name] as BlobPart], { type: getMimeType(name) });
+          return URL.createObjectURL(blob);
+        });
+
+        resolve(urls);
+      },
     );
-
-    const urls: string[] = [];
-    for (const name of sortedNames) {
-      const chunks = fileMap.get(name)!;
-      const totalLen = chunks.reduce((sum, c) => sum + c.length, 0);
-      const combined = new Uint8Array(totalLen);
-      let pos = 0;
-      for (const chunk of chunks) {
-        combined.set(chunk, pos);
-        pos += chunk.length;
-      }
-      const blob = new Blob([combined], { type: getMimeType(name) });
-      urls.push(URL.createObjectURL(blob));
-    }
-
-    if (urls.length === 0) {
-      reject(new Error("No pages found in archive"));
-    } else {
-      resolve(urls);
-    }
   });
 }
 
@@ -160,16 +150,16 @@ export function ComicReader({
   seriesName,
   issueNumber,
 }: ComicReaderProps) {
-  const pages = useSignal<string[]>([]);
   const currentPage = useSignal(0);
   const downloadProgress = useSignal(0);
-  const isLoading = useSignal(true);
-  const showUI = useSignal(true);
-  const isFullscreen = useSignal(false);
-  const supportsFullscreen = useSignal(false);
-  const showHomeScreenHint = useSignal(false);
   const error = useSignal<string | null>(null);
+  const isFullscreen = useSignal(false);
+  const isLoading = useSignal(true);
+  const pages = useSignal<string[]>([]);
   const phase = useSignal<"downloading" | "extracting" | "ready">("downloading");
+  const showHomeScreenHint = useSignal(false);
+  const showUI = useSignal(true);
+  const supportsFullscreen = useSignal(false);
 
   const pageLabel = useComputed(
     () => `${currentPage.value + 1} / ${pages.value.length}`,
