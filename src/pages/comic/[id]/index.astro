@@ -2,11 +2,12 @@
 import Layout from "@layouts/Layout.astro";
 import { getIssue } from "@data/elastic/queries";
 import { Image } from "astro:assets";
-import Icon from "@components/Icon/Icon.astro";
 import SubHeading from "@components/SubHeading.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
 import PageHeading from "@components/PageHeading.astro";
 import { thumbHashToBase64 } from "@util/thumbHashToBase64";
+
+import styles from "./index.module.css";
 
 const { id } = Astro.params;
 const issue = await getIssue(id!);
@@ -60,87 +61,9 @@ if (issue.issue_cover_thumb_hash) {
     <span class="text-slate-400">#{issue.issue_number}</span>
   </nav>
 
-  <style>
-    /*
-      Mobile:  1-col grid
-               title(1) → reading-state(2) → cover(3) → meta(4) → desc(5) → creators(6) → file(7)
-      Tablet + Desktop (768px+): 2-col [240px 1fr]
-               left:  cover(r1), meta(r2)
-               right: title+reading-state-inline(r1), desc(r2), creators(r3), file(r4)
-               .issue-reading (standalone) hidden; .issue-reading-inline shown inside title
-    */
-    .issue-layout {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1.5rem;
-    }
-    .issue-title {
-      grid-row: 1;
-    }
-    .issue-reading {
-      grid-row: 2;
-    }
-    .issue-cover {
-      grid-row: 3;
-    }
-    .issue-meta {
-      grid-row: 4;
-    }
-    .issue-desc {
-      grid-row: 5;
-    }
-    .issue-creators {
-      grid-row: 6;
-    }
-    .issue-file {
-      grid-row: 7;
-    }
-    .issue-reading-inline {
-      display: none;
-    }
-
-    @media (min-width: 768px) {
-      .issue-layout {
-        grid-template-columns: 240px 1fr;
-        align-items: start;
-        gap: 2.5rem;
-      }
-      .issue-title {
-        grid-column: 2;
-        grid-row: 1;
-      }
-      .issue-reading {
-        display: none;
-      }
-      .issue-reading-inline {
-        display: flex;
-      }
-      .issue-cover {
-        grid-column: 1;
-        grid-row: 1;
-      }
-      .issue-meta {
-        grid-column: 1;
-        grid-row: 2;
-      }
-      .issue-desc {
-        grid-column: 2;
-        grid-row: 2;
-      }
-      .issue-creators {
-        grid-column: 2;
-        grid-row: 3;
-      }
-      .issue-file {
-        grid-column: 2;
-        grid-row: 4;
-      }
-    }
-  </style>
-
-  <div class="issue-layout">
+  <div class={styles["issue-layout"]}>
     <!-- Title -->
-    <div class="issue-title flex flex-col gap-3">
+    <div class:list={[styles["issue-title"], " flex flex-col gap-3"]}>
       <EyebrowLabel>{issue.series_name} · {issue.series_year}</EyebrowLabel>
       <PageHeading>
         {
@@ -159,7 +82,7 @@ if (issue.issue_cover_thumb_hash) {
         }
       </PageHeading>
       <!-- Reading state inline — tablet only (shown via CSS, hidden on mobile/desktop) -->
-      <div class={`issue-reading-inline flex-col gap-2`}>
+      <div class:list={[styles["issue-reading-inline"], " flex-col gap-2"]}>
         <span
           class={`self-start px-2 py-1 text-[10px] font-black uppercase tracking-widest ${statusColor}`}
         >
@@ -185,7 +108,7 @@ if (issue.issue_cover_thumb_hash) {
     </div>
 
     <!-- Reading state — mobile + desktop only (hidden on tablet via CSS) -->
-    <div class={`issue-reading flex flex-col gap-2`}>
+    <div class:list={[styles["issue-reading"], " flex flex-col gap-2"]}>
       <span
         class={`self-start px-2 py-1 text-[10px] font-black uppercase tracking-widest ${statusColor}`}
       >
@@ -211,18 +134,33 @@ if (issue.issue_cover_thumb_hash) {
 
     <!-- Cover -->
     <div
-      class="issue-cover relative overflow-hidden h-[360px] w-[240px] mx-auto"
+      class:list={[
+        styles["issue-cover"],
+        "relative overflow-hidden h-[360px] w-[240px] mx-auto",
+      ]}
     >
-      {
-        issue.issue_cover_url ? (
-          <div
-            class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
-            style={
-              heroPlaceholderUrl
-                ? `background-image: url(${heroPlaceholderUrl}); background-size: cover; background-position: center;`
-                : undefined
-            }
-          >
+      <div
+        class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
+        style={heroPlaceholderUrl
+          ? `background-image: url(${heroPlaceholderUrl}); background-size: cover; background-position: center;`
+          : undefined}
+      >
+        {
+          issue.download_status === "Downloaded" ? (
+            <a href={`/comic/${id}/read`}>
+              <Image
+                src={new URL(issue.issue_cover_url, Astro.url).toString()}
+                alt={`${issue.series_name} #${issue.issue_number}`}
+                widths={[240, 343, 480, 686]}
+                sizes="(max-width: 767px) 343px, 240px"
+                width={240}
+                height={360}
+                quality="mid"
+                format="avif"
+                class="aspect-[2/3] w-full object-cover"
+              />
+            </a>
+          ) : (
             <Image
               src={new URL(issue.issue_cover_url, Astro.url).toString()}
               alt={`${issue.series_name} #${issue.issue_number}`}
@@ -234,21 +172,34 @@ if (issue.issue_cover_thumb_hash) {
               format="avif"
               class="aspect-[2/3] w-full object-cover"
             />
-          </div>
-        ) : (
-          <div class="aspect-[2/3] flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
-            <Icon
-              name="image-placeholder"
-              class="h-16 w-16"
-              color="rgb(71 85 105)"
-            />
-          </div>
+          )
+        }
+      </div>
+    </div>
+
+    <!-- Read Now -->
+    <div class:list={["flex items-center justify-center gap-2"]}>
+      {
+        issue.download_status === "Downloaded" && (
+          <a
+            href={`/comic/${id}/read`}
+            class="px-4 py-2 bg-amber-500 text-slate-900 font-semibold rounded-sm shadow hover:bg-amber-600 transition-colors"
+          >
+            {issue.reading_state === "reading"
+              ? "Continue Reading"
+              : "Read Now"}
+          </a>
         )
       }
     </div>
 
     <!-- Quick meta -->
-    <dl class="issue-meta flex flex-col gap-2 border-t border-slate-800 pt-4">
+    <dl
+      class:list={[
+        styles["issue-meta"],
+        "flex flex-col gap-2 border-t border-slate-800 pt-4",
+      ]}
+    >
       {
         issue.issue_date && (
           <div class="flex justify-between">
@@ -290,7 +241,7 @@ if (issue.issue_cover_thumb_hash) {
     <!-- Description -->
     {
       issue.issue_description && (
-        <div class="issue-desc flex flex-col gap-2">
+        <div class:list={[styles["issue-desc"], "flex flex-col gap-2"]}>
           <SubHeading>Synopsis</SubHeading>
           <div
             class="max-w-2xl text-sm leading-relaxed text-slate-300"
@@ -303,7 +254,7 @@ if (issue.issue_cover_thumb_hash) {
     <!-- Creators -->
     {
       creators.length > 0 && (
-        <div class="issue-creators flex flex-col gap-4">
+        <div class:list={[styles["issue-creators"], "flex flex-col gap-4"]}>
           <SubHeading>Creators</SubHeading>
           <dl class="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
             {creators.map(({ label, names }) => (
@@ -317,18 +268,6 @@ if (issue.issue_cover_thumb_hash) {
               </div>
             ))}
           </dl>
-        </div>
-      )
-    }
-
-    <!-- File info -->
-    {
-      issue.mylar_file_location && (
-        <div class="issue-file flex flex-col gap-2 border-t border-slate-800 pt-6">
-          <SubHeading>File</SubHeading>
-          <p class="font-mono text-xs text-slate-500 break-all">
-            {issue.mylar_file_location}
-          </p>
         </div>
       )
     }

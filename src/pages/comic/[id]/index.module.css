@@ -1,0 +1,78 @@
+    /*
+      Mobile:  1-col grid
+               title(1) → reading-state(2) → cover(3) → meta(4) → desc(5) → creators(6) → file(7)
+      Tablet + Desktop (768px+): 2-col [240px 1fr]
+               left:  cover(r1), meta(r2)
+               right: title+reading-state-inline(r1), desc(r2), creators(r3), file(r4)
+               .issue-reading (standalone) hidden; .issue-reading-inline shown inside title
+    */
+    .issue-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+    .issue-title {
+      grid-row: 1;
+    }
+    .issue-reading {
+      grid-row: 2;
+    }
+    .issue-cover {
+      grid-row: 3;
+    }
+    .issue-read {
+      grid-row: 4;
+    }
+    .issue-meta {
+      grid-row: 5;
+    }
+    .issue-desc {
+      grid-row: 6;
+    }
+    .issue-creators {
+      grid-row: 7;
+    }
+    .issue-file {
+      grid-row: 8;
+    }
+    .issue-reading-inline {
+      display: none;
+    }
+
+    @media (min-width: 768px) {
+      .issue-layout {
+        grid-template-columns: 240px 1fr;
+        align-items: start;
+        gap: 2.5rem;
+      }
+      .issue-title {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      .issue-reading {
+        display: none;
+      }
+      .issue-reading-inline {
+        display: flex;
+      }
+      .issue-cover {
+        grid-column: 1;
+        grid-row: 1;
+      }
+      .issue-meta {
+        grid-column: 1;
+        grid-row: 2;
+      }
+      .issue-desc {
+        grid-column: 2;
+        grid-row: 2;
+      }
+      .issue-creators {
+        grid-column: 2;
+        grid-row: 3;
+      }
+      .issue-file {
+        grid-column: 2;
+        grid-row: 4;
+      }
+    }
