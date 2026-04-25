@@ -1,4 +1,4 @@
-import { signal, computed } from "@preact/signals";
+import { useComputed, useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import { Unzip, UnzipInflate } from "fflate";
 
@@ -10,21 +10,6 @@ type ComicReaderProps = {
   seriesName: string;
   issueNumber: number;
 };
-
-const pages = signal<string[]>([]);
-const currentPage = signal(0);
-const downloadProgress = signal(0);
-const isLoading = signal(true);
-const showUI = signal(true);
-const isFullscreen = signal(false);
-const supportsFullscreen = signal(false);
-const showHomeScheenHint = signal(false);
-const error = signal<string | null>(null);
-const phase = signal<"downloading" | "extracting" | "ready">("downloading");
-
-const pageLabel = computed(
-  () => `${currentPage.value + 1} / ${pages.value.length}`,
-);
 
 function isImageFile(name: string): boolean {
   const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
@@ -46,7 +31,10 @@ async function openCache(): Promise<Cache | null> {
   return null;
 }
 
-async function downloadCbz(issueId: string): Promise<Uint8Array> {
+async function downloadCbz(
+  issueId: string,
+  onProgress: (ratio: number) => void,
+): Promise<Uint8Array> {
   const url = `/api/comic/${issueId}/download`;
   const cache = await openCache();
 
@@ -55,7 +43,7 @@ async function downloadCbz(issueId: string): Promise<Uint8Array> {
     const cached = await cache.match(url);
     if (cached) {
       const buffer = await cached.arrayBuffer();
-      downloadProgress.value = 1;
+      onProgress(1);
       return new Uint8Array(buffer);
     }
   }
@@ -78,7 +66,7 @@ async function downloadCbz(issueId: string): Promise<Uint8Array> {
     chunks.push(value);
     received += value.length;
     if (contentLength > 0) {
-      downloadProgress.value = received / contentLength;
+      onProgress(received / contentLength);
     }
   }
 
@@ -105,8 +93,6 @@ async function downloadCbz(issueId: string): Promise<Uint8Array> {
 
 function extractPages(cbz: Uint8Array): Promise<string[]> {
   return new Promise((resolve, reject) => {
-    phase.value = "extracting";
-
     const fileMap = new Map<string, Uint8Array[]>();
     const unzip = new Unzip();
     unzip.register(UnzipInflate);
@@ -174,29 +160,37 @@ export function ComicReader({
   seriesName,
   issueNumber,
 }: ComicReaderProps) {
+  const pages = useSignal<string[]>([]);
+  const currentPage = useSignal(0);
+  const downloadProgress = useSignal(0);
+  const isLoading = useSignal(true);
+  const showUI = useSignal(true);
+  const isFullscreen = useSignal(false);
+  const supportsFullscreen = useSignal(false);
+  const showHomeScreenHint = useSignal(false);
+  const error = useSignal<string | null>(null);
+  const phase = useSignal<"downloading" | "extracting" | "ready">("downloading");
+
+  const pageLabel = useComputed(
+    () => `${currentPage.value + 1} / ${pages.value.length}`,
+  );
+
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pagesRef = useRef<string[]>([]);
 
-  // Reset signals on mount (they persist across navigations since they're module-level)
   useEffect(() => {
-    pages.value = [];
-    currentPage.value = 0;
-    downloadProgress.value = 0;
-    isLoading.value = true;
-    showUI.value = true;
-    isFullscreen.value = false;
     supportsFullscreen.value = "requestFullscreen" in document.documentElement;
-    showHomeScheenHint.value = false;
-    error.value = null;
-    phase.value = "downloading";
 
     let cancelled = false;
 
     (async () => {
       try {
-        const cbz = await downloadCbz(issueId);
+        const cbz = await downloadCbz(issueId, (ratio) => {
+          downloadProgress.value = ratio;
+        });
         if (cancelled) return;
 
+        phase.value = "extracting";
         const urls = await extractPages(cbz);
         if (cancelled) return;
 
@@ -415,7 +409,7 @@ export function ComicReader({
                 <span class="text-amber-500">#{issueNumber}</span>
               </p>
               <button
-                  onClick={supportsFullscreen.value ? toggleFullscreen : () => { showHomeScheenHint.value = !showHomeScheenHint.value; }}
+                  onClick={supportsFullscreen.value ? toggleFullscreen : () => { showHomeScreenHint.value = !showHomeScreenHint.value; }}
                   class="[@media(display-mode:standalone)]:hidden ml-auto flex h-10 w-10 items-center justify-center text-white/80 hover:text-white"
                   aria-label={isFullscreen.value ? "Exit fullscreen" : "Enter fullscreen"}
                 >
@@ -440,14 +434,14 @@ export function ComicReader({
         </>
       )}
       {/* Add to Home Screen hint */}
-      {showHomeScheenHint.value && (
+      {showHomeScreenHint.value && (
         <div class="pointer-events-auto absolute inset-x-4 bottom-16 z-30 rounded-xl bg-slate-900/95 p-4 shadow-xl">
           <p class="mb-1 text-sm font-semibold text-white">Fullscreen on iOS</p>
           <p class="text-sm text-slate-400">
             Tap <span class="font-medium text-white">Share</span> → <span class="font-medium text-white">Add to Home Screen</span> to read without browser chrome.
           </p>
           <button
-            onClick={() => { showHomeScheenHint.value = false; }}
+            onClick={() => { showHomeScreenHint.value = false; }}
             class="mt-3 text-xs font-semibold text-amber-500"
           >
             Got it
