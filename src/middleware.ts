@@ -26,6 +26,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
+  const devBypassDid = env("DEV_BYPASS_AUTH");
+  if (devBypassDid) {
+    console.info(`DEV_BYPASS_AUTH is set, bypassing authentication and using DID ${devBypassDid}`);
+    locals.did = devBypassDid;
+    return next();
+  }
+
   const allowedDid = env("AUTH_ALLOWED_DID");
   if (!allowedDid) {
     console.error("Missing required AUTH_ALLOWED_DID configuration.");
