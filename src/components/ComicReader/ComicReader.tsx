@@ -192,7 +192,11 @@ export function ComicReader({
 
         phase.value = "extracting";
         const urls = await extractPages(cbz);
-        if (cancelled) return;
+        if (cancelled) {
+          // Effect was torn down while extracting — revoke the URLs we just created
+          for (const url of urls) URL.revokeObjectURL(url);
+          return;
+        }
 
         pagesRef.current = urls;
         pages.value = urls;
