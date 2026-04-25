@@ -16,6 +16,9 @@ const currentPage = signal(0);
 const downloadProgress = signal(0);
 const isLoading = signal(true);
 const showUI = signal(true);
+const isFullscreen = signal(false);
+const supportsFullscreen = signal(false);
+const showHomeScheenHint = signal(false);
 const error = signal<string | null>(null);
 const phase = signal<"downloading" | "extracting" | "ready">("downloading");
 
@@ -181,6 +184,9 @@ export function ComicReader({
     downloadProgress.value = 0;
     isLoading.value = true;
     showUI.value = true;
+    isFullscreen.value = false;
+    supportsFullscreen.value = "requestFullscreen" in document.documentElement;
+    showHomeScheenHint.value = false;
     error.value = null;
     phase.value = "downloading";
 
@@ -230,10 +236,21 @@ export function ComicReader({
         goPrev();
       } else if (e.key === "Escape") {
         navigateBack();
+      } else if (e.key === "f" || e.key === "F") {
+        toggleFullscreen();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // Sync fullscreen signal with browser state
+  useEffect(() => {
+    const handler = () => {
+      isFullscreen.value = !!document.fullscreenElement;
+    };
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
   // Save progress on beforeunload
@@ -265,6 +282,14 @@ export function ComicReader({
         }),
       });
     }, 1000);
+  }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
   }
 
   function goNext() {
@@ -389,6 +414,20 @@ export function ComicReader({
                 {seriesName}{" "}
                 <span class="text-amber-500">#{issueNumber}</span>
               </p>
+              <button
+                  onClick={supportsFullscreen.value ? toggleFullscreen : () => { showHomeScheenHint.value = !showHomeScheenHint.value; }}
+                  class="[@media(display-mode:standalone)]:hidden ml-auto flex h-10 w-10 items-center justify-center text-white/80 hover:text-white"
+                  aria-label={isFullscreen.value ? "Exit fullscreen" : "Enter fullscreen"}
+                >
+                  <div
+                    style={{
+                      mask: `url(/icons/${isFullscreen.value ? "fullscreen-exit" : "fullscreen"}.svg) no-repeat center`,
+                      maskSize: "contain",
+                      backgroundColor: "currentColor",
+                    }}
+                    class="h-6 w-6"
+                  />
+                </button>
             </div>
           </div>
 
@@ -399,6 +438,21 @@ export function ComicReader({
             </p>
           </div>
         </>
+      )}
+      {/* Add to Home Screen hint */}
+      {showHomeScheenHint.value && (
+        <div class="pointer-events-auto absolute inset-x-4 bottom-16 z-30 rounded-xl bg-slate-900/95 p-4 shadow-xl">
+          <p class="mb-1 text-sm font-semibold text-white">Fullscreen on iOS</p>
+          <p class="text-sm text-slate-400">
+            Tap <span class="font-medium text-white">Share</span> → <span class="font-medium text-white">Add to Home Screen</span> to read without browser chrome.
+          </p>
+          <button
+            onClick={() => { showHomeScheenHint.value = false; }}
+            class="mt-3 text-xs font-semibold text-amber-500"
+          >
+            Got it
+          </button>
+        </div>
       )}
     </div>
   );
