@@ -1,5 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
-import { getAllowedDids, isAllowedDid } from "@lib/auth/allowed";
+import { getAllowedDids } from "@lib/auth/allowed";
 import { getSessionDid } from "@lib/auth/session";
 import { env } from "@lib/env";
 
@@ -43,13 +43,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const allowedDids = getAllowedDids();
   if (allowedDids.length === 0) {
     console.error("Missing required AUTH_ALLOWED_DID configuration.");
-    return new Response("Server misconfiguration: AUTH_ALLOWED_DID is not set.", {
-      status: 500,
-    });
+    return new Response(
+      "Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
+      { status: 500 },
+    );
   }
 
   const did = getSessionDid(request);
-  if (!isAllowedDid(did)) {
+  if (!did || !allowedDids.includes(did)) {
     return context.redirect("/login");
   }
 

@@ -1,16 +1,18 @@
 ---
-import { getAllowedDids, isAllowedDid } from "@lib/auth/allowed";
+import { getAllowedDids } from "@lib/auth/allowed";
 import { getSessionDid } from "@lib/auth/session";
 
-if (getAllowedDids().length === 0) {
-  return new Response("Server misconfiguration: AUTH_ALLOWED_DID is not set.", {
-    status: 500,
-  });
+const allowedDids = getAllowedDids();
+if (allowedDids.length === 0) {
+  return new Response(
+    "Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
+    { status: 500 },
+  );
 }
 
 // Already logged in → redirect home
 const did = getSessionDid(Astro.request);
-if (isAllowedDid(did)) {
+if (did && allowedDids.includes(did)) {
   return Astro.redirect("/");
 }
 

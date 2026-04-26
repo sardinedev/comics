@@ -1,5 +1,5 @@
 ---
-import { getAllowedDids, isAllowedDid } from "@lib/auth/allowed";
+import { getAllowedDids } from "@lib/auth/allowed";
 import { getOAuthClient } from "@lib/auth/client";
 import { setSessionCookie } from "@lib/auth/session";
 
@@ -19,14 +19,15 @@ try {
   const { session } = await client.callback(params);
   const { did } = session;
 
-  if (getAllowedDids().length === 0) {
+  const allowedDids = getAllowedDids();
+  if (allowedDids.length === 0) {
     console.error("Missing required AUTH_ALLOWED_DID configuration.");
     return new Response(
-      "Server misconfiguration: AUTH_ALLOWED_DID is not set.",
+      "Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
       { status: 500 },
     );
   }
-  if (!isAllowedDid(did)) {
+  if (!allowedDids.includes(did)) {
     return Astro.redirect("/login?error=unauthorized");
   }
 
