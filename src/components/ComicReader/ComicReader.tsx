@@ -214,11 +214,22 @@ export function ComicReader({
   // Loading state
   if (isLoading.value) {
     return (
-      <div class="flex h-dvh w-dvw flex-col items-center justify-center gap-6">
+      <div
+        class="flex h-dvh w-dvw flex-col items-center justify-center gap-6"
+        role="status"
+        aria-live="polite"
+      >
         <p class="text-sm font-bold uppercase tracking-widest text-slate-400">
           {phase.value === "downloading" ? "Downloading…" : "Extracting pages…"}
         </p>
-        <div class="h-1 w-64 overflow-hidden bg-slate-800">
+        <div
+          class="h-1 w-64 overflow-hidden bg-slate-800"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(downloadProgress.value * 100)}
+          aria-label={phase.value === "downloading" ? "Download progress" : "Extraction progress"}
+        >
           <div
             class="h-full bg-amber-500 transition-[width] duration-200"
             style={{ width: `${Math.round(downloadProgress.value * 100)}%` }}
@@ -234,7 +245,10 @@ export function ComicReader({
   // Error state
   if (error.value) {
     return (
-      <div class="flex h-dvh w-dvw flex-col items-center justify-center gap-4">
+      <div
+        class="flex h-dvh w-dvw flex-col items-center justify-center gap-4"
+        role="alert"
+      >
         <p class="text-sm text-red-400">{error.value}</p>
         <a
           href={`/comic/${issueId}`}
@@ -264,9 +278,16 @@ export function ComicReader({
         />
       </div>
 
-      {/* Preload next page */}
+      {/* Preload next page off-screen — more reliable than dynamic <link rel="preload"> */}
       {nextPageUrl && (
-        <link rel="preload" as="image" href={nextPageUrl} />
+        <img
+          src={nextPageUrl}
+          alt=""
+          aria-hidden="true"
+          class="pointer-events-none absolute h-0 w-0 opacity-0"
+          loading="eager"
+          decoding="async"
+        />
       )}
 
       {/* HUD overlay */}
@@ -280,34 +301,49 @@ export function ComicReader({
                 class="flex h-10 w-10 items-center justify-center text-white/80 hover:text-white"
                 aria-label="Back to issue"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
+                <div
+                  style={{
+                    mask: "url(/icons/chevron-left.svg) no-repeat center",
+                    maskSize: "contain",
+                    backgroundColor: "currentColor",
+                  }}
+                  class="h-6 w-6"
+                />
               </button>
               <p class="truncate text-sm font-semibold text-white/90">
                 {seriesName}{" "}
                 <span class="text-amber-500">#{issueNumber}</span>
               </p>
               <button
-                  onClick={supportsFullscreen.value ? toggleFullscreen : () => { showHomeScreenHint.value = !showHomeScreenHint.value; }}
-                  class="[@media(display-mode:standalone)]:hidden ml-auto flex h-10 w-10 items-center justify-center text-white/80 hover:text-white"
-                  aria-label={isFullscreen.value ? "Exit fullscreen" : "Enter fullscreen"}
-                >
-                  <div
-                    style={{
-                      mask: `url(/icons/${isFullscreen.value ? "fullscreen-exit" : "fullscreen"}.svg) no-repeat center`,
-                      maskSize: "contain",
-                      backgroundColor: "currentColor",
-                    }}
-                    class="h-6 w-6"
-                  />
-                </button>
+                onClick={
+                  supportsFullscreen.value
+                    ? toggleFullscreen
+                    : () => {
+                        showHomeScreenHint.value = !showHomeScreenHint.value;
+                      }
+                }
+                class="ml-auto flex h-10 w-10 items-center justify-center text-white/80 hover:text-white [@media(display-mode:standalone)]:hidden"
+                aria-label={isFullscreen.value ? "Exit fullscreen" : "Enter fullscreen"}
+              >
+                <div
+                  style={{
+                    mask: `url(/icons/${isFullscreen.value ? "fullscreen-exit" : "fullscreen"}.svg) no-repeat center`,
+                    maskSize: "contain",
+                    backgroundColor: "currentColor",
+                  }}
+                  class="h-6 w-6"
+                />
+              </button>
             </div>
           </div>
 
           {/* Bottom bar */}
           <div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 to-transparent pb-4 pt-12">
-            <p class="text-center text-sm font-semibold tabular-nums text-white/80">
+            <p
+              class="text-center text-sm font-semibold tabular-nums text-white/80"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               {pageLabel}
             </p>
           </div>
