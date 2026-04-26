@@ -20,14 +20,10 @@ const browseSeriesItems = seriesResult.items;
 
 const heroSlides = await Promise.all(
   continueReading.map(async (issue) => {
-    const progress =
-      issue.current_page && issue.issue_page_count
-        ? Math.round((issue.current_page / issue.issue_page_count) * 100)
-        : null;
     const placeholderUrl = issue.issue_cover_thumb_hash
       ? await thumbHashToBase64(issue.issue_cover_thumb_hash)
       : undefined;
-    return { issue, progress, placeholderUrl };
+    return { issue, placeholderUrl };
   }),
 );
 ---
@@ -45,7 +41,7 @@ const heroSlides = await Promise.all(
           class="hero-track flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
           data-hero-track
         >
-          {heroSlides.map(({ issue, progress, placeholderUrl }, index) => (
+          {heroSlides.map(({ issue, placeholderUrl }, index) => (
             <div
               class="hero-slide relative w-full flex-none snap-start overflow-hidden"
               data-hero-slide
@@ -98,7 +94,7 @@ const heroSlides = await Promise.all(
                     )}
                   </div>
 
-                  {/* Description, button, progress */}
+                  {/* Description, button */}
                   <div class="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
                     {issue.issue_description && (
                       <div
@@ -119,24 +115,6 @@ const heroSlides = await Promise.all(
                         />
                       </a>
                     </div>
-                    {progress !== null && (
-                      <div class="flex w-full max-w-sm flex-col gap-1.5">
-                        <div class="flex justify-between text-xs text-slate-600">
-                          <span class="uppercase tracking-widest">
-                            Progress
-                          </span>
-                          <span class="text-amber-500 font-semibold">
-                            {progress}%
-                          </span>
-                        </div>
-                        <div class="h-1 w-full overflow-hidden bg-slate-800">
-                          <div
-                            class="h-full bg-amber-500"
-                            style={`width: ${progress}%`}
-                          />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>

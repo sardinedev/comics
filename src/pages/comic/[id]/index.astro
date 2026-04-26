@@ -192,7 +192,7 @@ if (issue.issue_cover_thumb_hash) {
         issue.download_status === "Downloaded" && (
           <a
             href={`/comic/${id}/read`}
-            class="px-4 py-2 bg-amber-500 text-slate-900 font-semibold rounded-sm shadow hover:bg-amber-600 transition-colors"
+            class="group flex items-center gap-2 bg-amber-500 px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400"
           >
             {issue.reading_state === "reading"
               ? "Continue Reading"
