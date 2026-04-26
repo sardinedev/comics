@@ -6,15 +6,11 @@ import { downloadCbz, extractPages } from "./comicReader.utils";
 type ComicReaderProps = {
   issueId: string;
   initialPage: number;
-  seriesName: string;
-  issueNumber: number;
 };
 
 export function ComicReader({
   issueId,
   initialPage,
-  seriesName,
-  issueNumber,
 }: ComicReaderProps) {
   const currentPage = useSignal(0);
   const downloadProgress = useSignal(0);
@@ -173,17 +169,8 @@ export function ComicReader({
     window.location.href = `/comic/${issueId}`;
   }
 
-  function handleTap(e: MouseEvent) {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-
-    if (x < 0.33) {
-      goPrev();
-    } else if (x > 0.66) {
-      goNext();
-    } else {
-      showUI.value = !showUI.value;
-    }
+  function toggleUI() {
+    showUI.value = !showUI.value;
   }
 
   // Loading state
@@ -241,16 +228,44 @@ export function ComicReader({
   return (
     <div class="relative h-dvh w-dvw select-none">
       {/* Page image */}
-      <div
-        class="flex h-full w-full cursor-pointer items-center justify-center"
-        onClick={handleTap}
-      >
+      <div class="flex h-full w-full items-center justify-center">
         <img
           src={pages.value[currentPage.value]}
           alt={`Page ${currentPage.value + 1}`}
           class="max-h-full max-w-full object-contain"
           draggable={false}
         />
+      </div>
+
+      {/* Tap zones — sit above the image but below the HUD */}
+      <div class="absolute inset-0 z-10 flex">
+        <button
+          type="button"
+          onClick={goPrev}
+          class="group flex h-full w-1/3 cursor-pointer items-center justify-start pl-4"
+          aria-label="Previous page"
+        >
+          {/* Visible only on devices that support hover (i.e. desktop) */}
+          <span class="hidden opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:hover)]:inline-flex">
+            <Icon name="chevron-left" class="h-10 w-10 text-white/80" />
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={toggleUI}
+          class="h-full w-1/3 cursor-pointer"
+          aria-label="Toggle controls"
+        />
+        <button
+          type="button"
+          onClick={goNext}
+          class="group flex h-full w-1/3 cursor-pointer items-center justify-end pr-4"
+          aria-label="Next page"
+        >
+          <span class="hidden opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:hover)]:inline-flex">
+            <Icon name="chevron-right" class="h-10 w-10 text-white/80" />
+          </span>
+        </button>
       </div>
 
       {/* Preload next page off-screen — more reliable than dynamic <link rel="preload"> */}
@@ -272,17 +287,6 @@ export function ComicReader({
           <div class="pointer-events-none absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/80 to-transparent pb-12 pt-4">
             <div class="pointer-events-auto flex items-center gap-4 px-4">
               <button
-                onClick={navigateBack}
-                class="flex h-10 w-10 items-center justify-center text-white/80 hover:text-white"
-                aria-label="Back to issue"
-              >
-                <Icon name="chevron-left" />
-              </button>
-              <p class="truncate text-sm font-semibold text-white/90">
-                {seriesName}{" "}
-                <span class="text-amber-500">#{issueNumber}</span>
-              </p>
-              <button
                 onClick={
                   supportsFullscreen.value
                     ? toggleFullscreen
@@ -290,10 +294,17 @@ export function ComicReader({
                         showHomeScreenHint.value = !showHomeScreenHint.value;
                       }
                 }
-                class="ml-auto flex h-10 w-10 items-center justify-center text-white/80 hover:text-white [@media(display-mode:standalone)]:hidden"
+                class="flex h-10 w-10 items-center justify-center text-white/80 hover:text-white [@media(display-mode:standalone)]:hidden"
                 aria-label={isFullscreen.value ? "Exit fullscreen" : "Enter fullscreen"}
               >
                 <Icon name={isFullscreen.value ? "fullscreen-exit" : "fullscreen"} />
+              </button>
+              <button
+                onClick={navigateBack}
+                class="ml-auto flex h-10 w-10 items-center justify-center text-white/80 hover:text-white"
+                aria-label="Close reader"
+              >
+                <Icon name="close" />
               </button>
             </div>
           </div>
