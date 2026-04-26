@@ -57,88 +57,86 @@ const heroSlides = await Promise.all(
                   style={`background-image: url(${placeholderUrl}); background-size: cover; background-position: center;`}
                 />
               )}
-              <div class="relative z-10 grid min-h-[520px] grid-cols-1 items-center gap-8 px-4 py-12 md:grid-cols-2 md:px-8">
-                <div class="flex flex-col gap-6">
+              <div class="relative z-10 flex min-h-[520px] flex-col gap-8 px-4 py-12 md:px-8">
+                {/* Title block — full-width, left-aligned, above the columns */}
+                <div class="flex flex-col items-start gap-4 text-left">
                   <EyebrowLabel>Now Reading</EyebrowLabel>
                   <h1 class="text-5xl font-black leading-[0.95] tracking-tight text-white md:text-7xl">
                     {issue.series_name}
-                  </h1>
-                  {issue.issue_description && (
-                    <div
-                      set:html={issue.issue_description}
-                      class="max-w-sm text-sm leading-relaxed text-slate-400 line-clamp-3"
-                    />
-                  )}
-                  <div class="flex items-center gap-4">
-                    <a
-                      href={`/comic/${issue.issue_id}`}
-                      class="group flex items-center gap-2 bg-amber-500 px-6 py-3 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400"
-                    >
-                      Continue Reading
-                      <Icon
-                        name="arrow-forward"
-                        class="h-4 w-4 transition-transform group-hover:translate-x-1"
-                        color="currentColor"
-                      />
-                    </a>
-                    <span class="text-sm text-slate-500">
-                      Issue #{issue.issue_number}
+                    <span class="text-2xl text-slate-500">
+                      #{issue.issue_number}
                     </span>
-                  </div>
-                  {progress !== null && (
-                    <div class="flex flex-col gap-1.5">
-                      <div class="flex justify-between text-xs text-slate-600">
-                        <span class="uppercase tracking-widest">Progress</span>
-                        <span class="text-amber-500 font-semibold">
-                          {progress}%
-                        </span>
-                      </div>
-                      <div class="h-1 w-full overflow-hidden bg-slate-800">
-                        <div
-                          class="h-full bg-amber-500"
-                          style={`width: ${progress}%`}
-                        />
-                      </div>
-                    </div>
-                  )}
+                  </h1>
                 </div>
 
-                <div class="flex items-center justify-center md:justify-end md:pr-8">
-                  <div class="relative h-[340px] w-[220px]">
-                    <div class="absolute left-8 top-4 h-[320px] w-[210px] rotate-6 rounded-sm bg-slate-700 opacity-50 shadow-xl" />
-                    <div class="absolute left-4 top-2 h-[320px] w-[210px] rotate-3 rounded-sm bg-slate-600 opacity-60 shadow-xl" />
-                    <div
-                      class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
-                      style={
-                        placeholderUrl
-                          ? `background-image: url(${placeholderUrl}); background-size: cover; background-position: center;`
-                          : undefined
-                      }
-                    >
-                      {issue.issue_cover_url && (
-                        <Image
-                          src={new URL(
-                            issue.issue_cover_url,
-                            Astro.url,
-                          ).toString()}
-                          alt={`Cover for ${issue.series_name} #${issue.issue_number}`}
-                          widths={[183, 275, 366]}
-                          sizes="(max-width: 640px) 183px, 210px"
-                          width={210}
-                          height={320}
-                          quality="mid"
-                          format="avif"
-                          loading={index === 0 ? "eager" : "lazy"}
-                          class="h-full w-full object-cover"
+                <div class="grid grid-cols-1 items-center gap-8 sm:grid-cols-2">
+                  {/* Cover image — first on mobile, left column on sm+ */}
+                  <div
+                    class="relative mx-auto h-[340px] w-[220px] overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10 sm:ml-auto sm:mr-8"
+                    style={
+                      placeholderUrl
+                        ? `background-image: url(${placeholderUrl}); background-size: cover; background-position: center;`
+                        : undefined
+                    }
+                  >
+                    {issue.issue_cover_url && (
+                      <Image
+                        src={new URL(
+                          issue.issue_cover_url,
+                          Astro.url,
+                        ).toString()}
+                        alt={`Cover for ${issue.series_name} #${issue.issue_number}`}
+                        widths={[183, 275, 366]}
+                        sizes="(max-width: 640px) 183px, 210px"
+                        width={210}
+                        height={320}
+                        quality="mid"
+                        format="avif"
+                        loading={index === 0 ? "eager" : "lazy"}
+                        class="h-full w-full object-cover"
+                      />
+                    )}
+                  </div>
+
+                  {/* Description, button, progress */}
+                  <div class="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
+                    {issue.issue_description && (
+                      <div
+                        set:html={issue.issue_description}
+                        class="max-w-sm text-sm leading-relaxed text-slate-400 line-clamp-3"
+                      />
+                    )}
+                    <div class="flex items-center gap-4">
+                      <a
+                        href={`/comic/${issue.issue_id}`}
+                        class="group flex items-center gap-2 bg-amber-500 px-6 py-3 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400"
+                      >
+                        Continue Reading
+                        <Icon
+                          name="arrow-forward"
+                          class="h-4 w-4 transition-transform group-hover:translate-x-1"
+                          color="currentColor"
                         />
-                      )}
-                      <div class="absolute bottom-0 left-0 right-0 bg-slate-950/80 px-3 py-2 backdrop-blur-sm">
-                        <p class="text-[10px] font-bold uppercase tracking-widest text-amber-500">
-                          Issue #{issue.issue_number}
-                        </p>
-                      </div>
+                      </a>
                     </div>
-                    <div class="absolute -right-1 inset-y-0 w-1 bg-amber-500 opacity-80" />
+                    {progress !== null && (
+                      <div class="flex w-full max-w-sm flex-col gap-1.5">
+                        <div class="flex justify-between text-xs text-slate-600">
+                          <span class="uppercase tracking-widest">
+                            Progress
+                          </span>
+                          <span class="text-amber-500 font-semibold">
+                            {progress}%
+                          </span>
+                        </div>
+                        <div class="h-1 w-full overflow-hidden bg-slate-800">
+                          <div
+                            class="h-full bg-amber-500"
+                            style={`width: ${progress}%`}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
