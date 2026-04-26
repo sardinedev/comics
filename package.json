@@ -18,8 +18,8 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/node": "10.0.1",
-    "@astrojs/preact": "5.0.0",
+    "@astrojs/node": "10.0.4",
+    "@astrojs/preact": "5.1.1",
     "@atproto/jwk-jose": "^0.1.11",
     "@atproto/oauth-client-node": "^0.3.17",
     "@elastic/elasticsearch": "8.17.1",
@@ -28,7 +28,7 @@
     "@preact/signals": "^2.9.0",
     "@tailwindcss/vite": "4.2.2",
     "@types/unzipper": "^0.10.11",
-    "astro": "6.1.4",
+    "astro": "6.1.8",
     "fflate": "^0.8.2",
     "nanostores": "1.2.0",
     "preact": "10.29.1",
