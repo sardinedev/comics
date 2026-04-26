@@ -1,5 +1,6 @@
 import { useComputed, useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
+import { Icon } from "@components/Icon/Icon";
 import { downloadCbz, extractPages } from "./comicReader.utils";
 
 type ComicReaderProps = {
@@ -30,8 +31,8 @@ export function ComicReader({
     () => `${currentPage.value + 1} / ${pages.value.length}`,
   );
 
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const saveAbortRef = useRef<AbortController | null>(null);
+  // Tracks the last saved page number so the periodic save can skip when nothing changed.
+  const lastSavedPageRef = useRef<number | null>(null);
 
   function buildProgressBody(): string {
     return JSON.stringify({
@@ -41,56 +42,23 @@ export function ComicReader({
   }
 
   /**
-   * Cancels any in-flight or scheduled progress save. Used before sending an
-   * immediate beacon so the two paths can't race.
+   * Sends progress via `sendBeacon`. Used on `visibilitychange`,
+   * `beforeunload`, periodic interval, and explicit navigation — all of which
+   * tolerate (or require) fire-and-forget delivery.
    */
-  function cancelPendingSave() {
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-    }
-    if (saveAbortRef.current) {
-      saveAbortRef.current.abort();
-      saveAbortRef.current = null;
-    }
-  }
-
-  /** Debounced PATCH save used during active reading. */
-  function saveProgress() {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      saveTimerRef.current = null;
-      saveAbortRef.current?.abort();
-      const controller = new AbortController();
-      saveAbortRef.current = controller;
-      fetch(`/api/comic/${issueId}/progress`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: buildProgressBody(),
-        keepalive: true,
-        signal: controller.signal,
-      }).catch((err) => {
-        if ((err as Error).name === "AbortError") return;
-        console.warn("Failed to save reading progress", err);
-      });
-    }, 1000);
-  }
-
-  /**
-   * Immediately flushes progress via `sendBeacon` — used on `beforeunload`
-   * and explicit navigation, where in-flight `fetch` calls are unreliable.
-   */
-  function flushProgressBeacon() {
-    cancelPendingSave();
+  function flushProgress() {
     if (pages.value.length === 0) return;
-    navigator.sendBeacon(
+    if (lastSavedPageRef.current === currentPage.value) return;
+    const ok = navigator.sendBeacon(
       `/api/comic/${issueId}/progress`,
       new Blob([buildProgressBody()], { type: "application/json" }),
     );
+    if (ok) lastSavedPageRef.current = currentPage.value;
   }
 
   useEffect(() => {
     supportsFullscreen.value = "requestFullscreen" in document.documentElement;
+    lastSavedPageRef.current = null;
 
     let cancelled = false;
     let createdUrls: string[] = [];
@@ -128,7 +96,6 @@ export function ComicReader({
     return () => {
       cancelled = true;
       for (const url of createdUrls) URL.revokeObjectURL(url);
-      createdUrls = [];
     };
   }, [issueId]);
 
@@ -160,11 +127,21 @@ export function ComicReader({
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
-  // Save progress on beforeunload
+  // Save progress on tab hide, navigation away, and periodically as a safety net.
   useEffect(() => {
-    const onBeforeUnload = () => flushProgressBeacon();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushProgress();
+    };
+    const onBeforeUnload = () => flushProgress();
+    const interval = setInterval(flushProgress, 30_000);
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      clearInterval(interval);
+    };
   }, [issueId]);
 
   function toggleFullscreen() {
@@ -182,19 +159,17 @@ export function ComicReader({
   function goNext() {
     if (currentPage.value < pages.value.length - 1) {
       currentPage.value++;
-      saveProgress();
     }
   }
 
   function goPrev() {
     if (currentPage.value > 0) {
       currentPage.value--;
-      saveProgress();
     }
   }
 
   function navigateBack() {
-    flushProgressBeacon();
+    flushProgress();
     window.location.href = `/comic/${issueId}`;
   }
 
@@ -301,14 +276,7 @@ export function ComicReader({
                 class="flex h-10 w-10 items-center justify-center text-white/80 hover:text-white"
                 aria-label="Back to issue"
               >
-                <div
-                  style={{
-                    mask: "url(/icons/chevron-left.svg) no-repeat center",
-                    maskSize: "contain",
-                    backgroundColor: "currentColor",
-                  }}
-                  class="h-6 w-6"
-                />
+                <Icon name="chevron-left" />
               </button>
               <p class="truncate text-sm font-semibold text-white/90">
                 {seriesName}{" "}
@@ -325,14 +293,7 @@ export function ComicReader({
                 class="ml-auto flex h-10 w-10 items-center justify-center text-white/80 hover:text-white [@media(display-mode:standalone)]:hidden"
                 aria-label={isFullscreen.value ? "Exit fullscreen" : "Enter fullscreen"}
               >
-                <div
-                  style={{
-                    mask: `url(/icons/${isFullscreen.value ? "fullscreen-exit" : "fullscreen"}.svg) no-repeat center`,
-                    maskSize: "contain",
-                    backgroundColor: "currentColor",
-                  }}
-                  class="h-6 w-6"
-                />
+                <Icon name={isFullscreen.value ? "fullscreen-exit" : "fullscreen"} />
               </button>
             </div>
           </div>
