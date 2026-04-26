@@ -108,9 +108,12 @@ export async function downloadCbz(
   const chunks: Uint8Array[] = [];
   let received = 0;
 
-  // ReadableStream is async-iterable in modern runtimes; the cast is needed
-  // because lib.dom doesn't yet declare [Symbol.asyncIterator] on it.
-  for await (const value of res.body as unknown as AsyncIterable<Uint8Array>) {
+  // Manual reader loop — Safari does not yet support async iteration of
+  // ReadableStream (no [Symbol.asyncIterator]), so we cannot use `for await`.
+  const reader = res.body.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
     chunks.push(value);
     received += value.length;
     if (contentLength > 0) {
