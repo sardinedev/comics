@@ -93,7 +93,7 @@ export function ComicReader({
       cancelled = true;
       for (const url of createdUrls) URL.revokeObjectURL(url);
     };
-  }, [issueId]);
+  }, [issueId, initialPage]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -105,7 +105,12 @@ export function ComicReader({
         e.preventDefault();
         goPrev();
       } else if (e.key === "Escape") {
-        navigateBack();
+        if (document.fullscreenElement) {
+          e.preventDefault();
+          void document.exitFullscreen();
+        } else {
+          navigateBack();
+        }
       } else if (e.key === "f" || e.key === "F") {
         toggleFullscreen();
       }

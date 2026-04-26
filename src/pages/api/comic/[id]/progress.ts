@@ -12,6 +12,13 @@ async function handleProgress(id: string, request: Request): Promise<Response> {
     });
   }
 
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return new Response(JSON.stringify({ error: "Request body must be a JSON object" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const { current_page, total_pages } = body as { current_page?: number; total_pages?: number };
 
   if (typeof current_page !== "number" || !Number.isInteger(current_page) || current_page < 1) {

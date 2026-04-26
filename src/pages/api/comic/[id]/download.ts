@@ -49,7 +49,8 @@ export const GET: APIRoute = async ({ params }) => {
     headers: {
       "Content-Type": "application/octet-stream",
       "Content-Length": String(data.length),
-      "Content-Disposition": `attachment; filename="${id}.cbz"`,
+      "Content-Disposition": `attachment; filename="${id.replace(/[^A-Za-z0-9._-]/g, "_")}.cbz"`,
+
       "Cache-Control": "private, max-age=86400",
     },
   });
