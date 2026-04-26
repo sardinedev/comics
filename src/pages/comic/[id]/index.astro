@@ -182,7 +182,12 @@ if (issue.issue_cover_thumb_hash) {
     </div>
 
     <!-- Read Now -->
-    <div class:list={[styles["issue-read"], "flex items-center justify-center gap-2"]}>
+    <div
+      class:list={[
+        styles["issue-read"],
+        "flex items-center justify-center gap-2",
+      ]}
+    >
       {
         issue.download_status === "Downloaded" && (
           <a
