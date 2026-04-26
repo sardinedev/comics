@@ -1,17 +1,18 @@
 ---
+import { getAllowedDids } from "@lib/auth/allowed";
 import { getSessionDid } from "@lib/auth/session";
-import { env } from "@lib/env";
 
-const allowedDid = env("AUTH_ALLOWED_DID");
-if (!allowedDid) {
-  return new Response("Server misconfiguration: AUTH_ALLOWED_DID is not set.", {
-    status: 500,
-  });
+const allowedDids = getAllowedDids();
+if (allowedDids.length === 0) {
+  return new Response(
+    "Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
+    { status: 500 },
+  );
 }
 
 // Already logged in → redirect home
 const did = getSessionDid(Astro.request);
-if (did && did === allowedDid) {
+if (did && allowedDids.includes(did)) {
   return Astro.redirect("/");
 }
 
@@ -78,9 +79,7 @@ const errorMessage = error
           class="border border-slate-800 bg-slate-900/80 p-8 backdrop-blur-sm"
         >
           <div class="mb-6">
-            <h2 class="text-lg tracking-tight text-white">
-              Sign in
-            </h2>
+            <h2 class="text-lg tracking-tight text-white">Sign in</h2>
             <p class="mt-1 text-sm text-slate-500">
               Use your Bluesky account to continue.
             </p>

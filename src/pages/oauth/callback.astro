@@ -1,12 +1,16 @@
 ---
+import { getAllowedDids } from "@lib/auth/allowed";
 import { getOAuthClient } from "@lib/auth/client";
 import { setSessionCookie } from "@lib/auth/session";
-import { env } from "@lib/env";
 
 const params = Astro.url.searchParams;
 
 if (params.get("error")) {
-  console.error("[auth] OAuth provider error:", params.get("error"), params.get("error_description"));
+  console.error(
+    "[auth] OAuth provider error:",
+    params.get("error"),
+    params.get("error_description"),
+  );
   return Astro.redirect("/login?error=oauth_error");
 }
 
@@ -15,12 +19,15 @@ try {
   const { session } = await client.callback(params);
   const { did } = session;
 
-  const allowedDid = env("AUTH_ALLOWED_DID");
-  if (!allowedDid) {
+  const allowedDids = getAllowedDids();
+  if (allowedDids.length === 0) {
     console.error("Missing required AUTH_ALLOWED_DID configuration.");
-    return new Response("Server misconfiguration: AUTH_ALLOWED_DID is not set.", { status: 500 });
+    return new Response(
+      "Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
+      { status: 500 },
+    );
   }
-  if (did !== allowedDid) {
+  if (!allowedDids.includes(did)) {
     return Astro.redirect("/login?error=unauthorized");
   }
 

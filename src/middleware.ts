@@ -1,4 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
+import { getAllowedDids } from "@lib/auth/allowed";
 import { getSessionDid } from "@lib/auth/session";
 import { env } from "@lib/env";
 
@@ -39,16 +40,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
     console.warn("Ignoring DEV_BYPASS_AUTH: only allowed on localhost in dev mode.");
   }
 
-  const allowedDid = env("AUTH_ALLOWED_DID");
-  if (!allowedDid) {
+  const allowedDids = getAllowedDids();
+  if (allowedDids.length === 0) {
     console.error("Missing required AUTH_ALLOWED_DID configuration.");
-    return new Response("Server misconfiguration: AUTH_ALLOWED_DID is not set.", {
-      status: 500,
-    });
+    return new Response(
+      "Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
+      { status: 500 },
+    );
   }
 
   const did = getSessionDid(request);
-  if (!did || did !== allowedDid) {
+  if (!did || !allowedDids.includes(did)) {
     return context.redirect("/login");
   }
 
