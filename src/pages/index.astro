@@ -1,7 +1,6 @@
 ---
 import Layout from "@layouts/Layout.astro";
 import {
-  getNowReading,
   getContinueReading,
   getRecentlyAdded,
   getAllSeries,
@@ -12,161 +11,153 @@ import Icon from "@components/Icon/Icon.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
 import { thumbHashToBase64 } from "@util/thumbHashToBase64";
 
-const [nowReading, continueReading, recentlyAdded, seriesResult] =
-  await Promise.all([
-    getNowReading(),
-    getContinueReading(5),
-    getRecentlyAdded(6),
-    getAllSeries(1, 6),
-  ]);
+const [continueReading, recentlyAdded, seriesResult] = await Promise.all([
+  getContinueReading(5),
+  getRecentlyAdded(6),
+  getAllSeries(1, 6),
+]);
 const browseSeriesItems = seriesResult.items;
-const heroProgress =
-  nowReading?.current_page && nowReading?.issue_page_count
-    ? Math.round((nowReading.current_page / nowReading.issue_page_count) * 100)
-    : null;
 
-let heroPlaceholderUrl: string | undefined;
-if (nowReading?.issue_cover_thumb_hash) {
-  heroPlaceholderUrl = await thumbHashToBase64(
-    nowReading.issue_cover_thumb_hash,
-  );
-}
+const heroSlides = await Promise.all(
+  continueReading.map(async (issue) => {
+    const placeholderUrl = issue.issue_cover_thumb_hash
+      ? await thumbHashToBase64(issue.issue_cover_thumb_hash)
+      : undefined;
+    return { issue, placeholderUrl };
+  }),
+);
 ---
 
 <Layout title="Comics">
-  <!-- Hero Section -->
+  <!-- Hero Carousel -->
   {
-    nowReading && (
-      <div class="relative -mx-4 -mt-4 mb-16 overflow-hidden">
-        {heroPlaceholderUrl && (
-          <div
-            class="pointer-events-none absolute inset-0 z-0 opacity-30 blur-2xl scale-110"
-            style={`background-image: url(${heroPlaceholderUrl}); background-size: cover; background-position: center;`}
-          />
-        )}
-        <div class="relative z-10 grid min-h-[520px] grid-cols-1 items-center gap-8 px-4 py-12 md:grid-cols-2 md:px-8">
-          <div class="flex flex-col gap-6">
-            <EyebrowLabel>Now Reading</EyebrowLabel>
-            <h1 class="text-5xl font-black leading-[0.95] tracking-tight text-white md:text-7xl">
-              {nowReading.series_name}
-            </h1>
-            {nowReading.issue_description && (
-              <p class="max-w-sm text-sm leading-relaxed text-slate-400 line-clamp-3">
-                {nowReading.issue_description}
-              </p>
-            )}
-            <div class="flex items-center gap-4">
-              <a
-                href={`/comic/${nowReading.issue_id}`}
-                class="group flex items-center gap-2 bg-amber-500 px-6 py-3 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400"
-              >
-                Continue Reading
-                <Icon
-                  name="arrow-forward"
-                  class="h-4 w-4 transition-transform group-hover:translate-x-1"
-                  color="currentColor"
-                />
-              </a>
-              <span class="text-sm text-slate-500">
-                Issue #{nowReading.issue_number}
-              </span>
-            </div>
-            {heroProgress !== null && (
-              <div class="flex flex-col gap-1.5">
-                <div class="flex justify-between text-xs text-slate-600">
-                  <span class="uppercase tracking-widest">Progress</span>
-                  <span class="text-amber-500 font-semibold">
-                    {heroProgress}%
-                  </span>
-                </div>
-                <div class="h-1 w-full overflow-hidden bg-slate-800">
-                  <div
-                    class="h-full bg-amber-500"
-                    style={`width: ${heroProgress}%`}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div class="flex items-center justify-center md:justify-end md:pr-8">
-            <div class="relative h-[340px] w-[220px]">
-              <div class="absolute left-8 top-4 h-[320px] w-[210px] rotate-6 rounded-sm bg-slate-700 opacity-50 shadow-xl" />
-              <div class="absolute left-4 top-2 h-[320px] w-[210px] rotate-3 rounded-sm bg-slate-600 opacity-60 shadow-xl" />
-              <div
-                class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
-                style={
-                  heroPlaceholderUrl
-                    ? `background-image: url(${heroPlaceholderUrl}); background-size: cover; background-position: center;`
-                    : undefined
-                }
-              >
-                <Image
-                  src={new URL(
-                    nowReading.issue_cover_url!,
-                    Astro.url,
-                  ).toString()}
-                  alt={`Cover for ${nowReading.series_name} #${nowReading.issue_number}`}
-                  widths={[183, 275, 366]}
-                  sizes="(max-width: 640px) 183px, 210px"
-                  width={210}
-                  height={320}
-                  quality="mid"
-                  format="avif"
-                  class="h-full w-full object-cover"
-                />
-                <div class="absolute bottom-0 left-0 right-0 bg-slate-950/80 px-3 py-2 backdrop-blur-sm">
-                  <p class="text-[10px] font-bold uppercase tracking-widest text-amber-500">
-                    Issue #{nowReading.issue_number}
-                  </p>
-                </div>
-              </div>
-              <div class="absolute -right-1 inset-y-0 w-1 bg-amber-500 opacity-80" />
-            </div>
-          </div>
-        </div>
-        <div class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-900 to-transparent" />
-      </div>
-    )
-  }
-
-  <!-- Continue Reading -->
-  {
-    continueReading.length > 0 && (
-      <section class="mb-16">
-        <div class="mb-6">
-          <EyebrowLabel class="mb-1">Pick up where you left off</EyebrowLabel>
-          <div class="flex items-baseline justify-between">
-            <h2 class="text-2xl tracking-tight text-white">Continue Reading</h2>
-            <a
-              href="/series"
-              class="inline-flex shrink-0 items-center whitespace-nowrap py-3 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-amber-500 transition-colors"
+    heroSlides.length > 0 && (
+      <div
+        class="hero-carousel relative -mx-4 -mt-4 mb-16"
+        data-hero-carousel
+        data-slide-count={heroSlides.length}
+      >
+        <div
+          class="hero-track flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
+          data-hero-track
+        >
+          {heroSlides.map(({ issue, placeholderUrl }, index) => (
+            <div
+              class="hero-slide relative w-full flex-none snap-start overflow-hidden"
+              data-hero-slide
+              data-slide-index={index}
             >
-              View all →
-            </a>
-          </div>
-        </div>
-        <ol class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {continueReading.map((issue) => (
-            <CoverLeaf
-              type="Issue"
-              id={issue.issue_id}
-              cover={issue.issue_cover_url}
-              number={issue.issue_number}
-              seriesName={issue.series_name}
-              seriesId={issue.series_id}
-              progress={
-                issue.current_page && issue.issue_page_count
-                  ? Math.round(
-                      (issue.current_page / issue.issue_page_count) * 100,
-                    )
-                  : undefined
-              }
-              thumbHash={issue.issue_cover_thumb_hash}
-            />
+              {placeholderUrl && (
+                <div
+                  class="pointer-events-none absolute inset-0 z-0 opacity-30 blur-2xl scale-110"
+                  style={`background-image: url(${placeholderUrl}); background-size: cover; background-position: center;`}
+                />
+              )}
+              <div class="relative z-10 flex min-h-[520px] flex-col gap-8 px-4 py-12 md:px-8">
+                {/* Title block — full-width, left-aligned, above the columns */}
+                <div class="flex flex-col items-start gap-4 text-left">
+                  <EyebrowLabel>Now Reading</EyebrowLabel>
+                  <h1 class="text-5xl font-black leading-[0.95] tracking-tight text-white md:text-7xl">
+                    {issue.series_name}
+                    <span class="text-2xl text-slate-500">
+                      #{issue.issue_number}
+                    </span>
+                  </h1>
+                </div>
+
+                <div class="grid grid-cols-1 items-center gap-8 sm:grid-cols-2">
+                  {/* Cover image — first on mobile, left column on sm+ */}
+                  <div
+                    class="relative mx-auto h-[340px] w-[220px] overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10 sm:ml-auto sm:mr-8"
+                    style={
+                      placeholderUrl
+                        ? `background-image: url(${placeholderUrl}); background-size: cover; background-position: center;`
+                        : undefined
+                    }
+                  >
+                    {issue.issue_cover_url && (
+                      <Image
+                        src={new URL(
+                          issue.issue_cover_url,
+                          Astro.url,
+                        ).toString()}
+                        alt={`Cover for ${issue.series_name} #${issue.issue_number}`}
+                        widths={[183, 275, 366]}
+                        sizes="(max-width: 640px) 183px, 210px"
+                        width={210}
+                        height={320}
+                        quality="mid"
+                        format="avif"
+                        loading={index === 0 ? "eager" : "lazy"}
+                        class="h-full w-full object-cover"
+                      />
+                    )}
+                  </div>
+
+                  {/* Description, button */}
+                  <div class="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
+                    {issue.issue_description && (
+                      <div
+                        set:html={issue.issue_description}
+                        class="max-w-sm text-sm leading-relaxed text-slate-400 line-clamp-3"
+                      />
+                    )}
+                    <div class="flex items-center gap-4">
+                      <a
+                        href={`/comic/${issue.issue_id}`}
+                        class="group flex items-center gap-2 bg-amber-500 px-6 py-3 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400"
+                      >
+                        Continue Reading
+                        <Icon
+                          name="arrow-forward"
+                          class="h-4 w-4 transition-transform group-hover:translate-x-1"
+                          color="currentColor"
+                        />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-900 to-transparent" />
+            </div>
           ))}
-        </ol>
-      </section>
+        </div>
+
+        {heroSlides.length > 1 && (
+          <>
+            <button
+              type="button"
+              class="hero-nav absolute left-2 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/60 text-white backdrop-blur transition-colors hover:bg-slate-950/80 md:flex"
+              aria-label="Previous slide"
+              data-hero-prev
+            >
+              <Icon name="arrow-back" class="h-5 w-5" color="currentColor" />
+            </button>
+            <button
+              type="button"
+              class="hero-nav absolute right-2 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/60 text-white backdrop-blur transition-colors hover:bg-slate-950/80 md:flex"
+              aria-label="Next slide"
+              data-hero-next
+            >
+              <Icon name="arrow-forward" class="h-5 w-5" color="currentColor" />
+            </button>
+            <div
+              class="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2"
+              data-hero-dots
+            >
+              {heroSlides.map((_, index) => (
+                <button
+                  type="button"
+                  class="hero-dot h-1.5 w-6 bg-white/30 transition-all hover:bg-white/60"
+                  data-hero-dot
+                  data-slide-target={index}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     )
   }
 
@@ -235,3 +226,81 @@ if (nowReading?.issue_cover_thumb_hash) {
     )
   }
 </Layout>
+
+<style>
+  .hero-track {
+    scrollbar-width: none;
+  }
+  .hero-track::-webkit-scrollbar {
+    display: none;
+  }
+  .hero-dot[aria-current="true"] {
+    background-color: rgb(245 158 11); /* amber-500 */
+  }
+</style>
+
+<script>
+  function initHeroCarousel(root: HTMLElement) {
+    const track = root.querySelector<HTMLElement>("[data-hero-track]");
+    const slides = Array.from(
+      root.querySelectorAll<HTMLElement>("[data-hero-slide]"),
+    );
+    const dots = Array.from(
+      root.querySelectorAll<HTMLButtonElement>("[data-hero-dot]"),
+    );
+    const prev = root.querySelector<HTMLButtonElement>("[data-hero-prev]");
+    const next = root.querySelector<HTMLButtonElement>("[data-hero-next]");
+    if (!track || slides.length === 0) return;
+
+    let current = 0;
+    const setActive = (index: number) => {
+      current = index;
+      dots.forEach((dot, i) => {
+        if (i === index) {
+          dot.setAttribute("aria-current", "true");
+        } else {
+          dot.removeAttribute("aria-current");
+        }
+      });
+    };
+    setActive(0);
+
+    const scrollToSlide = (index: number) => {
+      const slide = slides[index];
+      if (!slide) return;
+      track.scrollTo({ left: slide.offsetLeft, behavior: "smooth" });
+    };
+
+    dots.forEach((dot) => {
+      dot.addEventListener("click", () => {
+        const target = Number(dot.dataset.slideTarget ?? "0");
+        scrollToSlide(target);
+      });
+    });
+
+    prev?.addEventListener("click", () => {
+      scrollToSlide((current - 1 + slides.length) % slides.length);
+    });
+    next?.addEventListener("click", () => {
+      scrollToSlide((current + 1) % slides.length);
+    });
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            const target = entry.target as HTMLElement;
+            const index = Number(target.dataset.slideIndex ?? "0");
+            setActive(index);
+          }
+        });
+      },
+      { root: track, threshold: [0.5, 0.75] },
+    );
+    slides.forEach((slide) => observer.observe(slide));
+  }
+
+  document
+    .querySelectorAll<HTMLElement>("[data-hero-carousel]")
+    .forEach(initHeroCarousel);
+</script>

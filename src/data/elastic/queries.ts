@@ -359,3 +359,39 @@ export async function searchLibrarySeries(
 
   return { items, total, page: safePage, pageSize, totalPages };
 }
+
+/**
+ * Updates reading progress for an issue.
+ * Handles state transitions: unread → reading → read, and sets timestamps.
+ */
+export async function updateReadingProgress(
+  issueId: string,
+  currentPage: number,
+  totalPages: number,
+): Promise<void> {
+  await elastic.update({
+    index: ISSUES_INDEX,
+    id: issueId,
+    script: {
+      source: `
+        ctx._source.current_page = params.current_page;
+        ctx._source.last_opened_at = params.now;
+        if (params.total_pages > 0 && params.current_page >= params.total_pages) {
+          ctx._source.reading_state = 'read';
+          ctx._source.completed_at = params.now;
+        } else if (params.current_page > 0) {
+          ctx._source.reading_state = 'reading';
+          ctx._source.completed_at = null;
+        }
+        if (ctx._source.started_reading_at == null && params.current_page > 0) {
+          ctx._source.started_reading_at = params.now;
+        }
+      `,
+      params: {
+        current_page: currentPage,
+        total_pages: totalPages,
+        now: new Date().toISOString(),
+      },
+    },
+  });
+}

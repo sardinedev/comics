@@ -26,6 +26,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
+  const devBypassDid = env("DEV_BYPASS_AUTH");
+  const isLocalDevRequest =
+    import.meta.env.DEV &&
+    (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "192.168.50.26");
+  if (devBypassDid && isLocalDevRequest) {
+    console.info(`DEV_BYPASS_AUTH is set, bypassing authentication and using DID ${devBypassDid}`);
+    locals.did = devBypassDid;
+    return next();
+  }
+  if (devBypassDid && !isLocalDevRequest) {
+    console.warn("Ignoring DEV_BYPASS_AUTH: only allowed on localhost in dev mode.");
+  }
+
   const allowedDid = env("AUTH_ALLOWED_DID");
   if (!allowedDid) {
     console.error("Missing required AUTH_ALLOWED_DID configuration.");

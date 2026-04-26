@@ -29,6 +29,7 @@
     "@tailwindcss/vite": "4.2.2",
     "@types/unzipper": "^0.10.11",
     "astro": "6.1.8",
+    "fflate": "^0.8.2",
     "nanostores": "1.2.0",
     "preact": "10.29.1",
     "sharp": "^0.34.5",
@@ -39,8 +40,11 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.8",
+    "@vitest/browser-playwright": "^4.1.5",
     "esbuild": "^0.28.0",
+    "playwright": "^1.59.1",
     "typescript": "5.9.3",
-    "vitest": "4.1.4"
+    "vitest": "^4.1.5",
+    "vitest-browser-preact": "^1.0.0"
   }
 }
