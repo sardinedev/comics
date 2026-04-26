@@ -1,8 +1,6 @@
 import { useComputed, useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
-import { unzip } from "fflate";
-
-const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+import { downloadCbz, extractPages } from "./comicReader.utils";
 
 type ComicReaderProps = {
   issueId: string;
@@ -10,139 +8,6 @@ type ComicReaderProps = {
   seriesName: string;
   issueNumber: number;
 };
-
-function isImageFile(name: string): boolean {
-  const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
-  return IMAGE_EXTENSIONS.includes(ext);
-}
-
-function getMimeType(name: string): string {
-  const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
-  if (ext === ".png") return "image/png";
-  if (ext === ".webp") return "image/webp";
-  if (ext === ".gif") return "image/gif";
-  return "image/jpeg";
-}
-
-async function openCache(): Promise<Cache | null> {
-  try {
-    if (typeof caches !== "undefined") return await caches.open("comic-reader-v1");
-  } catch { /* Cache API unavailable (HTTP, older browser, etc.) */ }
-  return null;
-}
-
-async function downloadCbz(
-  issueId: string,
-  onProgress: (ratio: number) => void,
-): Promise<Uint8Array> {
-  const url = `/api/comic/${issueId}/download`;
-  const cache = await openCache();
-
-  // Check cache first
-  if (cache) {
-    const cached = await cache.match(url);
-    if (cached) {
-      const buffer = await cached.arrayBuffer();
-      onProgress(1);
-      return new Uint8Array(buffer);
-    }
-  }
-
-  // Fetch with progress tracking
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `Download failed (${res.status})`);
-  }
-
-  const contentLength = Number(res.headers.get("Content-Length") ?? 0);
-
-  // Fall back to arrayBuffer() if the response body isn't a readable stream
-  // (rare, but possible in some environments / response types).
-  if (!res.body) {
-    const buffer = await res.arrayBuffer();
-    onProgress(1);
-    const cbz = new Uint8Array(buffer);
-    if (cache) {
-      await cache.put(
-        url,
-        new Response(cbz, {
-          headers: { "Content-Type": "application/octet-stream" },
-        }),
-      );
-    }
-    return cbz;
-  }
-
-  const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let received = 0;
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    received += value.length;
-    if (contentLength > 0) {
-      onProgress(received / contentLength);
-    }
-  }
-
-  // Combine chunks
-  const cbz = new Uint8Array(received);
-  let offset = 0;
-  for (const chunk of chunks) {
-    cbz.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  // Store in cache for offline reading (when available)
-  if (cache) {
-    await cache.put(
-      url,
-      new Response(cbz, {
-        headers: { "Content-Type": "application/octet-stream" },
-      }),
-    );
-  }
-
-  return cbz;
-}
-
-function extractPages(cbz: Uint8Array): Promise<string[]> {
-  return new Promise((resolve, reject) => {
-    // Async unzip runs in a Web Worker so large archives don't block the main thread.
-    unzip(
-      cbz,
-      {
-        filter: (file) =>
-          !file.name.startsWith("__MACOSX/") && isImageFile(file.name),
-      },
-      (err, entries) => {
-        if (err) {
-          reject(new Error("Comic archive is corrupted or unreadable", { cause: err }));
-          return;
-        }
-
-        const sortedNames = Object.keys(entries).sort((a, b) => a.localeCompare(b));
-
-        if (sortedNames.length === 0) {
-          reject(new Error("No pages found in archive"));
-          return;
-        }
-
-        const urls = sortedNames.map((name) => {
-          // Cast: fflate returns Uint8Array<ArrayBufferLike>, but Blob's lib.dom types
-          // require Uint8Array<ArrayBuffer>. The runtime value is always a valid BlobPart.
-          const blob = new Blob([entries[name] as BlobPart], { type: getMimeType(name) });
-          return URL.createObjectURL(blob);
-        });
-
-        resolve(urls);
-      },
-    );
-  });
-}
 
 export function ComicReader({
   issueId,
@@ -166,12 +31,69 @@ export function ComicReader({
   );
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pagesRef = useRef<string[]>([]);
+  const saveAbortRef = useRef<AbortController | null>(null);
+
+  function buildProgressBody(): string {
+    return JSON.stringify({
+      current_page: currentPage.value + 1,
+      total_pages: pages.value.length,
+    });
+  }
+
+  /**
+   * Cancels any in-flight or scheduled progress save. Used before sending an
+   * immediate beacon so the two paths can't race.
+   */
+  function cancelPendingSave() {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    if (saveAbortRef.current) {
+      saveAbortRef.current.abort();
+      saveAbortRef.current = null;
+    }
+  }
+
+  /** Debounced PATCH save used during active reading. */
+  function saveProgress() {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      saveAbortRef.current?.abort();
+      const controller = new AbortController();
+      saveAbortRef.current = controller;
+      fetch(`/api/comic/${issueId}/progress`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: buildProgressBody(),
+        keepalive: true,
+        signal: controller.signal,
+      }).catch((err) => {
+        if ((err as Error).name === "AbortError") return;
+        console.warn("Failed to save reading progress", err);
+      });
+    }, 1000);
+  }
+
+  /**
+   * Immediately flushes progress via `sendBeacon` — used on `beforeunload`
+   * and explicit navigation, where in-flight `fetch` calls are unreliable.
+   */
+  function flushProgressBeacon() {
+    cancelPendingSave();
+    if (pages.value.length === 0) return;
+    navigator.sendBeacon(
+      `/api/comic/${issueId}/progress`,
+      new Blob([buildProgressBody()], { type: "application/json" }),
+    );
+  }
 
   useEffect(() => {
     supportsFullscreen.value = "requestFullscreen" in document.documentElement;
 
     let cancelled = false;
+    let createdUrls: string[] = [];
 
     (async () => {
       try {
@@ -188,7 +110,7 @@ export function ComicReader({
           return;
         }
 
-        pagesRef.current = urls;
+        createdUrls = urls;
         pages.value = urls;
         // Clamp initialPage: it's 1-indexed from ES, convert to 0-indexed
         const startPage = Math.max(0, Math.min((initialPage || 1) - 1, urls.length - 1));
@@ -205,11 +127,8 @@ export function ComicReader({
 
     return () => {
       cancelled = true;
-      // Revoke all object URLs
-      for (const url of pagesRef.current) {
-        URL.revokeObjectURL(url);
-      }
-      pagesRef.current = [];
+      for (const url of createdUrls) URL.revokeObjectURL(url);
+      createdUrls = [];
     };
   }, [issueId]);
 
@@ -243,40 +162,20 @@ export function ComicReader({
 
   // Save progress on beforeunload
   useEffect(() => {
-    const onBeforeUnload = () => {
-      if (pages.value.length === 0) return;
-      const body = JSON.stringify({
-        current_page: currentPage.value + 1,
-        total_pages: pages.value.length,
-      });
-      navigator.sendBeacon(
-        `/api/comic/${issueId}/progress`,
-        new Blob([body], { type: "application/json" }),
-      );
-    };
+    const onBeforeUnload = () => flushProgressBeacon();
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [issueId]);
 
-  function saveProgress() {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      fetch(`/api/comic/${issueId}/progress`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          current_page: currentPage.value + 1,
-          total_pages: pages.value.length,
-        }),
-      });
-    }, 1000);
-  }
-
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn("Failed to enter fullscreen", err);
+      });
     } else {
-      document.exitFullscreen();
+      document.exitFullscreen().catch((err) => {
+        console.warn("Failed to exit fullscreen", err);
+      });
     }
   }
 
@@ -295,20 +194,7 @@ export function ComicReader({
   }
 
   function navigateBack() {
-    // Flush any pending save immediately
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    if (pages.value.length > 0) {
-      navigator.sendBeacon(
-        `/api/comic/${issueId}/progress`,
-        new Blob(
-          [JSON.stringify({
-            current_page: currentPage.value + 1,
-            total_pages: pages.value.length,
-          })],
-          { type: "application/json" },
-        ),
-      );
-    }
+    flushProgressBeacon();
     window.location.href = `/comic/${issueId}`;
   }
 
