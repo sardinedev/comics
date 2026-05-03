@@ -35,6 +35,8 @@ Always use these instead of relative imports crossing directory boundaries:
 
 ## Conventions
 
+**UI/design work:** Before changing pages, Astro components, Preact islands, Tailwind classes, CSS, layout, typography, colors, controls, or cover sizing, read `DESIGN.md` and follow it. If a change intentionally deviates from `DESIGN.md`, call that out in the response and explain why.
+
 **Components:**
 - `.astro` for static/server-rendered markup
 - `.tsx` (Preact) for interactive islands only
