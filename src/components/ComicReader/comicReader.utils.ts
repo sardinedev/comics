@@ -1,4 +1,8 @@
 import { unzip } from "fflate";
+import {
+  downloadIssueToCache,
+  type ComicCacheMetadataInput,
+} from "@components/ComicCache/comicCache.utils";
 
 /** Image file extensions recognized as comic pages inside a CBZ archive. */
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -35,18 +39,6 @@ export function getMimeType(name: string): string {
 }
 
 /**
- * Opens (or creates) the Cache Storage bucket used to persist downloaded
- * CBZ archives for offline reading. Returns `null` if the Cache API is
- * unavailable (e.g. insecure context, older browsers).
- */
-async function openCache(): Promise<Cache | null> {
-  try {
-    if (typeof caches !== "undefined") return await caches.open("comic-reader-v1");
-  } catch { /* Cache API unavailable (HTTP, older browser, etc.) */ }
-  return null;
-}
-
-/**
  * Downloads the CBZ archive for an issue, with progress reporting and
  * transparent caching for offline reading.
  *
@@ -59,87 +51,16 @@ async function openCache(): Promise<Cache | null> {
  *
  * @param issueId - Elasticsearch issue id used to build the download URL.
  * @param onProgress - Called with a ratio in `[0, 1]` as bytes are received.
+ * @param metadata - Optional cache sidecar data written when the archive is stored.
  * @returns The full CBZ archive bytes.
  * @throws If the network response is not OK or the body cannot be read.
  */
 export async function downloadCbz(
   issueId: string,
   onProgress: (ratio: number) => void,
+  metadata?: ComicCacheMetadataInput,
 ): Promise<Uint8Array> {
-  const url = `/api/comic/${issueId}/download`;
-  const cache = await openCache();
-
-  // Check cache first
-  if (cache) {
-    const cached = await cache.match(url);
-    if (cached) {
-      const buffer = await cached.arrayBuffer();
-      onProgress(1);
-      return new Uint8Array(buffer);
-    }
-  }
-
-  // Fetch with progress tracking
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `Download failed (${res.status})`);
-  }
-
-  const contentLength = Number(res.headers.get("Content-Length") ?? 0);
-
-  // Fall back to arrayBuffer() if the response body isn't a readable stream
-  // (rare, but possible in some environments / response types).
-  if (!res.body) {
-    const buffer = await res.arrayBuffer();
-    onProgress(1);
-    const cbz = new Uint8Array(buffer);
-    if (cache) {
-      await cache.put(
-        url,
-        new Response(cbz, {
-          headers: { "Content-Type": "application/octet-stream" },
-        }),
-      );
-    }
-    return cbz;
-  }
-
-  const chunks: Uint8Array[] = [];
-  let received = 0;
-
-  // Manual reader loop — Safari does not yet support async iteration of
-  // ReadableStream (no [Symbol.asyncIterator]), so we cannot use `for await`.
-  const reader = res.body.getReader();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    received += value.length;
-    if (contentLength > 0) {
-      onProgress(received / contentLength);
-    }
-  }
-
-  // Combine chunks
-  const cbz = new Uint8Array(received);
-  let offset = 0;
-  for (const chunk of chunks) {
-    cbz.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  // Store in cache for offline reading (when available)
-  if (cache) {
-    await cache.put(
-      url,
-      new Response(cbz, {
-        headers: { "Content-Type": "application/octet-stream" },
-      }),
-    );
-  }
-
-  return cbz;
+  return downloadIssueToCache(issueId, onProgress, metadata);
 }
 
 /**
