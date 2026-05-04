@@ -137,14 +137,14 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
       <button
         ref={buttonRef}
         type="button"
-        class="inline-flex h-12 w-12 items-center justify-center border border-slate-700 bg-slate-800 text-slate-300 transition-colors hover:border-amber-500 hover:text-amber-500 focus-visible:border-amber-500 focus-visible:text-amber-500 focus-visible:outline-none"
+        class="inline-flex h-12 w-12 items-center justify-center text-slate-400 transition-colors hover:text-amber-500 focus-visible:text-amber-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-controls="series-download-options"
         aria-label="Download options"
         onClick={() => setIsOpen((current) => !current)}
       >
-        <Icon name="more-vertical" class="h-4 w-4" />
+        <Icon name="more-vertical" class="h-5 w-5" />
       </button>
 
       {isOpen && (

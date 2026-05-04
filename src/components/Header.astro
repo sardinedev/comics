@@ -35,17 +35,17 @@ import { SearchBar } from "@components/SearchBar/SearchBar";
       <button
         id="header-search-btn"
         aria-label="Search"
-        class="flex h-12 w-12 items-center justify-center rounded-none border border-slate-700 bg-slate-800 text-slate-400 transition-colors hover:border-amber-500 hover:text-amber-500"
+        class="flex h-12 w-12 items-center justify-center text-slate-400 transition-colors hover:text-amber-500 focus-visible:text-amber-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
       >
-        <Icon name="search" class="h-3.5 w-3.5" color="currentColor" />
+        <Icon name="search" class="h-4 w-4" color="currentColor" />
       </button>
       <form method="POST" action="/api/auth/logout">
         <button
           type="submit"
           aria-label="Sign out"
-          class="flex h-12 w-12 items-center justify-center rounded-none border border-slate-700 bg-slate-800 text-slate-400 transition-colors hover:border-slate-600 hover:text-slate-300"
+          class="flex h-12 w-12 items-center justify-center text-slate-400 transition-colors hover:text-slate-300 focus-visible:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500"
         >
-          <Icon name="logout" class="h-3.5 w-3.5" color="currentColor" />
+          <Icon name="logout" class="h-4 w-4" color="currentColor" />
         </button>
       </form>
     </div>
