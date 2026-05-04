@@ -18,11 +18,31 @@ const ISSUES = [
   { issueId: "i2", seriesName: "Saga", issueNumber: 2 },
 ];
 
+async function openOptions() {
+  const optionsButton = page.getByRole("button", { name: "Download options" });
+  await expect.element(optionsButton).toBeInTheDocument();
+  await optionsButton.click();
+}
+
 afterEach(() => {
   vi.resetAllMocks();
 });
 
 describe("BulkDownload", () => {
+  test("keeps cache actions inside the options menu", async () => {
+    mockedIsIssueCached.mockResolvedValue(false);
+
+    render(<BulkDownload issues={ISSUES} downloadedIssues={ISSUES} />);
+
+  await expect.element(page.getByRole("button", { name: "Download options" })).toBeInTheDocument();
+    await expect.element(page.getByRole("button", { name: /Bulk download unread issues/i })).not.toBeInTheDocument();
+
+    await openOptions();
+
+    await expect.element(page.getByRole("dialog", { name: "Download options" })).toBeInTheDocument();
+    await expect.element(page.getByRole("button", { name: /Bulk download unread issues/i })).toBeInTheDocument();
+  });
+
   test("downloads only missing issues", async () => {
     mockedIsIssueCached.mockImplementation(async (issueId) => issueId === "i1");
     mockedDownloadIssueToCache.mockImplementation(async (_issueId, onProgress) => {
@@ -32,15 +52,16 @@ describe("BulkDownload", () => {
 
     render(<BulkDownload issues={ISSUES} downloadedIssues={ISSUES} />);
 
-    await expect.element(page.getByRole("group", { name: "1 of 2 downloaded" })).toBeInTheDocument();
-    await expect.element(page.getByText("downloaded")).toBeInTheDocument();
+    await openOptions();
 
-    const button = page.getByRole("button", { name: "Download 1 unread issue" });
+    await expect.element(page.getByRole("group", { name: "1 of 2 downloaded" })).toBeInTheDocument();
+
+    const button = page.getByRole("button", { name: /Bulk download unread issues/i });
     await expect.element(button).toBeInTheDocument();
 
     await button.click();
 
-    await expect.element(page.getByRole("button", { name: "Downloaded" })).toBeInTheDocument();
+    await expect.element(page.getByRole("button", { name: /Unread issues downloaded/i })).toBeInTheDocument();
     expect(mockedDownloadIssueToCache).toHaveBeenCalledTimes(1);
     expect(mockedDownloadIssueToCache.mock.calls[0]?.[0]).toBe("i2");
   });
@@ -62,12 +83,14 @@ describe("BulkDownload", () => {
       />,
     );
 
+    await openOptions();
+
     await expect.element(page.getByRole("group", { name: "1 of 2 downloaded" })).toBeInTheDocument();
 
-    await page.getByRole("button", { name: "Download 1 unread issue" }).click();
+    await page.getByRole("button", { name: /Bulk download unread issues/i }).click();
 
     await expect.element(page.getByRole("group", { name: "2 of 2 downloaded" })).toBeInTheDocument();
-    await expect.element(page.getByRole("button", { name: "Downloaded" })).toBeInTheDocument();
+    await expect.element(page.getByRole("button", { name: /Unread issues downloaded/i })).toBeInTheDocument();
     expect(mockedDownloadIssueToCache).toHaveBeenCalledTimes(1);
     expect(mockedDownloadIssueToCache.mock.calls[0]?.[0]).toBe(unreadMissingIssue.issueId);
   });
@@ -77,9 +100,10 @@ describe("BulkDownload", () => {
 
     render(<BulkDownload issues={[]} downloadedIssues={[{ issueId: "i1", seriesName: "Saga", issueNumber: 1 }]} />);
 
+    await openOptions();
+
     await expect.element(page.getByRole("group", { name: "1 of 1 downloaded" })).toBeInTheDocument();
-    await expect.element(page.getByText("downloaded")).toBeInTheDocument();
-    await expect.element(page.getByRole("button", { name: "No unread issues" })).toBeInTheDocument();
+    await expect.element(page.getByRole("button", { name: /No unread issues/i })).toBeInTheDocument();
     expect(mockedIsIssueCached).toHaveBeenCalledWith("i1");
   });
 });
