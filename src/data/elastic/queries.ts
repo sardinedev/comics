@@ -117,6 +117,28 @@ export async function getIssue(issueId: string): Promise<Issue | null> {
 }
 
 /**
+ * Fetches the next downloaded issue in the same series by issue number.
+ */
+export async function getNextDownloadedIssue(currentIssue: Issue): Promise<Issue | null> {
+  const response = await elastic.search<Issue>({
+    index: ISSUES_INDEX,
+    size: 1,
+    query: {
+      bool: {
+        filter: [
+          { term: { series_id: currentIssue.series_id } },
+          { term: { download_status: "Downloaded" } },
+          { range: { issue_number: { gt: currentIssue.issue_number } } },
+        ],
+      },
+    },
+    sort: [{ issue_number: "asc" }, { issue_date: "asc" }],
+  });
+
+  return response.hits.hits[0]?._source ?? null;
+}
+
+/**
  * The most recently opened issue the user is currently reading.
  * Used for the homepage hero.
  */

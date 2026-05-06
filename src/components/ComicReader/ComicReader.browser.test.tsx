@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-preact";
+import { DOUBLE_TAP_MAX_DELAY_MS } from "./comicReader.gestures";
 
 // Mock the utils module so component tests don't depend on real network or
 // zip decoding. Each test installs its own implementations below.
@@ -37,14 +38,70 @@ function makeBlobUrl(): string {
   return url;
 }
 
-function setupHappyPath(pageCount = 3) {
+function makeSvgBlobUrl(width: number, height: number): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#111827"/><path d="M ${width / 2} 0 V ${height}" stroke="#f59e0b" stroke-width="8"/></svg>`;
+  const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  createdBlobUrls.push(url);
+  return url;
+}
+
+function setupHappyPath(pageCount = 3, pageFactory: () => string = makeBlobUrl) {
   mockedDownloadCbz.mockImplementation(async (_id, onProgress) => {
     onProgress(1);
     return new Uint8Array();
   });
   mockedExtractPages.mockResolvedValue(
-    Array.from({ length: pageCount }, makeBlobUrl),
+    Array.from({ length: pageCount }, pageFactory),
   );
+}
+
+function getGestureLayer(): HTMLDivElement {
+  const layer = document.querySelector<HTMLDivElement>("[data-reader-gesture-layer]");
+  if (!layer) throw new Error("Reader gesture layer was not rendered");
+  return layer;
+}
+
+function getVisiblePageImage(pageNumber: number): HTMLImageElement {
+  const image = document.querySelector<HTMLImageElement>(`img[alt="Page ${pageNumber}"]`);
+  if (!image) throw new Error(`Page ${pageNumber} image was not rendered`);
+  return image;
+}
+
+function fireTouchPointer(
+  target: HTMLElement,
+  type: "pointerdown" | "pointermove" | "pointerup" | "pointercancel",
+  x: number,
+  y: number,
+) {
+  target.dispatchEvent(new PointerEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    pointerId: 1,
+    pointerType: "touch",
+    isPrimary: true,
+    clientX: x,
+    clientY: y,
+    button: 0,
+  }));
+}
+
+function touchSwipe(fromX: number, fromY: number, toX: number, toY: number) {
+  const layer = getGestureLayer();
+  fireTouchPointer(layer, "pointerdown", fromX, fromY);
+  fireTouchPointer(layer, "pointermove", toX, toY);
+  fireTouchPointer(layer, "pointerup", toX, toY);
+}
+
+async function touchDoubleTap(x: number, y: number) {
+  const layer = getGestureLayer();
+  fireTouchPointer(layer, "pointerdown", x, y);
+  fireTouchPointer(layer, "pointerup", x, y);
+  fireTouchPointer(layer, "pointerdown", x, y);
+  fireTouchPointer(layer, "pointerup", x, y);
+}
+
+async function waitPastTapDelay() {
+  await new Promise((resolve) => window.setTimeout(resolve, DOUBLE_TAP_MAX_DELAY_MS + 30));
 }
 
 /**
@@ -213,6 +270,100 @@ describe("ComicReader", () => {
         .element(page.getByRole("img", { name: "Page 1" }))
         .toBeInTheDocument();
     });
+
+    test("advances and retreats with horizontal touch swipes", async () => {
+      setupHappyPath(3);
+
+      render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
+      await expect
+        .element(page.getByRole("img", { name: "Page 1" }))
+        .toBeInTheDocument();
+
+      touchSwipe(320, 100, 120, 105);
+
+      await expect
+        .element(page.getByRole("img", { name: "Page 2" }))
+        .toBeInTheDocument();
+
+      touchSwipe(120, 100, 320, 105);
+
+      await expect
+        .element(page.getByRole("img", { name: "Page 1" }))
+        .toBeInTheDocument();
+    });
+
+    test("ignores small and vertical touch drags", async () => {
+      setupHappyPath(3);
+
+      render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
+      await expect
+        .element(page.getByRole("img", { name: "Page 1" }))
+        .toBeInTheDocument();
+
+      touchSwipe(160, 100, 190, 104);
+      touchSwipe(160, 100, 260, 230);
+
+      await waitPastTapDelay();
+      await expect
+        .element(page.getByRole("img", { name: "Page 1" }))
+        .toBeInTheDocument();
+    });
+  });
+
+  describe("zoom gestures", () => {
+    test("double-tap zooms into and out of the tapped half of a wide page", async () => {
+      setupHappyPath(1, () => makeSvgBlobUrl(2000, 1000));
+
+      render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
+      await expect
+        .element(page.getByRole("img", { name: "Page 1" }))
+        .toBeInTheDocument();
+      await vi.waitFor(() => expect(getVisiblePageImage(1).naturalWidth).toBeGreaterThan(1));
+
+      await touchDoubleTap(120, 100);
+
+      await vi.waitFor(() => {
+        expect(getVisiblePageImage(1).dataset.zoomRegion).toBe("left");
+      });
+
+      await touchDoubleTap(120, 100);
+
+      await vi.waitFor(() => {
+        expect(getVisiblePageImage(1).getAttribute("data-zoom-region")).toBeNull();
+      });
+    });
+
+    test("pans while zoomed and only changes page from a pan edge", async () => {
+      setupHappyPath(2, () => makeSvgBlobUrl(2000, 1000));
+
+      render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
+      await expect
+        .element(page.getByRole("img", { name: "Page 1" }))
+        .toBeInTheDocument();
+      await vi.waitFor(() => expect(getVisiblePageImage(1).naturalWidth).toBeGreaterThan(1));
+
+      await touchDoubleTap(120, 100);
+      await vi.waitFor(() => {
+        expect(getVisiblePageImage(1).dataset.zoomRegion).toBe("left");
+      });
+
+      touchSwipe(320, 100, 120, 105);
+
+      await expect
+        .element(page.getByRole("img", { name: "Page 1" }))
+        .toBeInTheDocument();
+
+      await touchDoubleTap(window.innerWidth - 120, 100);
+      await vi.waitFor(() => {
+        expect(getVisiblePageImage(1).dataset.zoomRegion).toBe("right");
+      });
+
+      touchSwipe(320, 100, 120, 105);
+
+      await expect
+        .element(page.getByRole("img", { name: "Page 2" }))
+        .toBeInTheDocument();
+    });
   });
 
   describe("HUD", () => {
@@ -226,6 +377,49 @@ describe("ComicReader", () => {
       await expect
         .element(page.getByRole("button", { name: "Close reader" }))
         .toBeInTheDocument();
+    });
+  });
+
+  describe("next issue CTA", () => {
+    test("shows a read-next action on the final page when a downloaded next issue is provided", async () => {
+      setupHappyPath(2);
+
+      render(
+        <ComicReader
+          issueId={ISSUE_ID}
+          initialPage={1}
+          nextIssue={{
+            id: "next-issue",
+            seriesName: "Sardine Squad",
+            issueNumber: 4,
+            issueName: "The Briny Bit",
+          }}
+        />,
+      );
+      await expect
+        .element(page.getByRole("img", { name: "Page 1" }))
+        .toBeInTheDocument();
+
+      expect(document.querySelector('a[href="/comic/next-issue/read"]')).toBeNull();
+
+      await userEvent.keyboard("{ArrowRight}");
+
+      await expect
+        .element(page.getByRole("link", { name: "Read next" }))
+        .toBeInTheDocument();
+      expect(document.querySelector('a[href="/comic/next-issue/read"]')).not.toBeNull();
+      await expect.element(page.getByText("Sardine Squad #4")).toBeInTheDocument();
+    });
+
+    test("hides the final-page read-next action when no next issue is provided", async () => {
+      setupHappyPath(1);
+
+      render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
+      await expect
+        .element(page.getByRole("img", { name: "Page 1" }))
+        .toBeInTheDocument();
+
+      expect(document.querySelector('a[href$="/read"]')).toBeNull();
     });
   });
 

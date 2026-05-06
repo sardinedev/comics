@@ -1,7 +1,7 @@
 ---
 import ReaderLayout from "@layouts/ReaderLayout.astro";
 import { ComicReader } from "@components/ComicReader/ComicReader";
-import { getIssue } from "@data/elastic/queries";
+import { getIssue, getNextDownloadedIssue } from "@data/elastic/queries";
 
 const { id } = Astro.params;
 const issue = await getIssue(id!);
@@ -9,6 +9,8 @@ const issue = await getIssue(id!);
 if (!issue) return Astro.redirect("/series");
 if (issue.download_status !== "Downloaded")
   return Astro.redirect(`/comic/${id}`);
+
+const nextIssue = await getNextDownloadedIssue(issue);
 ---
 
 <ReaderLayout title={`Read: ${issue.series_name} #${issue.issue_number}`}>
@@ -16,5 +18,14 @@ if (issue.download_status !== "Downloaded")
     client:only="preact"
     issueId={id!}
     initialPage={issue.current_page ?? 0}
+    nextIssue={nextIssue
+      ? {
+          id: nextIssue.issue_id,
+          seriesName:
+            nextIssue.series_name ?? issue.series_name ?? "Next issue",
+          issueNumber: nextIssue.issue_number,
+          issueName: nextIssue.issue_name ?? undefined,
+        }
+      : undefined}
   />
 </ReaderLayout>
