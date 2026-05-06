@@ -55,16 +55,50 @@ function setupHappyPath(pageCount = 3, pageFactory: () => string = makeBlobUrl) 
   );
 }
 
+function getReaderViewport(): HTMLDivElement {
+  const viewport = document.querySelector<HTMLDivElement>("[data-reader-scroll-viewport]");
+  if (!viewport) throw new Error("Reader scroll viewport was not rendered");
+  return viewport;
+}
+
 function getGestureLayer(): HTMLDivElement {
-  const layer = document.querySelector<HTMLDivElement>("[data-reader-gesture-layer]");
-  if (!layer) throw new Error("Reader gesture layer was not rendered");
-  return layer;
+  return getReaderViewport();
 }
 
 function getVisiblePageImage(pageNumber: number): HTMLImageElement {
-  const image = document.querySelector<HTMLImageElement>(`img[alt="Page ${pageNumber}"]`);
+  const image = document.querySelector<HTMLImageElement>(
+    `img[data-current-page="true"][alt="Page ${pageNumber}"]`,
+  );
   if (!image) throw new Error(`Page ${pageNumber} image was not rendered`);
   return image;
+}
+
+function clickReaderAt(x: number, y: number) {
+  getReaderViewport().dispatchEvent(new MouseEvent("click", {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+    clientX: x,
+    clientY: y,
+  }));
+}
+
+async function mouseTapReaderAt(x: number, y: number) {
+  clickReaderAt(x, y);
+  await waitPastTapDelay();
+}
+
+async function scrollSnapToPage(pageNumber: number) {
+  const viewport = getReaderViewport();
+  const pageItem = document.querySelector<HTMLElement>(`[data-reader-page="${pageNumber}"]`);
+  if (!pageItem) throw new Error(`Page item ${pageNumber} was not rendered`);
+
+  viewport.scrollLeft = pageItem.offsetLeft || (viewport.clientWidth || window.innerWidth) * (pageNumber - 1);
+  viewport.dispatchEvent(new Event("scroll", { bubbles: true }));
+
+  await vi.waitFor(() => {
+    expect(getVisiblePageImage(pageNumber).dataset.currentPage).toBe("true");
+  });
 }
 
 function fireTouchPointer(
@@ -183,7 +217,7 @@ describe("ComicReader", () => {
         .toBeInTheDocument();
 
       // Reveal HUD so the counter is visible, then advance.
-      await page.getByRole("button", { name: "Toggle controls" }).click();
+      await mouseTapReaderAt(window.innerWidth / 2, 100);
       await expect.element(page.getByText("1 / 3")).toBeInTheDocument();
 
       await userEvent.keyboard("{ArrowRight}");
@@ -193,7 +227,7 @@ describe("ComicReader", () => {
   });
 
   describe("navigation", () => {
-    test("advances to the next page on tap zone click", async () => {
+    test("advances to the next page on right tap zone click", async () => {
       setupHappyPath(3);
 
       render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
@@ -201,14 +235,14 @@ describe("ComicReader", () => {
         .element(page.getByRole("img", { name: "Page 1" }))
         .toBeInTheDocument();
 
-      await page.getByRole("button", { name: "Next page" }).click();
+      await mouseTapReaderAt(window.innerWidth - 20, 100);
 
       await expect
         .element(page.getByRole("img", { name: "Page 2" }))
         .toBeInTheDocument();
     });
 
-    test("returns to the previous page on tap zone click", async () => {
+    test("returns to the previous page on left tap zone click", async () => {
       setupHappyPath(3);
 
       render(<ComicReader issueId={ISSUE_ID} initialPage={2} />);
@@ -216,7 +250,7 @@ describe("ComicReader", () => {
         .element(page.getByRole("img", { name: "Page 2" }))
         .toBeInTheDocument();
 
-      await page.getByRole("button", { name: "Previous page" }).click();
+      await mouseTapReaderAt(20, 100);
 
       await expect
         .element(page.getByRole("img", { name: "Page 1" }))
@@ -271,7 +305,7 @@ describe("ComicReader", () => {
         .toBeInTheDocument();
     });
 
-    test("advances and retreats with horizontal touch swipes", async () => {
+    test("syncs the current page from horizontal scroll-snap movement", async () => {
       setupHappyPath(3);
 
       render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
@@ -279,20 +313,20 @@ describe("ComicReader", () => {
         .element(page.getByRole("img", { name: "Page 1" }))
         .toBeInTheDocument();
 
-      touchSwipe(320, 100, 120, 105);
+      await scrollSnapToPage(2);
 
       await expect
         .element(page.getByRole("img", { name: "Page 2" }))
         .toBeInTheDocument();
 
-      touchSwipe(120, 100, 320, 105);
+      await scrollSnapToPage(1);
 
       await expect
         .element(page.getByRole("img", { name: "Page 1" }))
         .toBeInTheDocument();
     });
 
-    test("ignores small and vertical touch drags", async () => {
+    test("does not treat synthetic unzoomed touch drags as JS page turns", async () => {
       setupHappyPath(3);
 
       render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
@@ -371,8 +405,12 @@ describe("ComicReader", () => {
       setupHappyPath(2);
 
       render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
+      await expect
+        .element(page.getByRole("img", { name: "Page 1" }))
+        .toBeInTheDocument();
+
       // HUD is hidden after load — tap to reveal it.
-      await page.getByRole("button", { name: "Toggle controls" }).click();
+      await mouseTapReaderAt(window.innerWidth / 2, 100);
 
       await expect
         .element(page.getByRole("button", { name: "Close reader" }))

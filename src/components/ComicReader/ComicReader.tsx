@@ -54,15 +54,15 @@ export function ComicReader({
     () => pages.value.length > 0 && currentPage.value === pages.value.length - 1,
   );
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const interactionLayerRef = useRef<HTMLDivElement>(null);
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
 
-  // Tracks the last saved page number so the periodic save can skip when nothing changed.
   const lastSavedPageRef = useRef<number | null>(null);
   const activeGestureRef = useRef<ActiveGesture | null>(null);
   const lastTapRef = useRef<GesturePoint | null>(null);
   const pendingTapTimeoutRef = useRef<number | null>(null);
+  const scrollRafRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
   const suppressClickTimeoutRef = useRef<number | null>(null);
 
@@ -102,8 +102,8 @@ export function ComicReader({
   }
 
   function measureImage() {
-    const container = containerRef.current;
-    const image = imageRef.current;
+    const container = scrollViewportRef.current;
+    const image = imageRefs.current[currentPage.value];
     if (!container || !image || image.naturalWidth <= 0 || image.naturalHeight <= 0) return;
 
     const rect = container.getBoundingClientRect();
@@ -144,7 +144,7 @@ export function ComicReader({
     }, 700);
   }
 
-  function ignoreSuppressedClick(event: TargetedMouseEvent<HTMLButtonElement>): boolean {
+  function ignoreSuppressedClick(event: TargetedMouseEvent<HTMLDivElement>): boolean {
     if (!suppressClickRef.current) return false;
     event.preventDefault();
     event.stopPropagation();
@@ -153,9 +153,9 @@ export function ComicReader({
   }
 
   function getTapX(point: GesturePoint): { x: number; width: number } | null {
-    const layer = interactionLayerRef.current;
-    if (!layer) return null;
-    const rect = layer.getBoundingClientRect();
+    const viewport = scrollViewportRef.current;
+    if (!viewport) return null;
+    const rect = viewport.getBoundingClientRect();
     return {
       x: point.x - rect.left,
       width: rect.width || window.innerWidth,
@@ -216,6 +216,18 @@ export function ComicReader({
     }, DOUBLE_TAP_MAX_DELAY_MS);
   }
 
+  function scrollPageIntoView(pageIndex: number) {
+    const viewport = scrollViewportRef.current;
+    const page = pageRefs.current[pageIndex];
+    if (!viewport || !page) return;
+
+    viewport.scrollTo({
+      left: page.offsetLeft,
+      top: 0,
+      behavior: "auto",
+    });
+  }
+
   function goToPage(pageIndex: number) {
     if (pages.value.length === 0) return;
     const nextPage = Math.max(0, Math.min(pageIndex, pages.value.length - 1));
@@ -223,6 +235,40 @@ export function ComicReader({
     clearPendingTap();
     currentPage.value = nextPage;
     resetZoom();
+    window.requestAnimationFrame(() => scrollPageIntoView(nextPage));
+  }
+
+  function syncCurrentPageFromScroll() {
+    const viewport = scrollViewportRef.current;
+    if (!viewport || pages.value.length === 0 || zoom.value.region) return;
+
+    const viewportCenter = viewport.scrollLeft + viewport.clientWidth / 2;
+    let nearestPage = currentPage.value;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    for (let index = 0; index < pages.value.length; index += 1) {
+      const page = pageRefs.current[index];
+      if (!page) continue;
+      const pageCenter = page.offsetLeft + page.offsetWidth / 2;
+      const distance = Math.abs(pageCenter - viewportCenter);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestPage = index;
+      }
+    }
+
+    if (nearestPage !== currentPage.value) {
+      clearPendingTap();
+      currentPage.value = nearestPage;
+    }
+  }
+
+  function handleScroll() {
+    if (scrollRafRef.current !== null) return;
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      syncCurrentPageFromScroll();
+    });
   }
 
   useEffect(() => {
@@ -242,14 +288,14 @@ export function ComicReader({
         phase.value = "extracting";
         const urls = await extractPages(cbz);
         if (cancelled) {
-          // Effect was torn down while extracting — revoke the URLs we just created
           for (const url of urls) URL.revokeObjectURL(url);
           return;
         }
 
         createdUrls = urls;
+        pageRefs.current = new Array<HTMLDivElement | null>(urls.length).fill(null);
+        imageRefs.current = new Array<HTMLImageElement | null>(urls.length).fill(null);
         pages.value = urls;
-        // Clamp initialPage: it's 1-indexed from ES, convert to 0-indexed
         const startPage = Math.max(0, Math.min((initialPage || 1) - 1, urls.length - 1));
         currentPage.value = startPage;
         phase.value = "ready";
@@ -269,6 +315,18 @@ export function ComicReader({
   }, [issueId, initialPage]);
 
   useEffect(() => {
+    if (isLoading.value || pages.value.length === 0) return;
+    window.requestAnimationFrame(() => {
+      scrollPageIntoView(currentPage.value);
+      measureImage();
+    });
+  }, [isLoading.value, pages.value.length]);
+
+  useEffect(() => {
+    window.requestAnimationFrame(measureImage);
+  }, [currentPage.value]);
+
+  useEffect(() => {
     const onResize = () => measureImage();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
@@ -277,13 +335,15 @@ export function ComicReader({
   useEffect(() => {
     return () => {
       clearPendingTap();
+      if (scrollRafRef.current !== null) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+      }
       if (suppressClickTimeoutRef.current !== null) {
         window.clearTimeout(suppressClickTimeoutRef.current);
       }
     };
   }, []);
 
-  // Keyboard navigation
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === " ") {
@@ -307,7 +367,6 @@ export function ComicReader({
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Sync fullscreen signal with browser state
   useEffect(() => {
     const handler = () => {
       isFullscreen.value = !!document.fullscreenElement;
@@ -316,7 +375,6 @@ export function ComicReader({
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
-  // Save progress on tab hide, navigation away, and periodically as a safety net.
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") flushProgress();
@@ -362,6 +420,13 @@ export function ComicReader({
     showUI.value = !showUI.value;
   }
 
+  function handleViewportClick(event: TargetedMouseEvent<HTMLDivElement>) {
+    if (ignoreSuppressedClick(event)) return;
+    if (event.button !== 0) return;
+
+    handleTap({ x: event.clientX, y: event.clientY, time: event.timeStamp });
+  }
+
   function handlePointerDown(event: TargetedPointerEvent<HTMLDivElement>) {
     if (event.pointerType === "mouse" || !event.isPrimary) return;
 
@@ -379,10 +444,13 @@ export function ComicReader({
     };
     isPanning.value = !!zoom.value.region;
 
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {
-      // Synthetic browser-test events may not create a capturable pointer.
+    if (zoom.value.region) {
+      event.preventDefault();
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // Synthetic browser-test events may not create a capturable pointer.
+      }
     }
   }
 
@@ -417,10 +485,12 @@ export function ComicReader({
     activeGestureRef.current = null;
     isPanning.value = false;
 
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {
-      // Synthetic browser-test events may not hold pointer capture.
+    if (wasZoomed) {
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // Synthetic browser-test events may not hold pointer capture.
+      }
     }
 
     if (wasZoomed) {
@@ -430,9 +500,7 @@ export function ComicReader({
       return;
     }
 
-    if (swipe === "previous") goPrev();
-    else if (swipe === "next") goNext();
-    else if (isTapGesture(active.start, end)) handleTap(end);
+    if (isTapGesture(active.start, end)) handleTap(end);
   }
 
   function cancelPointerGesture(event: TargetedPointerEvent<HTMLDivElement>) {
@@ -441,7 +509,6 @@ export function ComicReader({
     isPanning.value = false;
   }
 
-  // Loading state
   if (isLoading.value) {
     return (
       <div
@@ -472,7 +539,6 @@ export function ComicReader({
     );
   }
 
-  // Error state
   if (error.value) {
     return (
       <div
@@ -490,100 +556,109 @@ export function ComicReader({
     );
   }
 
-  // Reader
-  const nextPageUrl = pages.value[currentPage.value + 1];
-  const imageTransform = zoom.value.region
+  const isZoomed = !!zoom.value.region;
+  const currentImageTransform = zoom.value.region
     ? `translate3d(${zoom.value.translateX}px, ${zoom.value.translateY}px, 0) scale(${zoom.value.scale})`
     : undefined;
   const nextIssueReadUrl = nextIssue ? `/comic/${nextIssue.id}/read` : null;
 
   return (
-    <div class="relative h-dvh w-dvw select-none">
-      {/* Page image */}
-      <div ref={containerRef} class="flex h-full w-full items-center justify-center overflow-hidden">
-        <img
-          ref={imageRef}
-          src={pages.value[currentPage.value]}
-          alt={`Page ${currentPage.value + 1}`}
-          class="max-h-full max-w-full object-contain will-change-transform"
-          draggable={false}
-          data-zoom-region={zoom.value.region ?? undefined}
-          onLoad={measureImage}
-          style={{
-            transform: imageTransform,
-            transformOrigin: "center center",
-            transition: isPanning.value ? "none" : "transform 150ms ease-in-out",
-          }}
-        />
-      </div>
-
-      {/* Tap zones — sit above the image but below the HUD */}
+    <div class="relative h-dvh w-dvw select-none bg-black">
       <div
-        ref={interactionLayerRef}
-        class="absolute inset-0 z-10 flex touch-none"
+        ref={scrollViewportRef}
+        class={`flex h-full w-full snap-x snap-mandatory bg-black [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+          isZoomed
+            ? "overflow-hidden touch-none"
+            : "cursor-pointer touch-pan-x overflow-x-auto overflow-y-hidden overscroll-x-contain"
+        }`}
         data-reader-gesture-layer="true"
+        data-reader-scroll-viewport="true"
+        onClick={handleViewportClick}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={finishPointerGesture}
         onPointerCancel={cancelPointerGesture}
+        onScroll={handleScroll}
+        style={{
+          display: "flex",
+          height: "100%",
+          overflowX: isZoomed ? "hidden" : "auto",
+          overflowY: "hidden",
+          scrollSnapType: "x mandatory",
+          width: "100%",
+        }}
       >
-        <button
-          type="button"
-          onClick={(event) => {
-            if (ignoreSuppressedClick(event)) return;
-            goPrev();
-          }}
-          class="group flex h-full w-1/3 cursor-pointer items-center justify-start pl-4"
-          aria-label="Previous page"
-        >
-          {/* Visible only on devices that support hover (i.e. desktop) */}
-          <span class="hidden opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:hover)]:inline-flex">
-            <Icon name="chevron-left" class="h-10 w-10 text-white/80" />
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={(event) => {
-            if (ignoreSuppressedClick(event)) return;
-            toggleUI();
-          }}
-          class="h-full w-1/3 cursor-pointer"
-          aria-label="Toggle controls"
-        />
-        <button
-          type="button"
-          onClick={(event) => {
-            if (ignoreSuppressedClick(event)) return;
-            goNext();
-          }}
-          class="group flex h-full w-1/3 cursor-pointer items-center justify-end pr-4"
-          aria-label="Next page"
-        >
-          <span class="hidden opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:hover)]:inline-flex">
-            <Icon name="chevron-right" class="h-10 w-10 text-white/80" />
-          </span>
-        </button>
+        {pages.value.map((pageUrl, index) => {
+          const isCurrentPage = index === currentPage.value;
+          const shouldLoadEagerly = Math.abs(index - currentPage.value) <= 1;
+          return (
+            <div
+              key={pageUrl}
+              ref={(element) => {
+                pageRefs.current[index] = element;
+              }}
+              class="flex h-full w-full shrink-0 snap-center items-center justify-center overflow-hidden"
+              aria-hidden={isCurrentPage ? undefined : true}
+              data-current-page={isCurrentPage ? "true" : undefined}
+              data-reader-page={index + 1}
+              style={{
+                height: "100%",
+                minWidth: "100%",
+                scrollSnapAlign: "center",
+                width: "100%",
+              }}
+            >
+              <img
+                ref={(element) => {
+                  imageRefs.current[index] = element;
+                }}
+                src={pageUrl}
+                alt={`Page ${index + 1}`}
+                class="max-h-full max-w-full object-contain will-change-transform"
+                draggable={false}
+                data-current-page={isCurrentPage ? "true" : undefined}
+                data-zoom-region={isCurrentPage ? zoom.value.region ?? undefined : undefined}
+                loading={shouldLoadEagerly ? "eager" : "lazy"}
+                decoding="async"
+                onLoad={() => {
+                  if (isCurrentPage) measureImage();
+                }}
+                style={isCurrentPage ? {
+                  transform: currentImageTransform,
+                  transformOrigin: "center center",
+                  transition: isPanning.value ? "none" : "transform 150ms ease-in-out",
+                } : undefined}
+              />
+            </div>
+          );
+        })}
       </div>
 
-      {/* Preload next page off-screen — more reliable than dynamic <link rel="preload"> */}
-      {nextPageUrl && (
-        <img
-          src={nextPageUrl}
-          alt=""
-          aria-hidden="true"
-          class="pointer-events-none absolute h-0 w-0 opacity-0"
-          loading="eager"
-          decoding="async"
-        />
-      )}
+      <button
+        type="button"
+        onClick={goPrev}
+        disabled={currentPage.value === 0}
+        class="pointer-events-auto absolute left-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center text-white/70 opacity-0 transition-opacity hover:text-white disabled:pointer-events-none disabled:opacity-0 [@media(hover:hover)]:flex [@media(hover:hover)]:hover:opacity-100"
+        aria-label="Previous page"
+      >
+        <Icon name="chevron-left" />
+      </button>
+      <button
+        type="button"
+        onClick={goNext}
+        disabled={currentPage.value >= pages.value.length - 1}
+        class="pointer-events-auto absolute right-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center text-white/70 opacity-0 transition-opacity hover:text-white disabled:pointer-events-none disabled:opacity-0 [@media(hover:hover)]:flex [@media(hover:hover)]:hover:opacity-100"
+        aria-label="Next page"
+      >
+        <Icon name="chevron-right" />
+      </button>
 
-      {/* HUD overlay */}
       {showUI.value && (
         <>
-          {/* Top bar */}
           <div class="pointer-events-none absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/80 to-transparent pb-12 pt-4">
             <div class="pointer-events-auto flex items-center gap-4 px-4">
               <button
+                type="button"
                 onClick={
                   supportsFullscreen.value
                     ? toggleFullscreen
@@ -597,6 +672,7 @@ export function ComicReader({
                 <Icon name={isFullscreen.value ? "fullscreen-exit" : "fullscreen"} />
               </button>
               <button
+                type="button"
                 onClick={navigateBack}
                 class="ml-auto flex h-10 w-10 items-center justify-center text-white/80 hover:text-white"
                 aria-label="Close reader"
@@ -606,15 +682,34 @@ export function ComicReader({
             </div>
           </div>
 
-          {/* Bottom bar */}
           <div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 to-transparent pb-4 pt-12">
-            <p
-              class="text-center text-sm font-semibold tabular-nums text-white/80"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {pageLabel}
-            </p>
+            <div class="pointer-events-auto mx-auto flex items-center justify-center gap-4 px-4">
+              <button
+                type="button"
+                onClick={goPrev}
+                disabled={currentPage.value === 0}
+                class="flex h-10 w-10 items-center justify-center text-white/70 transition-colors hover:text-white disabled:pointer-events-none disabled:text-white/20"
+                aria-label="Previous page"
+              >
+                <Icon name="chevron-left" />
+              </button>
+              <p
+                class="min-w-20 text-center text-sm font-semibold tabular-nums text-white/80"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {pageLabel}
+              </p>
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={currentPage.value >= pages.value.length - 1}
+                class="flex h-10 w-10 items-center justify-center text-white/70 transition-colors hover:text-white disabled:pointer-events-none disabled:text-white/20"
+                aria-label="Next page"
+              >
+                <Icon name="chevron-right" />
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -640,7 +735,6 @@ export function ComicReader({
           </div>
         </div>
       )}
-      {/* Add to Home Screen hint */}
       {showHomeScreenHint.value && (
         <div class="pointer-events-auto absolute inset-x-4 bottom-16 z-30 rounded-xl bg-slate-900/95 p-4 shadow-xl">
           <p class="mb-1 text-sm font-semibold text-white">Fullscreen on iOS</p>
@@ -648,6 +742,7 @@ export function ComicReader({
             Tap <span class="font-medium text-white">Share</span> → <span class="font-medium text-white">Add to Home Screen</span> to read without browser chrome.
           </p>
           <button
+            type="button"
             onClick={() => { showHomeScreenHint.value = false; }}
             class="mt-3 text-xs font-semibold text-amber-500"
           >
