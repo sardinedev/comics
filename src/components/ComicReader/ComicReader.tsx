@@ -2,15 +2,22 @@ import { useComputed, useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import { Icon } from "@components/Icon/Icon";
 import { downloadCbz, extractPages } from "./comicReader.utils";
+import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
 
+/** Props for the interactive comic reader island. */
 type ComicReaderProps = {
+  /** Issue id for the CBZ archive and progress API routes. */
   issueId: string;
+  /** Zero-based page index to show when the reader opens. */
   initialPage: number;
+  /** Optional sidecar metadata to persist when the archive is cached. */
+  cacheMetadata?: ComicCacheMetadataInput;
 };
 
 export function ComicReader({
   issueId,
   initialPage,
+  cacheMetadata,
 }: ComicReaderProps) {
   const currentPage = useSignal(0);
   const downloadProgress = useSignal(0);
@@ -61,9 +68,13 @@ export function ComicReader({
 
     (async () => {
       try {
-        const cbz = await downloadCbz(issueId, (ratio) => {
-          downloadProgress.value = ratio;
-        });
+        const cbz = await downloadCbz(
+          issueId,
+          (ratio) => {
+            downloadProgress.value = ratio;
+          },
+          cacheMetadata,
+        );
         if (cancelled) return;
 
         phase.value = "extracting";
@@ -93,7 +104,7 @@ export function ComicReader({
       cancelled = true;
       for (const url of createdUrls) URL.revokeObjectURL(url);
     };
-  }, [issueId, initialPage]);
+  }, [issueId, initialPage, cacheMetadata]);
 
   // Keyboard navigation
   useEffect(() => {

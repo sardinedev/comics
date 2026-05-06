@@ -40,6 +40,25 @@ export type SeriesFilterOptions = {
   years: string[];
 };
 
+/**
+ * Minimal issue fields required to build browser-cache sidecar metadata.
+ *
+ * This keeps the bulk cache queries small while still giving the client enough
+ * information to render cached issues without another metadata request.
+ */
+export type DownloadableIssueForCache = Pick<
+  Issue,
+  | "issue_id"
+  | "series_id"
+  | "series_name"
+  | "series_year"
+  | "issue_number"
+  | "issue_name"
+  | "issue_date"
+  | "issue_cover_url"
+  | "issue_cover_thumb_hash"
+>;
+
 type SortClause = Record<string, "asc" | "desc">;
 
 const SORT_CLAUSES: Record<SeriesSort, SortClause[]> = {
@@ -48,6 +67,18 @@ const SORT_CLAUSES: Record<SeriesSort, SortClause[]> = {
   "date-asc": [{ series_year: "asc" }, { "series_name.keyword": "asc" }],
   "date-desc": [{ series_year: "desc" }, { "series_name.keyword": "asc" }],
 };
+
+const CACHE_ISSUE_SOURCE_FIELDS = [
+  "issue_id",
+  "series_id",
+  "series_name",
+  "series_year",
+  "issue_number",
+  "issue_name",
+  "issue_date",
+  "issue_cover_url",
+  "issue_cover_thumb_hash",
+];
 
 /**
  * Fetches paginated issues for a series, sorted by issue number ascending.
@@ -88,6 +119,72 @@ export async function getSeriesIssues(
     : null;
 
   return { series, items: issues, total, page: safePage, pageSize, totalPages };
+}
+
+/**
+ * Fetches all Mylar-downloaded issues in a series for browser cache status.
+ *
+ * @param seriesId - Series id whose downloaded issues should be listed.
+ * @returns Downloaded issues with only the fields needed for cache metadata.
+ */
+export async function getDownloadedSeriesIssues(
+  seriesId: string,
+): Promise<DownloadableIssueForCache[]> {
+  const response = await elastic.search<DownloadableIssueForCache>({
+    index: ISSUES_INDEX,
+    size: 1000,
+    query: {
+      bool: {
+        filter: [
+          { term: { series_id: seriesId } },
+          { term: { download_status: "Downloaded" } },
+        ],
+      },
+    },
+    sort: [{ issue_number: "asc" }],
+    _source: CACHE_ISSUE_SOURCE_FIELDS,
+  });
+
+  return response.hits.hits.map((hit) => hit._source!).filter(Boolean);
+}
+
+/**
+ * Fetches unread Mylar-downloaded issues in a series for bulk cache downloads.
+ *
+ * Missing reading state is treated as unread so newly imported issues are
+ * eligible for the bulk cache action.
+ *
+ * @param seriesId - Series id whose unread downloaded issues should be listed.
+ * @returns Unread downloaded issues with only the fields needed for cache metadata.
+ */
+export async function getUnreadDownloadedSeriesIssues(
+  seriesId: string,
+): Promise<DownloadableIssueForCache[]> {
+  const response = await elastic.search<DownloadableIssueForCache>({
+    index: ISSUES_INDEX,
+    size: 1000,
+    query: {
+      bool: {
+        filter: [
+          { term: { series_id: seriesId } },
+          { term: { download_status: "Downloaded" } },
+          {
+            bool: {
+              should: [
+                { term: { reading_state: "unread" } },
+                { bool: { must_not: [{ exists: { field: "reading_state" } }] } },
+              ],
+              minimum_should_match: 1,
+            },
+          },
+        ],
+      },
+    },
+    sort: [{ issue_number: "asc" }],
+    _source: CACHE_ISSUE_SOURCE_FIELDS,
+  });
+
+  return response.hits.hits.map((hit) => hit._source!).filter(Boolean);
 }
 
 /**
