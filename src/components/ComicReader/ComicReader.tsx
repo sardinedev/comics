@@ -32,6 +32,7 @@ export function ComicReader({
   issueId,
   initialPage,
   nextIssue,
+  cacheMetadata,
 }: ComicReaderProps) {
   const currentPage = useSignal(0);
   const downloadProgress = useSignal(0);
@@ -280,9 +281,13 @@ export function ComicReader({
 
     (async () => {
       try {
-        const cbz = await downloadCbz(issueId, (ratio) => {
-          downloadProgress.value = ratio;
-        });
+        const cbz = await downloadCbz(
+          issueId,
+          (ratio) => {
+            downloadProgress.value = ratio;
+          },
+          cacheMetadata,
+        );
         if (cancelled) return;
 
         phase.value = "extracting";
@@ -312,7 +317,7 @@ export function ComicReader({
       cancelled = true;
       for (const url of createdUrls) URL.revokeObjectURL(url);
     };
-  }, [issueId, initialPage]);
+  }, [issueId, initialPage, cacheMetadata]);
 
   useEffect(() => {
     if (isLoading.value || pages.value.length === 0) return;

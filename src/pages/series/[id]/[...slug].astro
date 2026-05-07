@@ -1,10 +1,15 @@
 ---
 import Layout from "@layouts/Layout.astro";
-import { getSeriesIssues } from "@data/elastic/queries";
+import {
+  getDownloadedSeriesIssues,
+  getSeriesIssues,
+  getUnreadDownloadedSeriesIssues,
+} from "@data/elastic/queries";
 import {
   getVolumeDetails,
   getIssuesFromVolume,
 } from "@data/comicvine/comicvine";
+import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
 import type { ComicvineVolume } from "@data/comicvine/comicvine.types";
 import { Image } from "astro:assets";
 import Breadcrumbs from "@components/Breadcrumbs.astro";
@@ -13,6 +18,7 @@ import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import Icon from "@components/Icon/Icon.astro";
 import PageHeading from "@components/PageHeading.astro";
 import CoverGrid from "@components/CoverGrid.astro";
+import { BulkDownload } from "@components/ComicCache/BulkDownload";
 
 const { id } = Astro.params;
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
@@ -40,6 +46,39 @@ if (!series) {
   cvPageIssues =
     (await getIssuesFromVolume(id!, offset))?.slice(0, CV_PAGE_SIZE) ?? [];
   cvTotalPages = Math.ceil((cvVolume.count_of_issues ?? 0) / CV_PAGE_SIZE);
+}
+
+/**
+ * Converts an Elasticsearch issue document into browser-cache sidecar metadata.
+ *
+ * @param issue - Downloaded issue source returned by the cache query helpers.
+ * @returns Metadata shape consumed by the bulk cache island.
+ */
+function toCacheMetadata(
+  issue: Awaited<ReturnType<typeof getDownloadedSeriesIssues>>[number],
+): ComicCacheMetadataInput {
+  return {
+    issueId: issue.issue_id,
+    seriesId: issue.series_id,
+    seriesName: issue.series_name,
+    seriesYear: issue.series_year,
+    issueNumber: issue.issue_number,
+    issueName: issue.issue_name ?? undefined,
+    issueDate: issue.issue_date,
+    coverUrl: issue.issue_cover_url,
+    coverThumbHash: issue.issue_cover_thumb_hash,
+  };
+}
+
+let downloadedIssues: ComicCacheMetadataInput[] = [];
+let bulkDownloadIssues: ComicCacheMetadataInput[] = [];
+if (series) {
+  const [allDownloadedIssues, unreadDownloadedIssues] = await Promise.all([
+    getDownloadedSeriesIssues(id!),
+    getUnreadDownloadedSeriesIssues(id!),
+  ]);
+  downloadedIssues = allDownloadedIssues.map(toCacheMetadata);
+  bulkDownloadIssues = unreadDownloadedIssues.map(toCacheMetadata);
 }
 
 // Normalise to a common shape for the template
@@ -129,8 +168,19 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
       </div>
 
       <!-- Meta -->
-      <div class="flex flex-1 flex-col gap-1">
-        <PageHeading>{name}</PageHeading>
+      <div class="flex flex-1 flex-col self-start gap-1">
+        <div class="flex items-start justify-between gap-4">
+          <PageHeading class="min-w-0 flex-1">{name}</PageHeading>
+          {
+            series && downloadedIssues.length > 0 && (
+              <BulkDownload
+                client:only="preact"
+                issues={bulkDownloadIssues}
+                downloadedIssues={downloadedIssues}
+              />
+            )
+          }
+        </div>
         <div class="flex flex-wrap items-center gap-4 text-sm text-slate-400">
           {
             publisher && (
@@ -145,47 +195,56 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
           {
             year && (
               <>
-                <>
-                  <span class="text-slate-700">·</span>
-                  <a
-                    href={`/series?year=${year}&page=1`}
-                    class="hover:text-amber-500 transition-colors"
-                  >
-                    {year}
-                  </a>
-                </>
+                <span class="text-slate-700">·</span>
+                <a
+                  href={`/series?year=${year}&page=1`}
+                  class="hover:text-amber-500 transition-colors"
+                >
+                  {year}
+                </a>
               </>
             )
           }
           {
             totalIssues && (
               <>
-                <>
-                  <span class="text-slate-700">·</span>
-                  <span>{totalIssues} issues</span>
-                </>
+                <span class="text-slate-700">·</span>
+                <span>{totalIssues} issues</span>
               </>
             )
           }
           {
             readingCount > 0 && (
               <>
-                <>
-                  <span class="text-slate-700">·</span>
-                  <span class="text-amber-500">{readingCount} in progress</span>
-                </>
+                <span class="text-slate-700">·</span>
+                <span>
+                  <span class="font-semibold text-amber-500">
+                    {readingCount}
+                  </span>{" "}
+                  in progress
+                </span>
+              </>
+            )
+          }
+          {
+            readCount > 0 && (
+              <>
+                <span class="text-slate-700">·</span>
+                <span>Read</span>
+                <span>
+                  <span class="font-semibold text-amber-500">{readCount}</span>{" "}
+                  / {total}
+                </span>
               </>
             )
           }
           {
             cvVolume && (
               <>
-                <>
-                  <span class="text-slate-700">·</span>
-                  <span class="text-xs font-bold uppercase tracking-widest text-slate-600">
-                    Not in library
-                  </span>
-                </>
+                <span class="text-slate-700">·</span>
+                <span class="text-xs font-bold uppercase tracking-widest text-slate-600">
+                  Not in library
+                </span>
               </>
             )
           }
@@ -209,23 +268,12 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
             </div>
           )
         }
-      </div>
 
-      {
-        readCount > 0 && (
-          <div class="flex max-w-sm flex-col gap-1.5">
-            <div class="flex justify-between text-xs text-slate-600">
-              <span class="uppercase tracking-widest">Read</span>
-              <span class="font-semibold text-amber-500">
-                {readCount} / {total}
-              </span>
-            </div>
-            <div class="h-1 w-full overflow-hidden bg-slate-800">
-              <div class="h-full bg-amber-500" style={`width: ${readPct}%`} />
-            </div>
-          </div>
-        )
-      }
+        <div class="h-1 mt-2 w-full overflow-hidden bg-slate-800">
+          <div class="h-full bg-amber-500" style={`width: ${readPct}%`}></div>
+        </div>
+
+      </div>
     </div>
   </div>
   <!-- Elastic: full issue grid with reading state -->

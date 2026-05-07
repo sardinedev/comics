@@ -1,3 +1,5 @@
+import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
+
 export type GesturePoint = {
   x: number;
   y: number;
@@ -49,6 +51,7 @@ export type ComicReaderProps = {
   issueId: string;
   initialPage: number;
   nextIssue?: NextIssueSummary;
+  cacheMetadata?: ComicCacheMetadataInput;
 };
 
 export type ReaderZoomState = {
