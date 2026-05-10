@@ -21,6 +21,9 @@ import {
 import Layout from "@layouts/Layout.astro";
 
 const { id } = Astro.params;
+
+if (!id) return Astro.redirect("/series");
+
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
 const CV_PAGE_SIZE = 24;
 const {
@@ -28,7 +31,7 @@ const {
 	items: issues,
 	totalPages,
 	total,
-} = await getSeriesIssues(id!, currentPage, CV_PAGE_SIZE);
+} = await getSeriesIssues(id, currentPage, CV_PAGE_SIZE);
 
 let cvVolume: ComicvineVolume | null = null;
 let cvPageIssues: Awaited<ReturnType<typeof getIssuesFromVolume>> = [];
@@ -36,7 +39,7 @@ let cvTotalPages = 0;
 
 if (!series) {
 	try {
-		cvVolume = await getVolumeDetails(id!);
+		cvVolume = await getVolumeDetails(id);
 	} catch {
 		cvVolume = null;
 	}
@@ -44,7 +47,7 @@ if (!series) {
 
 	const offset = (currentPage - 1) * CV_PAGE_SIZE;
 	cvPageIssues =
-		(await getIssuesFromVolume(id!, offset))?.slice(0, CV_PAGE_SIZE) ?? [];
+		(await getIssuesFromVolume(id, offset))?.slice(0, CV_PAGE_SIZE) ?? [];
 	cvTotalPages = Math.ceil((cvVolume.count_of_issues ?? 0) / CV_PAGE_SIZE);
 }
 
@@ -74,18 +77,18 @@ let downloadedIssues: ComicCacheMetadataInput[] = [];
 let bulkDownloadIssues: ComicCacheMetadataInput[] = [];
 if (series) {
 	const [allDownloadedIssues, unreadDownloadedIssues] = await Promise.all([
-		getDownloadedSeriesIssues(id!),
-		getUnreadDownloadedSeriesIssues(id!),
+		getDownloadedSeriesIssues(id),
+		getUnreadDownloadedSeriesIssues(id),
 	]);
 	downloadedIssues = allDownloadedIssues.map(toCacheMetadata);
 	bulkDownloadIssues = unreadDownloadedIssues.map(toCacheMetadata);
 }
 
 // Normalise to a common shape for the template
-const name = series?.series_name ?? cvVolume!.name;
-const year = series?.series_year ?? cvVolume!.start_year;
-const publisher = series?.series_publisher ?? cvVolume!.publisher?.name;
-const totalIssues = series?.series_total_issues ?? cvVolume!.count_of_issues;
+const name = series?.series_name ?? cvVolume?.name ?? "Series";
+const year = series?.series_year ?? cvVolume?.start_year;
+const publisher = series?.series_publisher ?? cvVolume?.publisher?.name;
+const totalIssues = series?.series_total_issues ?? cvVolume?.count_of_issues;
 
 const readCount = issues.filter((i) => i.reading_state === "read").length;
 const readingCount = issues.filter((i) => i.reading_state === "reading").length;
@@ -117,12 +120,10 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
 				{cover2 ? (
             <div class="absolute left-6 top-3 h-[220px] w-[148px] rotate-6 overflow-hidden rounded-sm shadow-xl ring-1 ring-white/10">
               <Image
-                src={new URL(cover2!, Astro.url).toString()}
+                src={new URL(cover2, Astro.url).toString()}
                 alt={`${name} #2`}
                 widths={[183, 275, 366]}
                 sizes="(max-width: 640px) 183px, 210px"
-                width={210}
-                height={320}
                 quality="mid"
                 format="avif"
                 width={148}
@@ -139,12 +140,10 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
 				>
 					{cover1 ? (
               <Image
-                src={new URL(cover1!, Astro.url).toString()}
+                src={new URL(cover1, Astro.url).toString()}
                 alt={`${name} #2`}
                 widths={[183, 275, 366]}
                 sizes="(max-width: 640px) 183px, 210px"
-                width={210}
-                height={320}
                 quality="mid"
                 format="avif"
                 width={148}
@@ -235,6 +234,7 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
 				{cvVolume && (
             <div class="flex items-center gap-3">
               <button
+                type="button"
                 id="add-to-library-btn"
                 data-series-id={id}
                 class="group flex items-center gap-2 bg-amber-500 px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"

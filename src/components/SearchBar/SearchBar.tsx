@@ -196,17 +196,17 @@ export function SearchBar() {
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
-		const el = dialogRef.current;
-		if (!el) return;
-
 		function openDialog() {
+			const dialog = dialogRef.current;
+			if (!dialog) return;
+
 			query.value = "";
 			libraryResults.value = [];
 			cvResults.value = [];
 			loadingLibrary.value = false;
 			loadingCV.value = false;
 			activeIndex.value = -1;
-			el!.showModal();
+			dialog.showModal();
 			requestAnimationFrame(() => inputRef.current?.focus());
 		}
 
@@ -219,10 +219,15 @@ export function SearchBar() {
 		if (e.target === dialogRef.current) dialogRef.current?.close();
 	}
 
+	function onDialogKeyDown(e: KeyboardEvent) {
+		if (e.key === "Escape") dialogRef.current?.close();
+	}
+
 	return (
 		<dialog
 			ref={dialogRef}
 			onClick={onDialogClick}
+			onKeyDown={onDialogKeyDown}
 			data-scroll="Dialog"
 			class="m-0 w-full max-w-none border-0 bg-transparent p-0 backdrop:bg-black/70 backdrop:backdrop-blur-sm"
 			style="top: 0; left: 0; height: 100dvh; max-height: 100dvh;"
@@ -247,13 +252,10 @@ export function SearchBar() {
 						ref={inputRef}
 						type="search"
 						autoComplete="off"
-						spellCheck={false}
+						spellcheck={false}
 						placeholder="Search series…"
 						aria-label="Search series"
-						aria-autocomplete="list"
 						aria-controls="search-listbox"
-						role="combobox"
-						aria-expanded={hasAnyResults.value}
 						value={query.value}
 						onInput={onQueryInput}
 						onKeyDown={onKeyDown}
@@ -273,21 +275,17 @@ export function SearchBar() {
 
 				{/* Results */}
 				{hasAnyResults.value && (
-					<ul id="search-listbox" role="listbox" aria-label="Search results">
+					<ul id="search-listbox" aria-label="Search results">
 						{/* Library section */}
 						{libraryResults.value.length > 0 && (
 							<>
-								<li role="presentation">
+								<li>
 									<SectionLabel loading={loadingLibrary.value}>
 										In your library
 									</SectionLabel>
 								</li>
 								{libraryResults.value.slice(0, 5).map((r, i) => (
-									<li
-										key={r.series_id}
-										role="option"
-										aria-selected={activeIndex.value === i}
-									>
+									<li key={r.series_id}>
 										<ResultItem
 											cover={r.series_cover_url}
 											name={r.series_name}
@@ -303,7 +301,7 @@ export function SearchBar() {
 									</li>
 								))}
 								{libraryResults.value.length === SEARCH_RESULT_LIMIT && (
-									<li role="presentation">
+									<li>
 										<a
 											href={`/search?q=${encodeURIComponent(query.value.trim())}`}
 											class="flex items-center gap-1.5 border-t border-slate-800 px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-amber-500 transition-colors hover:bg-slate-800/60"
@@ -329,17 +327,13 @@ export function SearchBar() {
 						{/* ComicVine section */}
 						{cvResults.value.length > 0 && (
 							<>
-								<li role="presentation">
+								<li>
 									<SectionLabel loading={loadingCV.value}>
 										ComicVine
 									</SectionLabel>
 								</li>
 								{cvResults.value.slice(0, 5).map((r, i) => (
-									<li
-										key={r.id}
-										role="option"
-										aria-selected={activeIndex.value === cvOffset.value + i}
-									>
+									<li key={r.id}>
 										<ResultItem
 											cover={r.cover_url}
 											name={r.name}
@@ -355,7 +349,7 @@ export function SearchBar() {
 									</li>
 								))}
 								{cvResults.value.length === SEARCH_RESULT_LIMIT && (
-									<li role="presentation">
+									<li>
 										<a
 											href={`/search?q=${encodeURIComponent(query.value.trim())}`}
 											class="flex items-center gap-1.5 border-t border-slate-800 px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-amber-500 transition-colors hover:bg-slate-800/60"

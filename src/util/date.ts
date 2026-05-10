@@ -12,7 +12,7 @@ export function thisWeekBookendsDates(): {
 
 	// Calculate the start of the week (Monday)
 	const startOfWeek = new Date(
-		now.setDate(now.getDate() - now.getDay() + (now.getDay() == 0 ? -6 : 1)),
+		now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)),
 	);
 
 	// Calculate the end of the week (Sunday)

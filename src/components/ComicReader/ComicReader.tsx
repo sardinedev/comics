@@ -453,6 +453,12 @@ export function ComicReader({
 		handleTap({ x: event.clientX, y: event.clientY, time: event.timeStamp });
 	}
 
+	function handleViewportKeyDown(event: KeyboardEvent) {
+		if (event.key !== "Enter") return;
+		event.preventDefault();
+		toggleUI();
+	}
+
 	function handlePointerDown(event: TargetedPointerEvent<HTMLDivElement>) {
 		if (event.pointerType === "mouse" || !event.isPrimary) return;
 
@@ -605,6 +611,8 @@ export function ComicReader({
 		<div class="relative h-dvh w-dvw select-none bg-black">
 			<div
 				ref={scrollViewportRef}
+				role="application"
+				aria-label="Comic reader pages"
 				class={`flex h-full w-full snap-x snap-mandatory bg-black [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
 					isZoomed
 						? "overflow-hidden touch-none"
@@ -617,6 +625,7 @@ export function ComicReader({
 				onPointerMove={handlePointerMove}
 				onPointerUp={finishPointerGesture}
 				onPointerCancel={cancelPointerGesture}
+				onKeyDown={handleViewportKeyDown}
 				onScroll={handleScroll}
 				style={{
 					display: "flex",

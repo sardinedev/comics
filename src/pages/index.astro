@@ -291,7 +291,9 @@ function initHeroCarousel(root: HTMLElement) {
 		},
 		{ root: track, threshold: [0.5, 0.75] },
 	);
-	slides.forEach((slide) => observer.observe(slide));
+	slides.forEach((slide) => {
+		observer.observe(slide);
+	});
 }
 
 document

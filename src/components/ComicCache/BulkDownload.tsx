@@ -174,10 +174,9 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
 						<span class="text-[10px] font-bold uppercase tracking-widest text-slate-600">
 							Cache
 						</span>
-						<div
-							role="group"
+						<fieldset
 							aria-label={`${cachedCount} of ${downloadedIssues.length} downloaded`}
-							class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500"
+							class="m-0 flex min-w-0 items-center gap-2 border-0 p-0 text-xs font-bold uppercase tracking-widest text-slate-500"
 						>
 							{phase === "checking" ? (
 								<span>Checking cache</span>
@@ -190,7 +189,7 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
 									<span>downloaded</span>
 								</>
 							)}
-						</div>
+						</fieldset>
 					</div>
 
 					<div class="flex flex-col p-2">

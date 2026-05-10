@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-newsreader);
+	--font-sans: var(--font-inter);
+	--font-display: var(--font-newsreader);
 }
 
 @layer base {
