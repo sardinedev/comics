@@ -67,7 +67,7 @@ const heroSlides = await Promise.all(
                 <div class="grid grid-cols-1 items-center gap-8 sm:grid-cols-2">
                   {/* Cover image — first on mobile, left column on sm+ */}
                   <div
-                    class="relative mx-auto h-[340px] w-[220px] overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10 sm:ml-auto sm:mr-8"
+                    class="relative mx-auto aspect-[2/3] w-[220px] overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10 sm:ml-auto sm:mr-8"
                     style={
                       placeholderUrl
                         ? `background-image: url(${placeholderUrl}); background-size: cover; background-position: center;`
@@ -82,9 +82,9 @@ const heroSlides = await Promise.all(
                         ).toString()}
                         alt={`Cover for ${issue.series_name} #${issue.issue_number}`}
                         widths={[183, 275, 366]}
-                        sizes="(max-width: 640px) 183px, 210px"
-                        width={210}
-                        height={320}
+                        sizes="220px"
+                        width={220}
+                        height={330}
                         quality="mid"
                         format="avif"
                         loading={index === 0 ? "eager" : "lazy"}
