@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { mylarDownloadIssue } from "../data/mylar/mylar";
-import { unzipSync } from "fflate";
+import { unzip } from "fflate";
 import sharp from "sharp";
 import { rgbaToThumbHash } from "thumbhash";
 import { env } from "@lib/env";
@@ -146,20 +146,33 @@ export async function extractCoverFromCbz(archiveData: Uint8Array): Promise<Uint
   console.info(`Parsing CBZ (ZIP) archive: ${(archiveData.length / 1024 / 1024).toFixed(2)} MB`);
 
   try {
-    const entries = unzipSync(archiveData, {
-      filter: (file) =>
-        !file.name.startsWith("__MACOSX/") && isImageFile(file.name),
+    return new Promise<Uint8Array | null>((resolve) => {
+      unzip(
+        archiveData,
+        {
+          filter: (file) =>
+            !file.name.startsWith("__MACOSX/") && isImageFile(file.name),
+        },
+        (err, entries) => {
+          if (err) {
+            console.error("Error extracting cover from CBZ:", err);
+            resolve(null);
+            return;
+          }
+
+          const sortedPaths = Object.keys(entries).sort((a, b) => a.localeCompare(b));
+          if (sortedPaths.length === 0) {
+            console.error("No image files found in CBZ archive");
+            resolve(null);
+            return;
+          }
+
+          const coverPath = sortedPaths[0];
+          console.info(`Extracted cover: ${coverPath}`);
+          resolve(entries[coverPath]);
+        }
+      );
     });
-
-    const sortedPaths = Object.keys(entries).sort((a, b) => a.localeCompare(b));
-    if (sortedPaths.length === 0) {
-      console.error("No image files found in CBZ archive");
-      return null;
-    }
-
-    const coverPath = sortedPaths[0];
-    console.info(`Extracted cover: ${coverPath}`);
-    return entries[coverPath];
   } catch (error) {
     console.error("Error extracting cover from CBZ:", error);
     return null;
