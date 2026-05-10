@@ -45,6 +45,12 @@ function importMetaEnv(key: string): string | undefined {
 			return import.meta.env.PUBLIC_COMICVINE_URL;
 		case "PUBLIC_URL":
 			return import.meta.env.PUBLIC_URL;
+		case "SYNC_CACHE_COVERS":
+			return import.meta.env.SYNC_CACHE_COVERS;
+		case "SYNC_ENRICH_COMICVINE":
+			return import.meta.env.SYNC_ENRICH_COMICVINE;
+		case "SYNC_SERIES_LIMIT":
+			return import.meta.env.SYNC_SERIES_LIMIT;
 		default:
 			return undefined;
 	}

@@ -197,7 +197,6 @@ export async function completeSyncRun(
 		status: "completed",
 		completed_at: timestamp,
 		series_seen: stats.seriesSeen,
-		series_total: stats.seriesSynced,
 		...statsToRunUpdate(stats),
 		current_series_id: null,
 		current_series_name: null,

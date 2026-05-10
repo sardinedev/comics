@@ -4,14 +4,14 @@ import {
 	createSyncRunProgressReporter,
 	failSyncRun,
 } from "@data/elastic/syncRuns";
+import { env } from "@lib/env";
 import { syncMylarToElastic } from "./mylar-to-elastic";
 
 const enrichFromComicVine =
-	(process.env.SYNC_ENRICH_COMICVINE ?? "false") === "true";
-const cacheCovers = (process.env.SYNC_CACHE_COVERS ?? "true") === "true";
-const seriesLimit = process.env.SYNC_SERIES_LIMIT
-	? Number(process.env.SYNC_SERIES_LIMIT)
-	: undefined;
+	(env("SYNC_ENRICH_COMICVINE") ?? "false") === "true";
+const cacheCovers = (env("SYNC_CACHE_COVERS") ?? "true") === "true";
+const syncSeriesLimit = env("SYNC_SERIES_LIMIT");
+const seriesLimit = syncSeriesLimit ? Number(syncSeriesLimit) : undefined;
 
 let syncRunId: string | undefined;
 let progressReporter:

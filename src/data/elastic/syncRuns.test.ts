@@ -152,7 +152,6 @@ describe("syncRuns", () => {
 			doc: expect.objectContaining({
 				status: "completed",
 				series_seen: 4,
-				series_total: 2,
 				issues_upserted: 20,
 				issues_enriched: 3,
 				covers_cached: 8,
@@ -161,6 +160,9 @@ describe("syncRuns", () => {
 				last_error: null,
 			}),
 		});
+		expect(elasticState.update.mock.lastCall?.[0].doc).not.toHaveProperty(
+			"series_total",
+		);
 
 		await syncRuns.failSyncRun("run-1", new Error("ComicVine rate limit"));
 
