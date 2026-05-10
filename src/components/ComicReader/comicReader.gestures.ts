@@ -1,14 +1,14 @@
 import type {
-  GesturePoint,
-  HorizontalPanEdge,
-  ImageMetrics,
-  PanBounds,
-  Rect,
-  Size,
-  SwipeDirection,
-  TapZone,
-  ZoomRegion,
-  ZoomTransform,
+	GesturePoint,
+	HorizontalPanEdge,
+	ImageMetrics,
+	PanBounds,
+	Rect,
+	Size,
+	SwipeDirection,
+	TapZone,
+	ZoomRegion,
+	ZoomTransform,
 } from "./comicReader.types";
 
 export const TAP_MAX_DISTANCE_PX = 12;
@@ -27,7 +27,7 @@ export const PAN_EDGE_TOLERANCE_PX = 2;
  * @returns The Euclidean distance between the points, in pixels.
  */
 function distance(first: GesturePoint, second: GesturePoint): number {
-  return Math.hypot(second.x - first.x, second.y - first.y);
+	return Math.hypot(second.x - first.x, second.y - first.y);
 }
 
 /**
@@ -39,8 +39,8 @@ function distance(first: GesturePoint, second: GesturePoint): number {
  * @returns The clamped value.
  */
 function clamp(value: number, min: number, max: number): number {
-  const clamped = Math.min(max, Math.max(min, value));
-  return Object.is(clamped, -0) ? 0 : clamped;
+	const clamped = Math.min(max, Math.max(min, value));
+	return Object.is(clamped, -0) ? 0 : clamped;
 }
 
 /**
@@ -51,10 +51,10 @@ function clamp(value: number, min: number, max: number): number {
  * @returns The tap zone that should handle the pointer position.
  */
 export function getTapZone(x: number, width: number): TapZone {
-  const third = width / 3;
-  if (x < third) return "previous";
-  if (x > third * 2) return "next";
-  return "controls";
+	const third = width / 3;
+	if (x < third) return "previous";
+	if (x > third * 2) return "next";
+	return "controls";
 }
 
 /**
@@ -65,7 +65,7 @@ export function getTapZone(x: number, width: number): TapZone {
  * @returns The page half that contains the pointer position.
  */
 export function getPointZoomRegion(x: number, width: number): ZoomRegion {
-  return x < width / 2 ? "left" : "right";
+	return x < width / 2 ? "left" : "right";
 }
 
 /**
@@ -76,7 +76,7 @@ export function getPointZoomRegion(x: number, width: number): ZoomRegion {
  * @returns Whether the interaction should be treated as a tap.
  */
 export function isTapGesture(start: GesturePoint, end: GesturePoint): boolean {
-  return distance(start, end) <= TAP_MAX_DISTANCE_PX;
+	return distance(start, end) <= TAP_MAX_DISTANCE_PX;
 }
 
 /**
@@ -86,12 +86,15 @@ export function isTapGesture(start: GesturePoint, end: GesturePoint): boolean {
  * @param next - The latest tap point.
  * @returns Whether the two taps should trigger a double-tap action.
  */
-export function isDoubleTap(previous: GesturePoint | null, next: GesturePoint): boolean {
-  if (!previous) return false;
-  return (
-    next.time - previous.time <= DOUBLE_TAP_MAX_DELAY_MS &&
-    distance(previous, next) <= DOUBLE_TAP_MAX_DISTANCE_PX
-  );
+export function isDoubleTap(
+	previous: GesturePoint | null,
+	next: GesturePoint,
+): boolean {
+	if (!previous) return false;
+	return (
+		next.time - previous.time <= DOUBLE_TAP_MAX_DELAY_MS &&
+		distance(previous, next) <= DOUBLE_TAP_MAX_DISTANCE_PX
+	);
 }
 
 /**
@@ -101,17 +104,20 @@ export function isDoubleTap(previous: GesturePoint | null, next: GesturePoint): 
  * @param end - The pointer-up point.
  * @returns The page-navigation direction, or `null` when the gesture is not a swipe.
  */
-export function classifySwipe(start: GesturePoint, end: GesturePoint): SwipeDirection | null {
-  const deltaX = end.x - start.x;
-  const deltaY = end.y - start.y;
-  const absX = Math.abs(deltaX);
-  const absY = Math.abs(deltaY);
+export function classifySwipe(
+	start: GesturePoint,
+	end: GesturePoint,
+): SwipeDirection | null {
+	const deltaX = end.x - start.x;
+	const deltaY = end.y - start.y;
+	const absX = Math.abs(deltaX);
+	const absY = Math.abs(deltaY);
 
-  if (absX < SWIPE_MIN_DISTANCE_PX) return null;
-  if (absY > SWIPE_MAX_VERTICAL_PX) return null;
-  if (absX < absY * 1.25) return null;
+	if (absX < SWIPE_MIN_DISTANCE_PX) return null;
+	if (absY > SWIPE_MAX_VERTICAL_PX) return null;
+	if (absX < absY * 1.25) return null;
 
-  return deltaX < 0 ? "next" : "previous";
+	return deltaX < 0 ? "next" : "previous";
 }
 
 /**
@@ -122,20 +128,28 @@ export function classifySwipe(start: GesturePoint, end: GesturePoint): SwipeDire
  * @returns The image rectangle after object-contain scaling and centering.
  */
 export function getContainedImageRect(container: Size, natural: Size): Rect {
-  if (container.width <= 0 || container.height <= 0 || natural.width <= 0 || natural.height <= 0) {
-    return { x: 0, y: 0, width: 0, height: 0 };
-  }
+	if (
+		container.width <= 0 ||
+		container.height <= 0 ||
+		natural.width <= 0 ||
+		natural.height <= 0
+	) {
+		return { x: 0, y: 0, width: 0, height: 0 };
+	}
 
-  const scale = Math.min(container.width / natural.width, container.height / natural.height);
-  const width = natural.width * scale;
-  const height = natural.height * scale;
+	const scale = Math.min(
+		container.width / natural.width,
+		container.height / natural.height,
+	);
+	const width = natural.width * scale;
+	const height = natural.height * scale;
 
-  return {
-    x: (container.width - width) / 2,
-    y: (container.height - height) / 2,
-    width,
-    height,
-  };
+	return {
+		x: (container.width - width) / 2,
+		y: (container.height - height) / 2,
+		width,
+		height,
+	};
 }
 
 /**
@@ -145,8 +159,8 @@ export function getContainedImageRect(container: Size, natural: Size): Rect {
  * @returns Whether the image is wide enough to receive half-page zoom behavior.
  */
 export function isDoublePageSpread(natural: Size): boolean {
-  if (natural.height <= 0) return false;
-  return natural.width / natural.height >= DOUBLE_PAGE_MIN_ASPECT_RATIO;
+	if (natural.height <= 0) return false;
+	return natural.width / natural.height >= DOUBLE_PAGE_MIN_ASPECT_RATIO;
 }
 
 /**
@@ -157,16 +171,16 @@ export function isDoublePageSpread(natural: Size): boolean {
  * @returns The translation bounds that keep the zoomed image covering the viewport.
  */
 export function getZoomBounds(metrics: ImageMetrics, scale: number): PanBounds {
-  const fit = getContainedImageRect(metrics.container, metrics.natural);
-  const maxX = Math.max(0, (fit.width * scale - metrics.container.width) / 2);
-  const maxY = Math.max(0, (fit.height * scale - metrics.container.height) / 2);
+	const fit = getContainedImageRect(metrics.container, metrics.natural);
+	const maxX = Math.max(0, (fit.width * scale - metrics.container.width) / 2);
+	const maxY = Math.max(0, (fit.height * scale - metrics.container.height) / 2);
 
-  return {
-    minX: -maxX,
-    maxX,
-    minY: -maxY,
-    maxY,
-  };
+	return {
+		minX: -maxX,
+		maxX,
+		minY: -maxY,
+		maxY,
+	};
 }
 
 /**
@@ -178,14 +192,14 @@ export function getZoomBounds(metrics: ImageMetrics, scale: number): PanBounds {
  * @returns The clamped translation values.
  */
 export function clampZoomTranslation(
-  translateX: number,
-  translateY: number,
-  bounds: PanBounds,
+	translateX: number,
+	translateY: number,
+	bounds: PanBounds,
 ): { translateX: number; translateY: number } {
-  return {
-    translateX: clamp(translateX, bounds.minX, bounds.maxX),
-    translateY: clamp(translateY, bounds.minY, bounds.maxY),
-  };
+	return {
+		translateX: clamp(translateX, bounds.minX, bounds.maxX),
+		translateY: clamp(translateY, bounds.minY, bounds.maxY),
+	};
 }
 
 /**
@@ -195,23 +209,30 @@ export function clampZoomTranslation(
  * @param region - The page half to bring into focus.
  * @returns The zoom scale and translation for the selected half-page region.
  */
-export function getHalfPageZoomTarget(metrics: ImageMetrics, region: ZoomRegion): ZoomTransform {
-  const fit = getContainedImageRect(metrics.container, metrics.natural);
-  const halfWidth = fit.width / 2;
-  const scale = Math.max(
-    1,
-    Math.min(metrics.container.width / halfWidth, metrics.container.height / fit.height),
-  );
-  const bounds = getZoomBounds(metrics, scale);
-  const preferredTranslateX = region === "left" ? (fit.width * scale) / 4 : -(fit.width * scale) / 4;
-  const translation = clampZoomTranslation(preferredTranslateX, 0, bounds);
+export function getHalfPageZoomTarget(
+	metrics: ImageMetrics,
+	region: ZoomRegion,
+): ZoomTransform {
+	const fit = getContainedImageRect(metrics.container, metrics.natural);
+	const halfWidth = fit.width / 2;
+	const scale = Math.max(
+		1,
+		Math.min(
+			metrics.container.width / halfWidth,
+			metrics.container.height / fit.height,
+		),
+	);
+	const bounds = getZoomBounds(metrics, scale);
+	const preferredTranslateX =
+		region === "left" ? (fit.width * scale) / 4 : -(fit.width * scale) / 4;
+	const translation = clampZoomTranslation(preferredTranslateX, 0, bounds);
 
-  return {
-    region,
-    scale,
-    translateX: translation.translateX,
-    translateY: translation.translateY,
-  };
+	return {
+		region,
+		scale,
+		translateX: translation.translateX,
+		translateY: translation.translateY,
+	};
 }
 
 /**
@@ -223,12 +244,12 @@ export function getHalfPageZoomTarget(metrics: ImageMetrics, region: ZoomRegion)
  * @returns The reached horizontal edge, or `null` when the image is not at an edge.
  */
 export function getHorizontalPanEdge(
-  translateX: number,
-  bounds: PanBounds,
-  tolerance = PAN_EDGE_TOLERANCE_PX,
+	translateX: number,
+	bounds: PanBounds,
+	tolerance = PAN_EDGE_TOLERANCE_PX,
 ): HorizontalPanEdge {
-  if (bounds.maxX === 0 && bounds.minX === 0) return null;
-  if (translateX >= bounds.maxX - tolerance) return "left";
-  if (translateX <= bounds.minX + tolerance) return "right";
-  return null;
+	if (bounds.maxX === 0 && bounds.minX === 0) return null;
+	if (translateX >= bounds.maxX - tolerance) return "left";
+	if (translateX <= bounds.minX + tolerance) return "right";
+	return null;
 }

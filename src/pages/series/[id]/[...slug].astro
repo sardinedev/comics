@@ -1,51 +1,54 @@
 ---
-import Layout from "@layouts/Layout.astro";
-import {
-  getDownloadedSeriesIssues,
-  getSeriesIssues,
-  getUnreadDownloadedSeriesIssues,
-} from "@data/elastic/queries";
-import {
-  getVolumeDetails,
-  getIssuesFromVolume,
-} from "@data/comicvine/comicvine";
-import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
-import type { ComicvineVolume } from "@data/comicvine/comicvine.types";
 import { Image } from "astro:assets";
 import Breadcrumbs from "@components/Breadcrumbs.astro";
-import PageNavigator from "@components/PageNavigator.astro";
+import { BulkDownload } from "@components/ComicCache/BulkDownload";
+import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
+import CoverGrid from "@components/CoverGrid.astro";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import Icon from "@components/Icon/Icon.astro";
 import PageHeading from "@components/PageHeading.astro";
-import CoverGrid from "@components/CoverGrid.astro";
-import { BulkDownload } from "@components/ComicCache/BulkDownload";
+import PageNavigator from "@components/PageNavigator.astro";
+import {
+	getIssuesFromVolume,
+	getVolumeDetails,
+} from "@data/comicvine/comicvine";
+import type { ComicvineVolume } from "@data/comicvine/comicvine.types";
+import {
+	getDownloadedSeriesIssues,
+	getSeriesIssues,
+	getUnreadDownloadedSeriesIssues,
+} from "@data/elastic/queries";
+import Layout from "@layouts/Layout.astro";
 
 const { id } = Astro.params;
+
+if (!id) return Astro.redirect("/series");
+
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
 const CV_PAGE_SIZE = 24;
 const {
-  series,
-  items: issues,
-  totalPages,
-  total,
-} = await getSeriesIssues(id!, currentPage, CV_PAGE_SIZE);
+	series,
+	items: issues,
+	totalPages,
+	total,
+} = await getSeriesIssues(id, currentPage, CV_PAGE_SIZE);
 
 let cvVolume: ComicvineVolume | null = null;
 let cvPageIssues: Awaited<ReturnType<typeof getIssuesFromVolume>> = [];
 let cvTotalPages = 0;
 
 if (!series) {
-  try {
-    cvVolume = await getVolumeDetails(id!);
-  } catch {
-    cvVolume = null;
-  }
-  if (!cvVolume) return Astro.redirect("/series");
+	try {
+		cvVolume = await getVolumeDetails(id);
+	} catch {
+		cvVolume = null;
+	}
+	if (!cvVolume) return Astro.redirect("/series");
 
-  const offset = (currentPage - 1) * CV_PAGE_SIZE;
-  cvPageIssues =
-    (await getIssuesFromVolume(id!, offset))?.slice(0, CV_PAGE_SIZE) ?? [];
-  cvTotalPages = Math.ceil((cvVolume.count_of_issues ?? 0) / CV_PAGE_SIZE);
+	const offset = (currentPage - 1) * CV_PAGE_SIZE;
+	cvPageIssues =
+		(await getIssuesFromVolume(id, offset))?.slice(0, CV_PAGE_SIZE) ?? [];
+	cvTotalPages = Math.ceil((cvVolume.count_of_issues ?? 0) / CV_PAGE_SIZE);
 }
 
 /**
@@ -55,37 +58,37 @@ if (!series) {
  * @returns Metadata shape consumed by the bulk cache island.
  */
 function toCacheMetadata(
-  issue: Awaited<ReturnType<typeof getDownloadedSeriesIssues>>[number],
+	issue: Awaited<ReturnType<typeof getDownloadedSeriesIssues>>[number],
 ): ComicCacheMetadataInput {
-  return {
-    issueId: issue.issue_id,
-    seriesId: issue.series_id,
-    seriesName: issue.series_name,
-    seriesYear: issue.series_year,
-    issueNumber: issue.issue_number,
-    issueName: issue.issue_name ?? undefined,
-    issueDate: issue.issue_date,
-    coverUrl: issue.issue_cover_url,
-    coverThumbHash: issue.issue_cover_thumb_hash,
-  };
+	return {
+		issueId: issue.issue_id,
+		seriesId: issue.series_id,
+		seriesName: issue.series_name,
+		seriesYear: issue.series_year,
+		issueNumber: issue.issue_number,
+		issueName: issue.issue_name ?? undefined,
+		issueDate: issue.issue_date,
+		coverUrl: issue.issue_cover_url,
+		coverThumbHash: issue.issue_cover_thumb_hash,
+	};
 }
 
 let downloadedIssues: ComicCacheMetadataInput[] = [];
 let bulkDownloadIssues: ComicCacheMetadataInput[] = [];
 if (series) {
-  const [allDownloadedIssues, unreadDownloadedIssues] = await Promise.all([
-    getDownloadedSeriesIssues(id!),
-    getUnreadDownloadedSeriesIssues(id!),
-  ]);
-  downloadedIssues = allDownloadedIssues.map(toCacheMetadata);
-  bulkDownloadIssues = unreadDownloadedIssues.map(toCacheMetadata);
+	const [allDownloadedIssues, unreadDownloadedIssues] = await Promise.all([
+		getDownloadedSeriesIssues(id),
+		getUnreadDownloadedSeriesIssues(id),
+	]);
+	downloadedIssues = allDownloadedIssues.map(toCacheMetadata);
+	bulkDownloadIssues = unreadDownloadedIssues.map(toCacheMetadata);
 }
 
 // Normalise to a common shape for the template
-const name = series?.series_name ?? cvVolume!.name;
-const year = series?.series_year ?? cvVolume!.start_year;
-const publisher = series?.series_publisher ?? cvVolume!.publisher?.name;
-const totalIssues = series?.series_total_issues ?? cvVolume!.count_of_issues;
+const name = series?.series_name ?? cvVolume?.name ?? "Series";
+const year = series?.series_year ?? cvVolume?.start_year;
+const publisher = series?.series_publisher ?? cvVolume?.publisher?.name;
+const totalIssues = series?.series_total_issues ?? cvVolume?.count_of_issues;
 
 const readCount = issues.filter((i) => i.reading_state === "read").length;
 const readingCount = issues.filter((i) => i.reading_state === "reading").length;
@@ -93,37 +96,34 @@ const readPct = total ? Math.round((readCount / total) * 100) : 0;
 
 // Cover images for the stack
 const cover1 =
-  issues[0]?.issue_cover_url ?? cvVolume?.image?.medium_url ?? null;
+	issues[0]?.issue_cover_url ?? cvVolume?.image?.medium_url ?? null;
 const cover2 = issues[1]?.issue_cover_url ?? null;
 ---
 
 <Layout title={name}>
-  <Breadcrumbs
-    crumbs={[
+	<Breadcrumbs
+		crumbs={[
       { title: "Series", url: "/series" },
       { title: name, url: `/series/${id}` },
     ]}
-  />
-  <!-- Series header -->
-  <div class="relative -mx-4 -mt-4 mb-10 border-b border-slate-800">
-    <div
-      class="flex flex-col gap-8 px-4 py-10 md:flex-row md:items-end md:px-8"
-    >
-      <!-- Cover stack -->
-      <div
-        class="relative h-[240px] w-[180px] shrink-0 self-center md:self-auto"
-      >
-        <!-- Issue #2 / fallback behind -->
-        {
-          cover2 ? (
+	/>
+	<!-- Series header -->
+	<div class="relative -mx-4 -mt-4 mb-10 border-b border-slate-800">
+		<div
+			class="flex flex-col gap-8 px-4 py-10 md:flex-row md:items-end md:px-8"
+		>
+			<!-- Cover stack -->
+			<div
+				class="relative h-[240px] w-[180px] shrink-0 self-center md:self-auto"
+			>
+				<!-- Issue #2 / fallback behind -->
+				{cover2 ? (
             <div class="absolute left-6 top-3 h-[220px] w-[148px] rotate-6 overflow-hidden rounded-sm shadow-xl ring-1 ring-white/10">
               <Image
-                src={new URL(cover2!, Astro.url).toString()}
+                src={new URL(cover2, Astro.url).toString()}
                 alt={`${name} #2`}
                 widths={[183, 275, 366]}
                 sizes="(max-width: 640px) 183px, 210px"
-                width={210}
-                height={320}
                 quality="mid"
                 format="avif"
                 width={148}
@@ -133,21 +133,17 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
             </div>
           ) : (
             <div class="absolute left-6 top-3 h-[220px] w-[148px] rotate-6 rounded-sm bg-slate-700 opacity-50 shadow-xl" />
-          )
-        }
-        <!-- Issue #1 / series cover in front -->
-        <div
-          class="absolute inset-y-0 left-0 w-[148px] overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
-        >
-          {
-            cover1 ? (
+          )}
+				<!-- Issue #1 / series cover in front -->
+				<div
+					class="absolute inset-y-0 left-0 w-[148px] overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
+				>
+					{cover1 ? (
               <Image
-                src={new URL(cover1!, Astro.url).toString()}
+                src={new URL(cover1, Astro.url).toString()}
                 alt={`${name} #2`}
                 widths={[183, 275, 366]}
                 sizes="(max-width: 640px) 183px, 210px"
-                width={210}
-                height={320}
                 quality="mid"
                 format="avif"
                 width={148}
@@ -162,38 +158,32 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
                   color="rgb(71 85 105)"
                 />
               </div>
-            )
-          }
-        </div>
-      </div>
+            )}
+				</div>
+			</div>
 
-      <!-- Meta -->
-      <div class="flex flex-1 flex-col self-start gap-1">
-        <div class="flex items-start justify-between gap-4">
-          <PageHeading class="min-w-0 flex-1">{name}</PageHeading>
-          {
-            series && downloadedIssues.length > 0 && (
+			<!-- Meta -->
+			<div class="flex flex-1 flex-col self-start gap-1">
+				<div class="flex items-start justify-between gap-4">
+					<PageHeading class="min-w-0 flex-1">{name}</PageHeading>
+					{series && downloadedIssues.length > 0 && (
               <BulkDownload
                 client:only="preact"
                 issues={bulkDownloadIssues}
                 downloadedIssues={downloadedIssues}
               />
-            )
-          }
-        </div>
-        <div class="flex flex-wrap items-center gap-4 text-sm text-slate-400">
-          {
-            publisher && (
+            )}
+				</div>
+				<div class="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+					{publisher && (
               <a
                 href={`/series?publisher=${encodeURIComponent(publisher)}&page=1`}
                 class="hover:text-amber-500 transition-colors"
               >
                 {publisher}
               </a>
-            )
-          }
-          {
-            year && (
+            )}
+					{year && (
               <>
                 <span class="text-slate-700">·</span>
                 <a
@@ -203,18 +193,14 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
                   {year}
                 </a>
               </>
-            )
-          }
-          {
-            totalIssues && (
+            )}
+					{totalIssues && (
               <>
                 <span class="text-slate-700">·</span>
                 <span>{totalIssues} issues</span>
               </>
-            )
-          }
-          {
-            readingCount > 0 && (
+            )}
+					{readingCount > 0 && (
               <>
                 <span class="text-slate-700">·</span>
                 <span>
@@ -224,10 +210,8 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
                   in progress
                 </span>
               </>
-            )
-          }
-          {
-            readCount > 0 && (
+            )}
+					{readCount > 0 && (
               <>
                 <span class="text-slate-700">·</span>
                 <span>Read</span>
@@ -236,24 +220,21 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
                   / {total}
                 </span>
               </>
-            )
-          }
-          {
-            cvVolume && (
+            )}
+					{cvVolume && (
               <>
                 <span class="text-slate-700">·</span>
                 <span class="text-xs font-bold uppercase tracking-widest text-slate-600">
                   Not in library
                 </span>
               </>
-            )
-          }
-        </div>
+            )}
+				</div>
 
-        {
-          cvVolume && (
+				{cvVolume && (
             <div class="flex items-center gap-3">
               <button
+                type="button"
                 id="add-to-library-btn"
                 data-series-id={id}
                 class="group flex items-center gap-2 bg-amber-500 px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
@@ -266,19 +247,16 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
                 class="hidden text-xs font-bold uppercase tracking-widest"
               />
             </div>
-          )
-        }
+          )}
 
-        <div class="h-1 mt-2 w-full overflow-hidden bg-slate-800">
-          <div class="h-full bg-amber-500" style={`width: ${readPct}%`}></div>
-        </div>
-
-      </div>
-    </div>
-  </div>
-  <!-- Elastic: full issue grid with reading state -->
-  {
-    issues.length > 0 && (
+				<div class="h-1 mt-2 w-full overflow-hidden bg-slate-800">
+					<div class="h-full bg-amber-500" style={`width: ${readPct}%`}></div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<!-- Elastic: full issue grid with reading state -->
+	{issues.length > 0 && (
       <CoverGrid>
         {issues.map((issue) => (
           <CoverLeaf
@@ -308,12 +286,10 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
           />
         ))}
       </CoverGrid>
-    )
-  }
+    )}
 
-  <!-- ComicVine fallback: same issue grid with real covers -->
-  {
-    cvVolume && cvPageIssues && cvPageIssues.length > 0 && (
+	<!-- ComicVine fallback: same issue grid with real covers -->
+	{cvVolume && cvPageIssues && cvPageIssues.length > 0 && (
       <CoverGrid>
         {cvPageIssues.map((issue) => (
           <CoverLeaf
@@ -326,58 +302,53 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
           />
         ))}
       </CoverGrid>
-    )
-  }
+    )}
 
-  {
-    issues.length > 0 && (
+	{issues.length > 0 && (
       <PageNavigator numberOfPages={totalPages} currentPage={currentPage} />
-    )
-  }
-  {
-    cvVolume && cvTotalPages > 1 && (
+    )}
+	{cvVolume && cvTotalPages > 1 && (
       <PageNavigator numberOfPages={cvTotalPages} currentPage={currentPage} />
-    )
-  }
+    )}
 </Layout>
 
 <script>
-  const btn = document.getElementById(
-    "add-to-library-btn",
-  ) as HTMLButtonElement | null;
-  const status = document.getElementById("add-to-library-status");
+const btn = document.getElementById(
+	"add-to-library-btn",
+) as HTMLButtonElement | null;
+const status = document.getElementById("add-to-library-status");
 
-  btn?.addEventListener("click", async () => {
-    const seriesId = btn.dataset.seriesId;
-    btn.disabled = true;
-    btn.textContent = "Adding…";
+btn?.addEventListener("click", async () => {
+	const seriesId = btn.dataset.seriesId;
+	btn.disabled = true;
+	btn.textContent = "Adding…";
 
-    try {
-      const res = await fetch("/api/library/add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seriesId }),
-      });
+	try {
+		const res = await fetch("/api/library/add", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ seriesId }),
+		});
 
-      if (res.ok) {
-        btn.classList.add("hidden");
-        if (status) {
-          status.textContent = "Added to library";
-          status.classList.remove("hidden");
-          status.classList.add("text-amber-500");
-        }
-      } else {
-        btn.disabled = false;
-        btn.innerHTML = `<img src="/icons/add.svg" class="h-4 w-4" style="display:inline;filter:invert(1)" alt=""> Add to library`;
-        if (status) {
-          status.textContent = "Failed — try again";
-          status.classList.remove("hidden");
-          status.classList.add("text-red-400");
-        }
-      }
-    } catch {
-      btn.disabled = false;
-      btn.innerHTML = `<img src="/icons/add.svg" class="h-4 w-4" style="display:inline;filter:invert(1)" alt=""> Add to library`;
-    }
-  });
+		if (res.ok) {
+			btn.classList.add("hidden");
+			if (status) {
+				status.textContent = "Added to library";
+				status.classList.remove("hidden");
+				status.classList.add("text-amber-500");
+			}
+		} else {
+			btn.disabled = false;
+			btn.innerHTML = `<img src="/icons/add.svg" class="h-4 w-4" style="display:inline;filter:invert(1)" alt=""> Add to library`;
+			if (status) {
+				status.textContent = "Failed — try again";
+				status.classList.remove("hidden");
+				status.classList.add("text-red-400");
+			}
+		}
+	} catch {
+		btn.disabled = false;
+		btn.innerHTML = `<img src="/icons/add.svg" class="h-4 w-4" style="display:inline;filter:invert(1)" alt=""> Add to library`;
+	}
+});
 </script>

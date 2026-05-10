@@ -1,6 +1,6 @@
-import type { Issue } from "./comics.types";
-import type { MylarIssue, MylarComic } from "../data/mylar/mylar.types";
 import type { ComicvineSingleIssueResponse } from "../data/comicvine/comicvine.types";
+import type { MylarComic, MylarIssue } from "../data/mylar/mylar.types";
+import type { Issue } from "./comics.types";
 
 /**
  * Formats a Mylar issue into an Issue object.
@@ -17,23 +17,23 @@ import type { ComicvineSingleIssueResponse } from "../data/comicvine/comicvine.t
  * @returns An Issue object.
  */
 export function formatMylarIssue(issue: MylarIssue, series: MylarComic): Issue {
-  return {
-    issue_artists: [],
-    issue_cover: issue.imageURL,
-    issue_cover_author: null,
-    issue_date:
-      issue.releaseDate === "0000-00-00" ? "1900-01-01" : issue.releaseDate,
-    issue_id: issue.id,
-    issue_name: issue.name,
-    issue_number: Number(issue.number),
-    issue_reading_state: "unread",
-    issue_status: issue.status,
-    issue_writers: [],
-    series_id: series.id,
-    series_name: series.name,
-    series_publisher: series.publisher,
-    series_year: series.year,
-  };
+	return {
+		issue_artists: [],
+		issue_cover: issue.imageURL,
+		issue_cover_author: null,
+		issue_date:
+			issue.releaseDate === "0000-00-00" ? "1900-01-01" : issue.releaseDate,
+		issue_id: issue.id,
+		issue_name: issue.name,
+		issue_number: Number(issue.number),
+		issue_reading_state: "unread",
+		issue_status: issue.status,
+		issue_writers: [],
+		series_id: series.id,
+		series_name: series.name,
+		series_publisher: series.publisher,
+		series_year: series.year,
+	};
 }
 
 /**
@@ -42,19 +42,19 @@ export function formatMylarIssue(issue: MylarIssue, series: MylarComic): Issue {
  * @returns An Issue object.
  */
 export function formatComicvineIssue(
-  issue: ComicvineSingleIssueResponse
+	issue: ComicvineSingleIssueResponse,
 ): Partial<Issue> {
-  return {
-    issue_artists: [],
-    issue_cover: issue.image.original_url,
-    issue_cover_author: null,
-    issue_date: issue.store_date,
-    issue_id: String(issue.id),
-    issue_name: issue.name,
-    issue_number: Number(issue.issue_number),
-    issue_reading_state: "unread",
-    issue_writers: [],
-    series_id: String(issue.volume.id),
-    series_name: issue.volume.name,
-  };
+	return {
+		issue_artists: [],
+		issue_cover: issue.image.original_url,
+		issue_cover_author: null,
+		issue_date: issue.store_date,
+		issue_id: String(issue.id),
+		issue_name: issue.name,
+		issue_number: Number(issue.issue_number),
+		issue_reading_state: "unread",
+		issue_writers: [],
+		series_id: String(issue.volume.id),
+		series_name: issue.volume.name,
+	};
 }

@@ -1,33 +1,33 @@
 ---
-import PageNavigator from "../PageNavigator.astro";
-import SortControls from "@components/SortControls.astro";
 import ActiveFilters from "@components/ActiveFilters.astro";
 import CoverGrid from "@components/CoverGrid.astro";
+import SortControls from "@components/SortControls.astro";
+import PageNavigator from "../PageNavigator.astro";
 import styles from "./IssueGrid.module.css";
 
 type Props = {
-  currentPage: number;
-  totalNumberOfPages: number;
+	currentPage: number;
+	totalNumberOfPages: number;
 };
 
 const { currentPage, totalNumberOfPages } = Astro.props;
 ---
 
 <section class={`${styles.util} mb-6 flex items-center justify-between`}>
-  <p class="text-xs text-slate-500">
-    Page <span class="font-semibold text-slate-300">{currentPage}</span> of{" "}
-    <span class="font-semibold text-slate-300">{totalNumberOfPages}</span>
-  </p>
-  <div class="flex items-center gap-2">
-    <slot name="toolbar" />
-    <SortControls />
-  </div>
+	<p class="text-xs text-slate-500">
+		Page <span class="font-semibold text-slate-300">{currentPage}</span> of{" "}
+		<span class="font-semibold text-slate-300">{totalNumberOfPages}</span>
+	</p>
+	<div class="flex items-center gap-2">
+		<slot name="toolbar" />
+		<SortControls />
+	</div>
 </section>
 
 <ActiveFilters />
 
 <CoverGrid>
-  <slot />
+	<slot />
 </CoverGrid>
 
 <PageNavigator numberOfPages={totalNumberOfPages} currentPage={currentPage} />

@@ -1,18 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-newsreader);
+	--font-sans: var(--font-inter);
+	--font-display: var(--font-newsreader);
 }
 
 @layer base {
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-display);
-    font-weight: 700;
-  }
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		font-family: var(--font-display);
+		font-weight: 700;
+	}
 
-  body:has([data-scroll="Dialog"][open]) {
-    overflow: hidden;
-    scrollbar-gutter: stable both-edges;
-  }
+	body:has([data-scroll="Dialog"][open]) {
+		overflow: hidden;
+		scrollbar-gutter: stable both-edges;
+	}
 }

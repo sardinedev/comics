@@ -1,73 +1,76 @@
 ---
-import Layout from "@layouts/Layout.astro";
-import { getIssue } from "@data/elastic/queries";
 import { Image } from "astro:assets";
-import SubHeading from "@components/SubHeading.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
 import PageHeading from "@components/PageHeading.astro";
+import SubHeading from "@components/SubHeading.astro";
+import { getIssue } from "@data/elastic/queries";
+import Layout from "@layouts/Layout.astro";
 import { thumbHashToBase64 } from "@util/thumbHashToBase64";
 
 import styles from "./index.module.css";
 
 const { id } = Astro.params;
-const issue = await getIssue(id!);
+
+if (!id) return Astro.redirect("/series");
+
+const issue = await getIssue(id);
 
 if (!issue) return Astro.redirect("/series");
 
 const pct =
-  issue.current_page && issue.issue_page_count
-    ? Math.round((issue.current_page / issue.issue_page_count) * 100)
-    : null;
+	issue.current_page && issue.issue_page_count
+		? Math.round((issue.current_page / issue.issue_page_count) * 100)
+		: null;
 
 const creators: { label: string; names: string[] }[] = [
-  { label: "Writer", names: issue.writers ?? [] },
-  { label: "Artist", names: issue.artists ?? [] },
-  { label: "Colorist", names: issue.colorists ?? [] },
-  { label: "Letterer", names: issue.letterers ?? [] },
-  { label: "Cover", names: issue.cover_artists ?? [] },
-  { label: "Editor", names: issue.editors ?? [] },
+	{ label: "Writer", names: issue.writers ?? [] },
+	{ label: "Artist", names: issue.artists ?? [] },
+	{ label: "Colorist", names: issue.colorists ?? [] },
+	{ label: "Letterer", names: issue.letterers ?? [] },
+	{ label: "Cover", names: issue.cover_artists ?? [] },
+	{ label: "Editor", names: issue.editors ?? [] },
 ].filter((c) => c.names.length > 0);
 
 const statusColors: Record<string, string> = {
-  reading: "bg-amber-500 text-slate-900",
-  read: "bg-slate-700 text-slate-300",
-  unread: "bg-slate-800 text-slate-400",
+	reading: "bg-amber-500 text-slate-900",
+	read: "bg-slate-700 text-slate-300",
+	unread: "bg-slate-800 text-slate-400",
 };
 const statusColor =
-  statusColors[issue.reading_state ?? "unread"] ?? statusColors.unread;
+	statusColors[issue.reading_state ?? "unread"] ?? statusColors.unread;
 
 let heroPlaceholderUrl: string | undefined;
 if (issue.issue_cover_thumb_hash) {
-  heroPlaceholderUrl = await thumbHashToBase64(issue.issue_cover_thumb_hash);
+	heroPlaceholderUrl = await thumbHashToBase64(issue.issue_cover_thumb_hash);
 }
 ---
 
 <Layout title={`${issue.series_name} #${issue.issue_number}`}>
-  <!-- Breadcrumb -->
-  <nav
-    class="mb-8 flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
-  >
-    <a
-      href="/series"
-      class="text-slate-500 hover:text-amber-500 transition-colors">Series</a
-    >
-    <span class="text-slate-700">/</span>
-    <a
-      href={`/series/${issue.series_id}`}
-      class="text-slate-500 hover:text-amber-500 transition-colors"
-      >{issue.series_name}</a
-    >
-    <span class="text-slate-700">/</span>
-    <span class="text-slate-400">#{issue.issue_number}</span>
-  </nav>
+	<!-- Breadcrumb -->
+	<nav
+		class="mb-8 flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
+	>
+		<a
+			href="/series"
+			class="text-slate-500 hover:text-amber-500 transition-colors"
+			>Series</a
+		>
+		<span class="text-slate-700">/</span>
+		<a
+			href={`/series/${issue.series_id}`}
+			class="text-slate-500 hover:text-amber-500 transition-colors"
+			>{issue.series_name}</a
+		>
+		<span class="text-slate-700">/</span>
+		<span class="text-slate-400">#{issue.issue_number}</span>
+	</nav>
 
-  <div class={styles["issue-layout"]}>
-    <!-- Title -->
-    <div class:list={[styles["issue-title"], " flex flex-col gap-3"]}>
-      <EyebrowLabel>{issue.series_name} · {issue.series_year}</EyebrowLabel>
-      <PageHeading>
-        {
-          issue.issue_name ? (
+	<div class={styles["issue-layout"]}>
+		<!-- Title -->
+		<div class:list={[styles["issue-title"], " flex flex-col gap-3"]}>
+			<EyebrowLabel>{issue.series_name} · {issue.series_year}</EyebrowLabel>
+			<PageHeading>
+				{issue.issue_name ? (
             <>
               {issue.issue_name}
               <span class="ml-3 text-2xl font-bold text-slate-600">
@@ -78,18 +81,16 @@ if (issue.issue_cover_thumb_hash) {
             <>
               Issue <span class="text-amber-500">#{issue.issue_number}</span>
             </>
-          )
-        }
-      </PageHeading>
-      <!-- Reading state inline — tablet only (shown via CSS, hidden on mobile/desktop) -->
-      <div class:list={[styles["issue-reading-inline"], " flex-col gap-2"]}>
-        <span
-          class={`self-start px-2 py-1 text-[10px] font-black uppercase tracking-widest ${statusColor}`}
-        >
-          {issue.reading_state ?? "Unread"}
-        </span>
-        {
-          pct !== null && (
+          )}
+			</PageHeading>
+			<!-- Reading state inline — tablet only (shown via CSS, hidden on mobile/desktop) -->
+			<div class:list={[styles["issue-reading-inline"], " flex-col gap-2"]}>
+				<span
+					class={`self-start px-2 py-1 text-[10px] font-black uppercase tracking-widest ${statusColor}`}
+				>
+					{issue.reading_state ?? "Unread"}
+				</span>
+				{pct !== null && (
             <div class="flex flex-col gap-1">
               <div class="flex justify-between text-xs text-slate-600">
                 <span class="uppercase tracking-widest">Progress</span>
@@ -102,20 +103,18 @@ if (issue.issue_cover_thumb_hash) {
                 Page {issue.current_page} of {issue.issue_page_count}
               </p>
             </div>
-          )
-        }
-      </div>
-    </div>
+          )}
+			</div>
+		</div>
 
-    <!-- Reading state — mobile + desktop only (hidden on tablet via CSS) -->
-    <div class:list={[styles["issue-reading"], " flex flex-col gap-2"]}>
-      <span
-        class={`self-start px-2 py-1 text-[10px] font-black uppercase tracking-widest ${statusColor}`}
-      >
-        {issue.reading_state ?? "Unread"}
-      </span>
-      {
-        pct !== null && (
+		<!-- Reading state — mobile + desktop only (hidden on tablet via CSS) -->
+		<div class:list={[styles["issue-reading"], " flex flex-col gap-2"]}>
+			<span
+				class={`self-start px-2 py-1 text-[10px] font-black uppercase tracking-widest ${statusColor}`}
+			>
+				{issue.reading_state ?? "Unread"}
+			</span>
+			{pct !== null && (
           <div class="flex flex-col gap-1">
             <div class="flex justify-between text-xs text-slate-600">
               <span class="uppercase tracking-widest">Progress</span>
@@ -128,25 +127,23 @@ if (issue.issue_cover_thumb_hash) {
               Page {issue.current_page} of {issue.issue_page_count}
             </p>
           </div>
-        )
-      }
-    </div>
+        )}
+		</div>
 
-    <!-- Cover -->
-    <div
-      class:list={[
+		<!-- Cover -->
+		<div
+			class:list={[
         styles["issue-cover"],
         "relative overflow-hidden h-[360px] w-[240px] mx-auto",
       ]}
-    >
-      <div
-        class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
-        style={heroPlaceholderUrl
+		>
+			<div
+				class="absolute inset-0 overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
+				style={heroPlaceholderUrl
           ? `background-image: url(${heroPlaceholderUrl}); background-size: cover; background-position: center;`
           : undefined}
-      >
-        {
-          issue.issue_cover_url ? (
+			>
+				{issue.issue_cover_url ? (
             issue.download_status === "Downloaded" ? (
               <a href={`/comic/${id}/read`}>
                 <Image
@@ -176,20 +173,18 @@ if (issue.issue_cover_thumb_hash) {
             )
           ) : (
             <div class="aspect-[2/3] flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800" />
-          )
-        }
-      </div>
-    </div>
+          )}
+			</div>
+		</div>
 
-    <!-- Read Now -->
-    <div
-      class:list={[
+		<!-- Read Now -->
+		<div
+			class:list={[
         styles["issue-read"],
         "flex items-center justify-center gap-2",
       ]}
-    >
-      {
-        issue.download_status === "Downloaded" && (
+		>
+			{issue.download_status === "Downloaded" && (
           <a
             href={`/comic/${id}/read`}
             class="group flex items-center gap-2 bg-amber-500 px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400"
@@ -198,19 +193,17 @@ if (issue.issue_cover_thumb_hash) {
               ? "Continue Reading"
               : "Read Now"}
           </a>
-        )
-      }
-    </div>
+        )}
+		</div>
 
-    <!-- Quick meta -->
-    <dl
-      class:list={[
+		<!-- Quick meta -->
+		<dl
+			class:list={[
         styles["issue-meta"],
         "flex flex-col gap-2 border-t border-slate-800 pt-4",
       ]}
-    >
-      {
-        issue.issue_date && (
+		>
+			{issue.issue_date && (
           <div class="flex justify-between">
             <dt class="text-xs uppercase tracking-widest text-slate-600">
               Released
@@ -219,10 +212,8 @@ if (issue.issue_cover_thumb_hash) {
               {issue.issue_date.slice(0, 10)}
             </dd>
           </div>
-        )
-      }
-      {
-        issue.issue_page_count && (
+        )}
+			{issue.issue_page_count && (
           <div class="flex justify-between">
             <dt class="text-xs uppercase tracking-widest text-slate-600">
               Pages
@@ -231,10 +222,8 @@ if (issue.issue_cover_thumb_hash) {
               {issue.issue_page_count}
             </dd>
           </div>
-        )
-      }
-      {
-        issue.series_publisher && (
+        )}
+			{issue.series_publisher && (
           <div class="flex justify-between">
             <dt class="text-xs uppercase tracking-widest text-slate-600">
               Publisher
@@ -243,13 +232,11 @@ if (issue.issue_cover_thumb_hash) {
               {issue.series_publisher}
             </dd>
           </div>
-        )
-      }
-    </dl>
+        )}
+		</dl>
 
-    <!-- Description -->
-    {
-      issue.issue_description && (
+		<!-- Description -->
+		{issue.issue_description && (
         <div class:list={[styles["issue-desc"], "flex flex-col gap-2"]}>
           <SubHeading>Synopsis</SubHeading>
           <div
@@ -257,12 +244,10 @@ if (issue.issue_cover_thumb_hash) {
             set:html={issue.issue_description}
           />
         </div>
-      )
-    }
+      )}
 
-    <!-- Creators -->
-    {
-      creators.length > 0 && (
+		<!-- Creators -->
+		{creators.length > 0 && (
         <div class:list={[styles["issue-creators"], "flex flex-col gap-4"]}>
           <SubHeading>Creators</SubHeading>
           <dl class="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
@@ -278,7 +263,6 @@ if (issue.issue_cover_thumb_hash) {
             ))}
           </dl>
         </div>
-      )
-    }
-  </div>
+      )}
+	</div>
 </Layout>

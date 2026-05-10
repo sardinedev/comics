@@ -18,37 +18,37 @@ export const STORY_ARCS_INDEX = "story_arcs";
  * - Cross-series arc support
  */
 export const storyArcsMappings: estypes.MappingTypeMapping = {
-  properties: {
-    // === IDENTITY ===
-    arc_id: { type: "keyword" },
+	properties: {
+		// === IDENTITY ===
+		arc_id: { type: "keyword" },
 
-    // === ARC DETAILS ===
-    arc_name: {
-      type: "text",
-      fields: {
-        keyword: { type: "keyword" },
-      },
-    },
-    arc_description: { type: "text" },
-    arc_publisher: { type: "keyword" }, // Primary publisher
-    arc_cover_url: { type: "keyword" },
+		// === ARC DETAILS ===
+		arc_name: {
+			type: "text",
+			fields: {
+				keyword: { type: "keyword" },
+			},
+		},
+		arc_description: { type: "text" },
+		arc_publisher: { type: "keyword" }, // Primary publisher
+		arc_cover_url: { type: "keyword" },
 
-    // === ISSUES IN ARC ===
-    issues: {
-      type: "nested",
-      properties: {
-        issue_id: { type: "keyword" },
-        series_id: { type: "keyword" },
-        series_name: { type: "keyword" },
-        issue_number: { type: "float" },
-        position_in_arc: { type: "integer" }, // Reading order within arc
-        release_date: { type: "date" },
-      },
-    },
+		// === ISSUES IN ARC ===
+		issues: {
+			type: "nested",
+			properties: {
+				issue_id: { type: "keyword" },
+				series_id: { type: "keyword" },
+				series_name: { type: "keyword" },
+				issue_number: { type: "float" },
+				position_in_arc: { type: "integer" }, // Reading order within arc
+				release_date: { type: "date" },
+			},
+		},
 
-    total_issues_in_arc: { type: "integer" },
+		total_issues_in_arc: { type: "integer" },
 
-    // === METADATA ===
-    synced_at: { type: "date" }, // Last sync from ComicVine
-  },
+		// === METADATA ===
+		synced_at: { type: "date" }, // Last sync from ComicVine
+	},
 };

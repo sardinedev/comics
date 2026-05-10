@@ -2,6 +2,8 @@
 const { class: className } = Astro.props;
 ---
 
-<h1 class:list={["text-4xl font-black leading-tight tracking-tight text-white md:text-5xl", className]}>
-  <slot />
+<h1
+	class:list={["text-4xl font-black leading-tight tracking-tight text-white md:text-5xl", className]}
+>
+	<slot />
 </h1>

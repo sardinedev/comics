@@ -1,8 +1,8 @@
-import { unzip } from "fflate";
 import {
-  downloadIssueToCache,
-  type ComicCacheMetadataInput,
+	type ComicCacheMetadataInput,
+	downloadIssueToCache,
 } from "@components/ComicCache/comicCache.utils";
+import { unzip } from "fflate";
 
 /** Image file extensions recognized as comic pages inside a CBZ archive. */
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -12,8 +12,8 @@ const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
  * empty string if the name has no extension.
  */
 function getExt(name: string): string {
-  const dot = name.lastIndexOf(".");
-  return dot === -1 ? "" : name.slice(dot).toLowerCase();
+	const dot = name.lastIndexOf(".");
+	return dot === -1 ? "" : name.slice(dot).toLowerCase();
 }
 
 /**
@@ -21,8 +21,8 @@ function getExt(name: string): string {
  * comic page image format ({@link IMAGE_EXTENSIONS}).
  */
 export function isImageFile(name: string): boolean {
-  const ext = getExt(name);
-  return ext !== "" && IMAGE_EXTENSIONS.includes(ext);
+	const ext = getExt(name);
+	return ext !== "" && IMAGE_EXTENSIONS.includes(ext);
 }
 
 /**
@@ -31,11 +31,11 @@ export function isImageFile(name: string): boolean {
  * is the most common format inside CBZ archives.
  */
 export function getMimeType(name: string): string {
-  const ext = getExt(name);
-  if (ext === ".png") return "image/png";
-  if (ext === ".webp") return "image/webp";
-  if (ext === ".gif") return "image/gif";
-  return "image/jpeg";
+	const ext = getExt(name);
+	if (ext === ".png") return "image/png";
+	if (ext === ".webp") return "image/webp";
+	if (ext === ".gif") return "image/gif";
+	return "image/jpeg";
 }
 
 /**
@@ -56,11 +56,11 @@ export function getMimeType(name: string): string {
  * @throws If the network response is not OK or the body cannot be read.
  */
 export async function downloadCbz(
-  issueId: string,
-  onProgress: (ratio: number) => void,
-  metadata?: ComicCacheMetadataInput,
+	issueId: string,
+	onProgress: (ratio: number) => void,
+	metadata?: ComicCacheMetadataInput,
 ): Promise<Uint8Array> {
-  return downloadIssueToCache(issueId, onProgress, metadata);
+	return downloadIssueToCache(issueId, onProgress, metadata);
 }
 
 /**
@@ -81,36 +81,44 @@ export async function downloadCbz(
  * @throws If the archive is corrupt/unreadable, or contains no images.
  */
 export function extractPages(cbz: Uint8Array): Promise<string[]> {
-  return new Promise((resolve, reject) => {
-    // Async unzip runs in a Web Worker so large archives don't block the main thread.
-    unzip(
-      cbz,
-      {
-        filter: (file) =>
-          !file.name.startsWith("__MACOSX/") && isImageFile(file.name),
-      },
-      (err, entries) => {
-        if (err) {
-          reject(new Error("Comic archive is corrupted or unreadable", { cause: err }));
-          return;
-        }
+	return new Promise((resolve, reject) => {
+		// Async unzip runs in a Web Worker so large archives don't block the main thread.
+		unzip(
+			cbz,
+			{
+				filter: (file) =>
+					!file.name.startsWith("__MACOSX/") && isImageFile(file.name),
+			},
+			(err, entries) => {
+				if (err) {
+					reject(
+						new Error("Comic archive is corrupted or unreadable", {
+							cause: err,
+						}),
+					);
+					return;
+				}
 
-        const sortedNames = Object.keys(entries).sort((a, b) => a.localeCompare(b));
+				const sortedNames = Object.keys(entries).sort((a, b) =>
+					a.localeCompare(b),
+				);
 
-        if (sortedNames.length === 0) {
-          reject(new Error("No pages found in archive"));
-          return;
-        }
+				if (sortedNames.length === 0) {
+					reject(new Error("No pages found in archive"));
+					return;
+				}
 
-        const urls = sortedNames.map((name) => {
-          // Cast: fflate returns Uint8Array<ArrayBufferLike>, but Blob's lib.dom types
-          // require Uint8Array<ArrayBuffer>. The runtime value is always a valid BlobPart.
-          const blob = new Blob([entries[name] as BlobPart], { type: getMimeType(name) });
-          return URL.createObjectURL(blob);
-        });
+				const urls = sortedNames.map((name) => {
+					// Cast: fflate returns Uint8Array<ArrayBufferLike>, but Blob's lib.dom types
+					// require Uint8Array<ArrayBuffer>. The runtime value is always a valid BlobPart.
+					const blob = new Blob([entries[name] as BlobPart], {
+						type: getMimeType(name),
+					});
+					return URL.createObjectURL(blob);
+				});
 
-        resolve(urls);
-      },
-    );
-  });
+				resolve(urls);
+			},
+		);
+	});
 }

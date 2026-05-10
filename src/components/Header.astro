@@ -4,60 +4,61 @@ import { SearchBar } from "@components/SearchBar/SearchBar";
 ---
 
 <header
-  class="sticky top-0 z-40 border-b border-slate-800 bg-slate-900/95 backdrop-blur-sm"
+	class="sticky top-0 z-40 border-b border-slate-800 bg-slate-900/95 backdrop-blur-sm"
 >
-  <div
-    class="mx-auto flex w-full max-w-[1600px] items-center justify-between px-4 py-3"
-  >
-    <a href="/" class="flex items-center gap-3">
-      <img height="19" width="100" src="/logo.svg" alt="Logo" class="logo" />
-    </a>
+	<div
+		class="mx-auto flex w-full max-w-[1600px] items-center justify-between px-4 py-3"
+	>
+		<a href="/" class="flex items-center gap-3">
+			<img height="19" width="100" src="/logo.svg" alt="Logo" class="logo">
+		</a>
 
-    <nav class="hidden items-center gap-6 sm:flex">
-      <a
-        href="/series"
-        class="inline-flex items-center py-3 text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors hover:text-amber-500"
-        >Series</a
-      >
-      <a
-        href="/new"
-        class="inline-flex items-center py-3 text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors hover:text-amber-500"
-        >New</a
-      >
-      <a
-        href="/cache"
-        class="inline-flex items-center py-3 text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors hover:text-amber-500"
-        >Cache</a
-      >
-    </nav>
+		<nav class="hidden items-center gap-6 sm:flex">
+			<a
+				href="/series"
+				class="inline-flex items-center py-3 text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors hover:text-amber-500"
+				>Series</a
+			>
+			<a
+				href="/new"
+				class="inline-flex items-center py-3 text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors hover:text-amber-500"
+				>New</a
+			>
+			<a
+				href="/cache"
+				class="inline-flex items-center py-3 text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors hover:text-amber-500"
+				>Cache</a
+			>
+		</nav>
 
-    <div class="flex items-center gap-2">
-      <button
-        id="header-search-btn"
-        aria-label="Search"
-        class="flex h-12 w-12 items-center justify-center text-slate-400 transition-colors hover:text-amber-500 focus-visible:text-amber-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
-      >
-        <Icon name="search" class="h-4 w-4" color="currentColor" />
-      </button>
-      <form method="POST" action="/api/auth/logout">
-        <button
-          type="submit"
-          aria-label="Sign out"
-          class="flex h-12 w-12 items-center justify-center text-slate-400 transition-colors hover:text-slate-300 focus-visible:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500"
-        >
-          <Icon name="logout" class="h-4 w-4" color="currentColor" />
-        </button>
-      </form>
-    </div>
-  </div>
+		<div class="flex items-center gap-2">
+			<button
+				type="button"
+				id="header-search-btn"
+				aria-label="Search"
+				class="flex h-12 w-12 items-center justify-center text-slate-400 transition-colors hover:text-amber-500 focus-visible:text-amber-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+			>
+				<Icon name="search" class="h-4 w-4" color="currentColor" />
+			</button>
+			<form method="POST" action="/api/auth/logout">
+				<button
+					type="submit"
+					aria-label="Sign out"
+					class="flex h-12 w-12 items-center justify-center text-slate-400 transition-colors hover:text-slate-300 focus-visible:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500"
+				>
+					<Icon name="logout" class="h-4 w-4" color="currentColor" />
+				</button>
+			</form>
+		</div>
+	</div>
 </header>
 
 <SearchBar client:only="preact" />
 
 <script>
-  document.addEventListener("click", (e) => {
-    if ((e.target as Element)?.closest("#header-search-btn")) {
-      window.dispatchEvent(new CustomEvent("open-search"));
-    }
-  });
+document.addEventListener("click", (e) => {
+	if ((e.target as Element)?.closest("#header-search-btn")) {
+		window.dispatchEvent(new CustomEvent("open-search"));
+	}
+});
 </script>

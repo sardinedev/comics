@@ -1,37 +1,36 @@
 ---
-import Layout from "@layouts/Layout.astro";
-import {
-  getContinueReading,
-  getRecentlyAdded,
-  getAllSeries,
-} from "@data/elastic/queries";
 import { Image } from "astro:assets";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
-import Icon from "@components/Icon/Icon.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
+import Icon from "@components/Icon/Icon.astro";
+import {
+	getAllSeries,
+	getContinueReading,
+	getRecentlyAdded,
+} from "@data/elastic/queries";
+import Layout from "@layouts/Layout.astro";
 import { thumbHashToBase64 } from "@util/thumbHashToBase64";
 
 const [continueReading, recentlyAdded, seriesResult] = await Promise.all([
-  getContinueReading(5),
-  getRecentlyAdded(6),
-  getAllSeries(1, 6),
+	getContinueReading(5),
+	getRecentlyAdded(6),
+	getAllSeries(1, 6),
 ]);
 const browseSeriesItems = seriesResult.items;
 
 const heroSlides = await Promise.all(
-  continueReading.map(async (issue) => {
-    const placeholderUrl = issue.issue_cover_thumb_hash
-      ? await thumbHashToBase64(issue.issue_cover_thumb_hash)
-      : undefined;
-    return { issue, placeholderUrl };
-  }),
+	continueReading.map(async (issue) => {
+		const placeholderUrl = issue.issue_cover_thumb_hash
+			? await thumbHashToBase64(issue.issue_cover_thumb_hash)
+			: undefined;
+		return { issue, placeholderUrl };
+	}),
 );
 ---
 
 <Layout title="Comics">
-  <!-- Hero Carousel -->
-  {
-    heroSlides.length > 0 && (
+	<!-- Hero Carousel -->
+	{heroSlides.length > 0 && (
       <div
         class="hero-carousel relative -mx-4 -mt-4 mb-16"
         data-hero-carousel
@@ -158,12 +157,10 @@ const heroSlides = await Promise.all(
           </>
         )}
       </div>
-    )
-  }
+    )}
 
-  <!-- Recently Added -->
-  {
-    recentlyAdded.length > 0 && (
+	<!-- Recently Added -->
+	{recentlyAdded.length > 0 && (
       <section class="mb-16">
         <div class="mb-6">
           <EyebrowLabel class="mb-1">Fresh in your collection</EyebrowLabel>
@@ -191,12 +188,10 @@ const heroSlides = await Promise.all(
           ))}
         </ol>
       </section>
-    )
-  }
+    )}
 
-  <!-- Browse Series -->
-  {
-    browseSeriesItems.length > 0 && (
+	<!-- Browse Series -->
+	{browseSeriesItems.length > 0 && (
       <section class="mb-12">
         <div class="mb-6">
           <EyebrowLabel class="mb-1">Your library</EyebrowLabel>
@@ -223,84 +218,85 @@ const heroSlides = await Promise.all(
           ))}
         </ol>
       </section>
-    )
-  }
+    )}
 </Layout>
 
 <style>
-  .hero-track {
-    scrollbar-width: none;
-  }
-  .hero-track::-webkit-scrollbar {
-    display: none;
-  }
-  .hero-dot[aria-current="true"] {
-    background-color: rgb(245 158 11); /* amber-500 */
-  }
+.hero-track {
+	scrollbar-width: none;
+}
+.hero-track::-webkit-scrollbar {
+	display: none;
+}
+.hero-dot[aria-current="true"] {
+	background-color: rgb(245 158 11); /* amber-500 */
+}
 </style>
 
 <script>
-  function initHeroCarousel(root: HTMLElement) {
-    const track = root.querySelector<HTMLElement>("[data-hero-track]");
-    const slides = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-hero-slide]"),
-    );
-    const dots = Array.from(
-      root.querySelectorAll<HTMLButtonElement>("[data-hero-dot]"),
-    );
-    const prev = root.querySelector<HTMLButtonElement>("[data-hero-prev]");
-    const next = root.querySelector<HTMLButtonElement>("[data-hero-next]");
-    if (!track || slides.length === 0) return;
+function initHeroCarousel(root: HTMLElement) {
+	const track = root.querySelector<HTMLElement>("[data-hero-track]");
+	const slides = Array.from(
+		root.querySelectorAll<HTMLElement>("[data-hero-slide]"),
+	);
+	const dots = Array.from(
+		root.querySelectorAll<HTMLButtonElement>("[data-hero-dot]"),
+	);
+	const prev = root.querySelector<HTMLButtonElement>("[data-hero-prev]");
+	const next = root.querySelector<HTMLButtonElement>("[data-hero-next]");
+	if (!track || slides.length === 0) return;
 
-    let current = 0;
-    const setActive = (index: number) => {
-      current = index;
-      dots.forEach((dot, i) => {
-        if (i === index) {
-          dot.setAttribute("aria-current", "true");
-        } else {
-          dot.removeAttribute("aria-current");
-        }
-      });
-    };
-    setActive(0);
+	let current = 0;
+	const setActive = (index: number) => {
+		current = index;
+		dots.forEach((dot, i) => {
+			if (i === index) {
+				dot.setAttribute("aria-current", "true");
+			} else {
+				dot.removeAttribute("aria-current");
+			}
+		});
+	};
+	setActive(0);
 
-    const scrollToSlide = (index: number) => {
-      const slide = slides[index];
-      if (!slide) return;
-      track.scrollTo({ left: slide.offsetLeft, behavior: "smooth" });
-    };
+	const scrollToSlide = (index: number) => {
+		const slide = slides[index];
+		if (!slide) return;
+		track.scrollTo({ left: slide.offsetLeft, behavior: "smooth" });
+	};
 
-    dots.forEach((dot) => {
-      dot.addEventListener("click", () => {
-        const target = Number(dot.dataset.slideTarget ?? "0");
-        scrollToSlide(target);
-      });
-    });
+	dots.forEach((dot) => {
+		dot.addEventListener("click", () => {
+			const target = Number(dot.dataset.slideTarget ?? "0");
+			scrollToSlide(target);
+		});
+	});
 
-    prev?.addEventListener("click", () => {
-      scrollToSlide((current - 1 + slides.length) % slides.length);
-    });
-    next?.addEventListener("click", () => {
-      scrollToSlide((current + 1) % slides.length);
-    });
+	prev?.addEventListener("click", () => {
+		scrollToSlide((current - 1 + slides.length) % slides.length);
+	});
+	next?.addEventListener("click", () => {
+		scrollToSlide((current + 1) % slides.length);
+	});
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-            const target = entry.target as HTMLElement;
-            const index = Number(target.dataset.slideIndex ?? "0");
-            setActive(index);
-          }
-        });
-      },
-      { root: track, threshold: [0.5, 0.75] },
-    );
-    slides.forEach((slide) => observer.observe(slide));
-  }
+	const observer = new IntersectionObserver(
+		(entries) => {
+			entries.forEach((entry) => {
+				if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+					const target = entry.target as HTMLElement;
+					const index = Number(target.dataset.slideIndex ?? "0");
+					setActive(index);
+				}
+			});
+		},
+		{ root: track, threshold: [0.5, 0.75] },
+	);
+	slides.forEach((slide) => {
+		observer.observe(slide);
+	});
+}
 
-  document
-    .querySelectorAll<HTMLElement>("[data-hero-carousel]")
-    .forEach(initHeroCarousel);
+document
+	.querySelectorAll<HTMLElement>("[data-hero-carousel]")
+	.forEach(initHeroCarousel);
 </script>

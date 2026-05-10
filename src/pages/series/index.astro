@@ -1,44 +1,56 @@
 ---
-import Layout from "@layouts/Layout.astro";
-import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
-import FilterControls from "@components/FilterControls.astro";
-import { getAllSeries, getSeriesFilterOptions, type SeriesSort, type SeriesFilters } from "@data/elastic/queries";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
+import FilterControls from "@components/FilterControls.astro";
+import IssueGrid from "@components/IssueGrid/IssueGrid.astro";
 import PageHeading from "@components/PageHeading.astro";
+import {
+	getAllSeries,
+	getSeriesFilterOptions,
+	type SeriesFilters,
+	type SeriesSort,
+} from "@data/elastic/queries";
+import Layout from "@layouts/Layout.astro";
 
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
 
-const validSorts: SeriesSort[] = ["title-asc", "title-desc", "date-asc", "date-desc"];
+const validSorts: SeriesSort[] = [
+	"title-asc",
+	"title-desc",
+	"date-asc",
+	"date-desc",
+];
 const sortParam = Astro.url.searchParams.get("sort") as SeriesSort;
-const sort: SeriesSort = validSorts.includes(sortParam) ? sortParam : "title-asc";
+const sort: SeriesSort = validSorts.includes(sortParam)
+	? sortParam
+	: "title-asc";
 
 const validStates = ["unread", "reading", "read"] as const;
 const stateParam = Astro.url.searchParams.get("state");
 const filters: SeriesFilters = {
-  publisher:    Astro.url.searchParams.get("publisher") || undefined,
-  year:         Astro.url.searchParams.get("year") || undefined,
-  readingState: validStates.includes(stateParam as typeof validStates[number])
-    ? (stateParam as SeriesFilters["readingState"])
-    : undefined,
+	publisher: Astro.url.searchParams.get("publisher") || undefined,
+	year: Astro.url.searchParams.get("year") || undefined,
+	readingState: validStates.includes(stateParam as (typeof validStates)[number])
+		? (stateParam as SeriesFilters["readingState"])
+		: undefined,
 };
 
 const [series, filterOptions] = await Promise.all([
-  getAllSeries(currentPage, 24, sort, filters),
-  getSeriesFilterOptions(),
+	getAllSeries(currentPage, 24, sort, filters),
+	getSeriesFilterOptions(),
 ]);
 ---
 
 <Layout title="Series">
-  <div class="mb-8 border-b border-slate-800 pb-6">
-    <EyebrowLabel class="mb-1">Your library</EyebrowLabel>
-    <PageHeading>Series</PageHeading>
-  </div>
+	<div class="mb-8 border-b border-slate-800 pb-6">
+		<EyebrowLabel class="mb-1">Your library</EyebrowLabel>
+		<PageHeading>Series</PageHeading>
+	</div>
 
-  <IssueGrid currentPage={currentPage} totalNumberOfPages={series.totalPages}>
-    <FilterControls slot="toolbar" filterOptions={filterOptions} />
+	<IssueGrid currentPage={currentPage} totalNumberOfPages={series.totalPages}>
+		<FilterControls slot="toolbar" filterOptions={filterOptions} />
 
-    {series.items.map((s) => (
+		{series.items.map((s) => (
       <CoverLeaf
         id={s.series_id}
         cover={s.series_cover_url}
@@ -47,5 +59,5 @@ const [series, filterOptions] = await Promise.all([
         type="series"
       />
     ))}
-  </IssueGrid>
+	</IssueGrid>
 </Layout>
