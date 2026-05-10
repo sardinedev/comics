@@ -1,57 +1,41 @@
 /**
- * Reads an environment variable from either Node's process environment or
- * Astro/Vite's statically exposed import.meta.env values.
- *
- * Vite does not allow dynamic import.meta.env access, so every key used by the
- * app is listed explicitly here.
+ * Reads an environment variable from either Astro's import.meta.env (SSR context)
+ * or process.env (Node scripts / cron jobs).
  */
-export function env(key: string): string | undefined {
-	return process.env[key] ?? importMetaEnv(key);
-}
+const envLoaders = {
+	COMICVINE_API_KEY: () =>
+		import.meta.env?.COMICVINE_API_KEY ?? process.env.COMICVINE_API_KEY,
+	PUBLIC_COMICVINE_URL: () =>
+		import.meta.env?.PUBLIC_COMICVINE_URL ?? process.env.PUBLIC_COMICVINE_URL,
+	ELASTIC_INDEX: () =>
+		import.meta.env?.ELASTIC_INDEX ?? process.env.ELASTIC_INDEX,
+	ELASTIC_URL: () => import.meta.env?.ELASTIC_URL ?? process.env.ELASTIC_URL,
+	ELASTIC_API_KEY: () =>
+		import.meta.env?.ELASTIC_API_KEY ?? process.env.ELASTIC_API_KEY,
+	MYLAR_URL: () => import.meta.env?.MYLAR_URL ?? process.env.MYLAR_URL,
+	MYLAR_API_KEY: () =>
+		import.meta.env?.MYLAR_API_KEY ?? process.env.MYLAR_API_KEY,
+	COVERS_DIR: () => import.meta.env?.COVERS_DIR ?? process.env.COVERS_DIR,
+	PUBLIC_URL: () => import.meta.env?.PUBLIC_URL ?? process.env.PUBLIC_URL,
+	ATPROTO_PRIVATE_KEY_JWK: () =>
+		import.meta.env?.ATPROTO_PRIVATE_KEY_JWK ??
+		process.env.ATPROTO_PRIVATE_KEY_JWK,
+	AUTH_ALLOWED_DID: () =>
+		import.meta.env?.AUTH_ALLOWED_DID ?? process.env.AUTH_ALLOWED_DID,
+	AUTH_SESSION_SECRET: () =>
+		import.meta.env?.AUTH_SESSION_SECRET ?? process.env.AUTH_SESSION_SECRET,
+	DEV_BYPASS_AUTH: () =>
+		import.meta.env?.DEV_BYPASS_AUTH ?? process.env.DEV_BYPASS_AUTH,
+	SYNC_CACHE_COVERS: () =>
+		import.meta.env?.SYNC_CACHE_COVERS ?? process.env.SYNC_CACHE_COVERS,
+	SYNC_ENRICH_COMICVINE: () =>
+		import.meta.env?.SYNC_ENRICH_COMICVINE ?? process.env.SYNC_ENRICH_COMICVINE,
+	SYNC_SERIES_LIMIT: () =>
+		import.meta.env?.SYNC_SERIES_LIMIT ?? process.env.SYNC_SERIES_LIMIT,
+} satisfies Record<string, () => string | undefined>;
 
-/**
- * Reads known Astro/Vite environment variables using static property access.
- *
- * @param key - Environment variable name requested by the app.
- * @returns The import.meta.env value for known keys, or undefined.
- */
-function importMetaEnv(key: string): string | undefined {
-	if (!("env" in import.meta)) return undefined;
+export type EnvKey = keyof typeof envLoaders;
 
-	switch (key) {
-		case "ATPROTO_PRIVATE_KEY_JWK":
-			return import.meta.env.ATPROTO_PRIVATE_KEY_JWK;
-		case "AUTH_ALLOWED_DID":
-			return import.meta.env.AUTH_ALLOWED_DID;
-		case "AUTH_SESSION_SECRET":
-			return import.meta.env.AUTH_SESSION_SECRET;
-		case "COMICVINE_API_KEY":
-			return import.meta.env.COMICVINE_API_KEY;
-		case "COVERS_DIR":
-			return import.meta.env.COVERS_DIR;
-		case "DEV_BYPASS_AUTH":
-			return import.meta.env.DEV_BYPASS_AUTH;
-		case "ELASTIC_API_KEY":
-			return import.meta.env.ELASTIC_API_KEY;
-		case "ELASTIC_INDEX":
-			return import.meta.env.ELASTIC_INDEX;
-		case "ELASTIC_URL":
-			return import.meta.env.ELASTIC_URL;
-		case "MYLAR_API_KEY":
-			return import.meta.env.MYLAR_API_KEY;
-		case "MYLAR_URL":
-			return import.meta.env.MYLAR_URL;
-		case "PUBLIC_COMICVINE_URL":
-			return import.meta.env.PUBLIC_COMICVINE_URL;
-		case "PUBLIC_URL":
-			return import.meta.env.PUBLIC_URL;
-		case "SYNC_CACHE_COVERS":
-			return import.meta.env.SYNC_CACHE_COVERS;
-		case "SYNC_ENRICH_COMICVINE":
-			return import.meta.env.SYNC_ENRICH_COMICVINE;
-		case "SYNC_SERIES_LIMIT":
-			return import.meta.env.SYNC_SERIES_LIMIT;
-		default:
-			return undefined;
-	}
+export function env(key: EnvKey): string | undefined {
+	return envLoaders[key]();
 }

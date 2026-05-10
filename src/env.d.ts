@@ -1,5 +1,7 @@
 /// <reference types="astro/client" />
 
+export {};
+
 declare global {
 	interface ImportMetaEnv {
 		readonly COMICVINE_API_KEY: string;
@@ -14,7 +16,7 @@ declare global {
 		readonly ATPROTO_PRIVATE_KEY_JWK: string;
 		readonly AUTH_ALLOWED_DID: string;
 		readonly AUTH_SESSION_SECRET: string;
-		readonly DEV_BYPASS_AUTH?: string;
+		readonly DEV_BYPASS_AUTH: string;
 		readonly SYNC_CACHE_COVERS?: string;
 		readonly SYNC_ENRICH_COMICVINE?: string;
 		readonly SYNC_SERIES_LIMIT?: string;
@@ -26,5 +28,3 @@ declare global {
 		}
 	}
 }
-
-export {};
