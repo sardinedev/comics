@@ -18,7 +18,10 @@ type AstroNode = {
 	children?: AstroNode[];
 };
 
-function findNode(node: AstroNode, predicate: (node: AstroNode) => boolean) {
+function findNode(
+	node: AstroNode,
+	predicate: (node: AstroNode) => boolean,
+): AstroNode | undefined {
 	if (predicate(node)) {
 		return node;
 	}
