@@ -10,7 +10,7 @@ import { SearchBar } from "@components/SearchBar/SearchBar";
 		class="mx-auto flex w-full max-w-[1600px] items-center justify-between px-4 py-3"
 	>
 		<a href="/" class="flex items-center gap-3">
-			<img height="19" width="100" src="/logo.svg" alt="Logo" class="logo" />
+			<img height="19" width="100" src="/logo.svg" alt="Logo" class="logo">
 		</a>
 
 		<nav class="hidden items-center gap-6 sm:flex">
@@ -56,9 +56,9 @@ import { SearchBar } from "@components/SearchBar/SearchBar";
 <SearchBar client:only="preact" />
 
 <script>
-	document.addEventListener("click", (e) => {
-		if ((e.target as Element)?.closest("#header-search-btn")) {
-			window.dispatchEvent(new CustomEvent("open-search"));
-		}
-	});
+document.addEventListener("click", (e) => {
+	if ((e.target as Element)?.closest("#header-search-btn")) {
+		window.dispatchEvent(new CustomEvent("open-search"));
+	}
+});
 </script>

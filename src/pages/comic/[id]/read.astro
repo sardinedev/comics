@@ -12,28 +12,28 @@ const issue = await getIssue(id);
 
 if (!issue) return Astro.redirect("/series");
 if (issue.download_status !== "Downloaded")
-  return Astro.redirect(`/comic/${id}`);
+	return Astro.redirect(`/comic/${id}`);
 
 const nextIssue = await getNextDownloadedIssue(issue);
 const cacheMetadata: ComicCacheMetadataInput = {
-  issueId: issue.issue_id,
-  seriesId: issue.series_id,
-  seriesName: issue.series_name,
-  seriesYear: issue.series_year,
-  issueNumber: issue.issue_number,
-  issueName: issue.issue_name ?? undefined,
-  issueDate: issue.issue_date,
-  coverUrl: issue.issue_cover_url,
-  coverThumbHash: issue.issue_cover_thumb_hash,
+	issueId: issue.issue_id,
+	seriesId: issue.series_id,
+	seriesName: issue.series_name,
+	seriesYear: issue.series_year,
+	issueNumber: issue.issue_number,
+	issueName: issue.issue_name ?? undefined,
+	issueDate: issue.issue_date,
+	coverUrl: issue.issue_cover_url,
+	coverThumbHash: issue.issue_cover_thumb_hash,
 };
 ---
 
 <ReaderLayout title={`Read: ${issue.series_name} #${issue.issue_number}`}>
-  <ComicReader
-    client:only="preact"
-    issueId={id}
-    initialPage={issue.current_page ?? 0}
-    nextIssue={nextIssue
+	<ComicReader
+		client:only="preact"
+		issueId={id}
+		initialPage={issue.current_page ?? 0}
+		nextIssue={nextIssue
       ? {
           id: nextIssue.issue_id,
           seriesName:
@@ -42,6 +42,6 @@ const cacheMetadata: ComicCacheMetadataInput = {
           issueName: nextIssue.issue_name ?? undefined,
         }
       : undefined}
-    cacheMetadata={cacheMetadata}
-  />
+		cacheMetadata={cacheMetadata}
+	/>
 </ReaderLayout>

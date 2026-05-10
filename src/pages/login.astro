@@ -31,12 +31,12 @@ const errorMessage = error
 <!doctype html>
 <html lang="en" class="dark">
 	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<title>Sign in — Sardines Reading Comics</title>
-		<link rel="icon" type="image/svg+xml" href="/logo.svg" />
+		<link rel="icon" type="image/svg+xml" href="/logo.svg">
 		<style>
-			@import "tailwindcss";
+		@import "tailwindcss";
 		</style>
 	</head>
 	<body class="min-h-screen bg-slate-950 text-white antialiased">
@@ -44,15 +44,13 @@ const errorMessage = error
 		<div
 			class="pointer-events-none fixed inset-0 opacity-[0.025]"
 			style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%224%22 stitchTiles=%22stitch%22/></filter><rect width=%22300%22 height=%22300%22 filter=%22url(%23n)%22 opacity=%221%22/></svg>'); background-repeat: repeat;"
-		>
-		</div>
+		></div>
 
 		<!-- Ambient glow -->
 		<div class="pointer-events-none fixed inset-0 overflow-hidden">
 			<div
 				class="absolute -top-64 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-amber-500/5 blur-[140px]"
-			>
-			</div>
+			></div>
 		</div>
 
 		<div
@@ -60,7 +58,7 @@ const errorMessage = error
 		>
 			<!-- Logo / app name -->
 			<div class="mb-12 flex flex-col items-center gap-4">
-				<img src="/logo.svg" alt="Logo" class="h-12 w-12 opacity-90" />
+				<img src="/logo.svg" alt="Logo" class="h-12 w-12 opacity-90">
 				<div class="text-center">
 					<p
 						class="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500"
@@ -85,13 +83,11 @@ const errorMessage = error
 						</p>
 					</div>
 
-					{
-						errorMessage && (
+					{errorMessage && (
 							<div class="mb-5 border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-400">
 								{errorMessage}
 							</div>
-						)
-					}
+						)}
 
 					<form
 						method="POST"
@@ -120,7 +116,7 @@ const errorMessage = error
 									spellcheck="false"
 									required
 									class="w-full border border-slate-700 bg-slate-800 py-2.5 pl-7 pr-3 text-sm text-white placeholder-slate-600 outline-none transition-colors focus:border-amber-500 focus:ring-0"
-								/>
+								>
 							</div>
 						</div>
 
@@ -149,7 +145,8 @@ const errorMessage = error
 					Authorisation powered by
 					<a
 						href="https://atproto.com"
-						class="hover:text-slate-500 transition-colors">AT Protocol</a
+						class="hover:text-slate-500 transition-colors"
+						>AT Protocol</a
 					>
 				</p>
 			</div>
