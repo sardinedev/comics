@@ -1,38 +1,38 @@
 import { randomUUID } from "node:crypto";
 import type {
-  SyncProgressReporter,
-  SyncProgressSnapshot,
-  SyncStats,
+	SyncProgressReporter,
+	SyncProgressSnapshot,
+	SyncStats,
 } from "@data/sync/mylar-to-elastic";
 import { elastic, elasticInitializeIndex } from "./elastic";
 import { ISSUES_INDEX } from "./models/issue.model";
 import {
-  SYNC_RUNS_INDEX,
-  type SyncRunDocument,
-  type SyncRunKind,
-  syncRunsMappings,
+	SYNC_RUNS_INDEX,
+	type SyncRunDocument,
+	type SyncRunKind,
+	syncRunsMappings,
 } from "./models/sync-run.model";
 
 const ENRICHMENT_STALE_AFTER_MS = 10 * 60 * 1000;
 
 type CreateSyncRunInput = {
-  kind: SyncRunKind;
-  enrichFromComicVine: boolean;
-  cacheCovers: boolean;
-  seriesLimit?: number;
+	kind: SyncRunKind;
+	enrichFromComicVine: boolean;
+	cacheCovers: boolean;
+	seriesLimit?: number;
 };
 
 export type EnrichmentMonitorSnapshot = {
-  overview: {
-    totalIssues: number;
-    enrichedIssues: number;
-    pendingIssues: number;
-    percentComplete: number;
-    staleAfterSeconds: number;
-    generatedAt: string;
-  };
-  latestRun: SyncRunDocument | null;
-  isLatestRunStale: boolean;
+	overview: {
+		totalIssues: number;
+		enrichedIssues: number;
+		pendingIssues: number;
+		percentComplete: number;
+		staleAfterSeconds: number;
+		generatedAt: string;
+	};
+	latestRun: SyncRunDocument | null;
+	isLatestRunStale: boolean;
 };
 
 let ensureSyncRunsIndexPromise: Promise<void> | null = null;
@@ -44,17 +44,17 @@ let ensureSyncRunsIndexPromise: Promise<void> | null = null;
  * @returns A promise that resolves once the index is ready.
  */
 export function ensureSyncRunsIndex(): Promise<void> {
-  if (!ensureSyncRunsIndexPromise) {
-    ensureSyncRunsIndexPromise = elasticInitializeIndex(
-      SYNC_RUNS_INDEX,
-      syncRunsMappings,
-    ).catch((error) => {
-      ensureSyncRunsIndexPromise = null;
-      throw error;
-    });
-  }
+	if (!ensureSyncRunsIndexPromise) {
+		ensureSyncRunsIndexPromise = elasticInitializeIndex(
+			SYNC_RUNS_INDEX,
+			syncRunsMappings,
+		).catch((error) => {
+			ensureSyncRunsIndexPromise = null;
+			throw error;
+		});
+	}
 
-  return ensureSyncRunsIndexPromise;
+	return ensureSyncRunsIndexPromise;
 }
 
 /**
@@ -63,7 +63,7 @@ export function ensureSyncRunsIndex(): Promise<void> {
  * @returns Current UTC timestamp as an ISO string.
  */
 function nowIso(): string {
-  return new Date().toISOString();
+	return new Date().toISOString();
 }
 
 /**
@@ -73,8 +73,8 @@ function nowIso(): string {
  * @returns A readable error message.
  */
 function serializeError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
+	if (error instanceof Error) return error.message;
+	return String(error);
 }
 
 /**
@@ -84,17 +84,17 @@ function serializeError(error: unknown): string {
  * @returns Partial sync-run counter update.
  */
 function statsToRunUpdate(
-  stats: SyncStats,
+	stats: SyncStats,
 ): Pick<
-  SyncRunDocument,
-  "series_synced" | "issues_upserted" | "issues_enriched" | "covers_cached"
+	SyncRunDocument,
+	"series_synced" | "issues_upserted" | "issues_enriched" | "covers_cached"
 > {
-  return {
-    series_synced: stats.seriesSynced,
-    issues_upserted: stats.issuesUpserted,
-    issues_enriched: stats.issuesEnriched,
-    covers_cached: stats.coversCached,
-  };
+	return {
+		series_synced: stats.seriesSynced,
+		issues_upserted: stats.issuesUpserted,
+		issues_enriched: stats.issuesEnriched,
+		covers_cached: stats.coversCached,
+	};
 }
 
 /**
@@ -104,22 +104,22 @@ function statsToRunUpdate(
  * @returns Partial sync-run document fields to persist.
  */
 function snapshotToRunUpdate(
-  snapshot: SyncProgressSnapshot,
+	snapshot: SyncProgressSnapshot,
 ): Partial<SyncRunDocument> {
-  return {
-    enrich_from_comicvine: snapshot.enrichFromComicVine,
-    cache_covers: snapshot.cacheCovers,
-    series_limit: snapshot.seriesLimit,
-    series_seen: snapshot.seriesSeen,
-    series_total: snapshot.seriesTotal,
-    issues_seen: snapshot.issuesSeen,
-    ...statsToRunUpdate(snapshot.stats),
-    current_series_id: snapshot.currentSeries?.id ?? null,
-    current_series_name: snapshot.currentSeries?.name ?? null,
-    current_issue_id: snapshot.currentIssue?.id ?? null,
-    current_issue_number: snapshot.currentIssue?.number ?? null,
-    current_issue_name: snapshot.currentIssue?.name ?? null,
-  };
+	return {
+		enrich_from_comicvine: snapshot.enrichFromComicVine,
+		cache_covers: snapshot.cacheCovers,
+		series_limit: snapshot.seriesLimit,
+		series_seen: snapshot.seriesSeen,
+		series_total: snapshot.seriesTotal,
+		issues_seen: snapshot.issuesSeen,
+		...statsToRunUpdate(snapshot.stats),
+		current_series_id: snapshot.currentSeries?.id ?? null,
+		current_series_name: snapshot.currentSeries?.name ?? null,
+		current_issue_id: snapshot.currentIssue?.id ?? null,
+		current_issue_number: snapshot.currentIssue?.number ?? null,
+		current_issue_name: snapshot.currentIssue?.name ?? null,
+	};
 }
 
 /**
@@ -129,37 +129,37 @@ function snapshotToRunUpdate(
  * @returns The created sync-run document, including its generated run id.
  */
 export async function createSyncRun(
-  input: CreateSyncRunInput,
+	input: CreateSyncRunInput,
 ): Promise<SyncRunDocument> {
-  await ensureSyncRunsIndex();
+	await ensureSyncRunsIndex();
 
-  const timestamp = nowIso();
-  const run: SyncRunDocument = {
-    run_id: randomUUID(),
-    kind: input.kind,
-    status: "running",
-    started_at: timestamp,
-    updated_at: timestamp,
-    enrich_from_comicvine: input.enrichFromComicVine,
-    cache_covers: input.cacheCovers,
-    series_limit: input.seriesLimit,
-    series_seen: 0,
-    series_total: 0,
-    series_synced: 0,
-    issues_seen: 0,
-    issues_upserted: 0,
-    issues_enriched: 0,
-    covers_cached: 0,
-  };
+	const timestamp = nowIso();
+	const run: SyncRunDocument = {
+		run_id: randomUUID(),
+		kind: input.kind,
+		status: "running",
+		started_at: timestamp,
+		updated_at: timestamp,
+		enrich_from_comicvine: input.enrichFromComicVine,
+		cache_covers: input.cacheCovers,
+		series_limit: input.seriesLimit,
+		series_seen: 0,
+		series_total: 0,
+		series_synced: 0,
+		issues_seen: 0,
+		issues_upserted: 0,
+		issues_enriched: 0,
+		covers_cached: 0,
+	};
 
-  await elastic.index({
-    index: SYNC_RUNS_INDEX,
-    id: run.run_id,
-    document: run,
-    refresh: "wait_for",
-  });
+	await elastic.index({
+		index: SYNC_RUNS_INDEX,
+		id: run.run_id,
+		document: run,
+		refresh: "wait_for",
+	});
 
-  return run;
+	return run;
 }
 
 /**
@@ -169,17 +169,17 @@ export async function createSyncRun(
  * @param update - Fields to merge into the run document.
  */
 export async function updateSyncRun(
-  runId: string,
-  update: Partial<SyncRunDocument>,
+	runId: string,
+	update: Partial<SyncRunDocument>,
 ): Promise<void> {
-  await elastic.update({
-    index: SYNC_RUNS_INDEX,
-    id: runId,
-    doc: {
-      ...update,
-      updated_at: nowIso(),
-    },
-  });
+	await elastic.update({
+		index: SYNC_RUNS_INDEX,
+		id: runId,
+		doc: {
+			...update,
+			updated_at: nowIso(),
+		},
+	});
 }
 
 /**
@@ -189,22 +189,22 @@ export async function updateSyncRun(
  * @param stats - Final stats returned by the sync operation.
  */
 export async function completeSyncRun(
-  runId: string,
-  stats: SyncStats,
+	runId: string,
+	stats: SyncStats,
 ): Promise<void> {
-  const timestamp = nowIso();
-  await updateSyncRun(runId, {
-    status: "completed",
-    completed_at: timestamp,
-    series_seen: stats.seriesSeen,
-    ...statsToRunUpdate(stats),
-    current_series_id: null,
-    current_series_name: null,
-    current_issue_id: null,
-    current_issue_number: null,
-    current_issue_name: null,
-    last_error: null,
-  });
+	const timestamp = nowIso();
+	await updateSyncRun(runId, {
+		status: "completed",
+		completed_at: timestamp,
+		series_seen: stats.seriesSeen,
+		...statsToRunUpdate(stats),
+		current_series_id: null,
+		current_series_name: null,
+		current_issue_id: null,
+		current_issue_number: null,
+		current_issue_name: null,
+		last_error: null,
+	});
 }
 
 /**
@@ -214,15 +214,15 @@ export async function completeSyncRun(
  * @param error - Error that caused the sync to fail.
  */
 export async function failSyncRun(
-  runId: string,
-  error: unknown,
+	runId: string,
+	error: unknown,
 ): Promise<void> {
-  const timestamp = nowIso();
-  await updateSyncRun(runId, {
-    status: "failed",
-    completed_at: timestamp,
-    last_error: serializeError(error),
-  });
+	const timestamp = nowIso();
+	await updateSyncRun(runId, {
+		status: "failed",
+		completed_at: timestamp,
+		last_error: serializeError(error),
+	});
 }
 
 /**
@@ -232,19 +232,19 @@ export async function failSyncRun(
  * @returns Progress reporter accepted by the sync loop.
  */
 export function createSyncRunProgressReporter(
-  runId: string,
+	runId: string,
 ): SyncProgressReporter {
-  const writeSnapshot = (snapshot: SyncProgressSnapshot) =>
-    updateSyncRun(runId, snapshotToRunUpdate(snapshot));
+	const writeSnapshot = (snapshot: SyncProgressSnapshot) =>
+		updateSyncRun(runId, snapshotToRunUpdate(snapshot));
 
-  return {
-    start: writeSnapshot,
-    seriesStart: writeSnapshot,
-    seriesFetched: writeSnapshot,
-    issueEnrichmentStart: writeSnapshot,
-    issueEnriched: writeSnapshot,
-    seriesComplete: writeSnapshot,
-  };
+	return {
+		start: writeSnapshot,
+		seriesStart: writeSnapshot,
+		seriesFetched: writeSnapshot,
+		issueEnrichmentStart: writeSnapshot,
+		issueEnriched: writeSnapshot,
+		seriesComplete: writeSnapshot,
+	};
 }
 
 /**
@@ -254,18 +254,18 @@ export function createSyncRunProgressReporter(
  * @returns Most recent run document, or null when no run has been recorded.
  */
 export async function getLatestSyncRun(
-  kind: SyncRunKind,
+	kind: SyncRunKind,
 ): Promise<SyncRunDocument | null> {
-  await ensureSyncRunsIndex();
+	await ensureSyncRunsIndex();
 
-  const response = await elastic.search<SyncRunDocument>({
-    index: SYNC_RUNS_INDEX,
-    size: 1,
-    query: { term: { kind } },
-    sort: [{ started_at: "desc" }],
-  });
+	const response = await elastic.search<SyncRunDocument>({
+		index: SYNC_RUNS_INDEX,
+		size: 1,
+		query: { term: { kind } },
+		sort: [{ started_at: "desc" }],
+	});
 
-  return response.hits.hits[0]?._source ?? null;
+	return response.hits.hits[0]?._source ?? null;
 }
 
 /**
@@ -275,31 +275,31 @@ export async function getLatestSyncRun(
  * @returns Enrichment coverage counts and percentage.
  */
 async function getEnrichmentCoverage() {
-  const enrichedQuery = {
-    bool: {
-      should: [
-        { exists: { field: "comicvine_enriched_at" } },
-        { exists: { field: "characters" } },
-      ],
-      minimum_should_match: 1,
-    },
-  };
+	const enrichedQuery = {
+		bool: {
+			should: [
+				{ exists: { field: "comicvine_enriched_at" } },
+				{ exists: { field: "characters" } },
+			],
+			minimum_should_match: 1,
+		},
+	};
 
-  const [totalResponse, enrichedResponse] = await Promise.all([
-    elastic.count({ index: ISSUES_INDEX }),
-    elastic.count({ index: ISSUES_INDEX, query: enrichedQuery }),
-  ]);
+	const [totalResponse, enrichedResponse] = await Promise.all([
+		elastic.count({ index: ISSUES_INDEX }),
+		elastic.count({ index: ISSUES_INDEX, query: enrichedQuery }),
+	]);
 
-  const totalIssues = totalResponse.count;
-  const enrichedIssues = enrichedResponse.count;
+	const totalIssues = totalResponse.count;
+	const enrichedIssues = enrichedResponse.count;
 
-  return {
-    totalIssues,
-    enrichedIssues,
-    pendingIssues: Math.max(0, totalIssues - enrichedIssues),
-    percentComplete:
-      totalIssues > 0 ? Math.round((enrichedIssues / totalIssues) * 100) : 0,
-  };
+	return {
+		totalIssues,
+		enrichedIssues,
+		pendingIssues: Math.max(0, totalIssues - enrichedIssues),
+		percentComplete:
+			totalIssues > 0 ? Math.round((enrichedIssues / totalIssues) * 100) : 0,
+	};
 }
 
 /**
@@ -311,27 +311,27 @@ async function getEnrichmentCoverage() {
  * @returns Current enrichment coverage, latest enrichment run, and stale status.
  */
 export async function getEnrichmentMonitorSnapshot(
-  now: Date = new Date(),
+	now: Date = new Date(),
 ): Promise<EnrichmentMonitorSnapshot> {
-  const [coverage, latestRun] = await Promise.all([
-    getEnrichmentCoverage(),
-    getLatestSyncRun("enrichment"),
-  ]);
+	const [coverage, latestRun] = await Promise.all([
+		getEnrichmentCoverage(),
+		getLatestSyncRun("enrichment"),
+	]);
 
-  const updatedAtMs = latestRun ? Date.parse(latestRun.updated_at) : Number.NaN;
-  const isLatestRunStale = Boolean(
-    latestRun?.status === "running" &&
-    Number.isFinite(updatedAtMs) &&
-    now.getTime() - updatedAtMs > ENRICHMENT_STALE_AFTER_MS,
-  );
+	const updatedAtMs = latestRun ? Date.parse(latestRun.updated_at) : Number.NaN;
+	const isLatestRunStale = Boolean(
+		latestRun?.status === "running" &&
+			Number.isFinite(updatedAtMs) &&
+			now.getTime() - updatedAtMs > ENRICHMENT_STALE_AFTER_MS,
+	);
 
-  return {
-    overview: {
-      ...coverage,
-      staleAfterSeconds: ENRICHMENT_STALE_AFTER_MS / 1000,
-      generatedAt: now.toISOString(),
-    },
-    latestRun,
-    isLatestRunStale,
-  };
+	return {
+		overview: {
+			...coverage,
+			staleAfterSeconds: ENRICHMENT_STALE_AFTER_MS / 1000,
+			generatedAt: now.toISOString(),
+		},
+		latestRun,
+		isLatestRunStale,
+	};
 }
