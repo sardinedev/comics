@@ -20,8 +20,8 @@ vi.mock("@atproto/jwk-jose", () => ({
 }));
 
 vi.mock("./store", () => ({
-	// Must be a regular function (not arrow) to be usable as a constructor.
-	ElasticKeyedStore: vi.fn(() => {}),
+	// Keep the class mock constructable: avoid an arrow implementation here.
+	ElasticKeyedStore: vi.fn(),
 }));
 
 describe("getOAuthClient", () => {
