@@ -1,41 +1,71 @@
 import { useComputed, useSignal } from "@preact/signals";
+import type { TargetedMouseEvent, TargetedPointerEvent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import { Icon } from "@components/Icon/Icon";
 import { downloadCbz, extractPages } from "./comicReader.utils";
-import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
+import {
+  DOUBLE_TAP_MAX_DELAY_MS,
+  classifySwipe,
+  clampZoomTranslation,
+  getHalfPageZoomTarget,
+  getHorizontalPanEdge,
+  getPointZoomRegion,
+  getTapZone,
+  getZoomBounds,
+  isDoublePageSpread,
+  isDoubleTap,
+  isTapGesture,
+} from "./comicReader.gestures";
+import type {
+  ActiveGesture,
+  ComicReaderProps,
+  GesturePoint,
+  ImageMetrics,
+  ReaderZoomState,
+} from "./comicReader.types";
 
-/** Props for the interactive comic reader island. */
-type ComicReaderProps = {
-  /** Issue id for the CBZ archive and progress API routes. */
-  issueId: string;
-  /** Zero-based page index to show when the reader opens. */
-  initialPage: number;
-  /** Optional sidecar metadata to persist when the archive is cached. */
-  cacheMetadata?: ComicCacheMetadataInput;
-};
+function defaultZoomState(): ReaderZoomState {
+  return { region: null, scale: 1, translateX: 0, translateY: 0 };
+}
 
 export function ComicReader({
   issueId,
   initialPage,
+  nextIssue,
   cacheMetadata,
 }: ComicReaderProps) {
   const currentPage = useSignal(0);
   const downloadProgress = useSignal(0);
   const error = useSignal<string | null>(null);
+  const imageMetrics = useSignal<ImageMetrics | null>(null);
   const isFullscreen = useSignal(false);
+  const isPanning = useSignal(false);
   const isLoading = useSignal(true);
   const pages = useSignal<string[]>([]);
   const phase = useSignal<"downloading" | "extracting" | "ready">("downloading");
   const showHomeScreenHint = useSignal(false);
   const showUI = useSignal(true);
   const supportsFullscreen = useSignal(false);
+  const zoom = useSignal<ReaderZoomState>(defaultZoomState());
 
   const pageLabel = useComputed(
     () => `${currentPage.value + 1} / ${pages.value.length}`,
   );
+  const isLastPage = useComputed(
+    () => pages.value.length > 0 && currentPage.value === pages.value.length - 1,
+  );
 
-  // Tracks the last saved page number so the periodic save can skip when nothing changed.
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
+
   const lastSavedPageRef = useRef<number | null>(null);
+  const activeGestureRef = useRef<ActiveGesture | null>(null);
+  const lastTapRef = useRef<GesturePoint | null>(null);
+  const pendingTapTimeoutRef = useRef<number | null>(null);
+  const scrollRafRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false);
+  const suppressClickTimeoutRef = useRef<number | null>(null);
 
   function buildProgressBody(): string {
     return JSON.stringify({
@@ -59,6 +89,189 @@ export function ComicReader({
     if (ok) lastSavedPageRef.current = currentPage.value;
   }
 
+  function clearPendingTap() {
+    if (pendingTapTimeoutRef.current !== null) {
+      window.clearTimeout(pendingTapTimeoutRef.current);
+      pendingTapTimeoutRef.current = null;
+    }
+    lastTapRef.current = null;
+  }
+
+  function resetZoom() {
+    zoom.value = defaultZoomState();
+    isPanning.value = false;
+  }
+
+  function measureImage() {
+    const container = scrollViewportRef.current;
+    const image = imageRefs.current[currentPage.value];
+    if (!container || !image || image.naturalWidth <= 0 || image.naturalHeight <= 0) return;
+
+    const rect = container.getBoundingClientRect();
+    const metrics: ImageMetrics = {
+      container: {
+        width: rect.width || container.clientWidth || window.innerWidth,
+        height: rect.height || container.clientHeight || window.innerHeight,
+      },
+      natural: {
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      },
+    };
+
+    imageMetrics.value = metrics;
+
+    if (!zoom.value.region) return;
+    if (!isDoublePageSpread(metrics.natural)) {
+      resetZoom();
+      return;
+    }
+
+    zoom.value = getHalfPageZoomTarget(metrics, zoom.value.region);
+  }
+
+  function getPointerPoint(event: TargetedPointerEvent<HTMLDivElement>): GesturePoint {
+    return { x: event.clientX, y: event.clientY, time: event.timeStamp };
+  }
+
+  function suppressNextClick() {
+    suppressClickRef.current = true;
+    if (suppressClickTimeoutRef.current !== null) {
+      window.clearTimeout(suppressClickTimeoutRef.current);
+    }
+    suppressClickTimeoutRef.current = window.setTimeout(() => {
+      suppressClickRef.current = false;
+      suppressClickTimeoutRef.current = null;
+    }, 700);
+  }
+
+  function ignoreSuppressedClick(event: TargetedMouseEvent<HTMLDivElement>): boolean {
+    if (!suppressClickRef.current) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    suppressClickRef.current = false;
+    return true;
+  }
+
+  function getTapX(point: GesturePoint): { x: number; width: number } | null {
+    const viewport = scrollViewportRef.current;
+    if (!viewport) return null;
+    const rect = viewport.getBoundingClientRect();
+    return {
+      x: point.x - rect.left,
+      width: rect.width || window.innerWidth,
+    };
+  }
+
+  function handleSingleTap(point: GesturePoint) {
+    const tap = getTapX(point);
+    if (!tap) return;
+    const zone = getTapZone(tap.x, tap.width);
+
+    if (zoom.value.region) {
+      if (zone === "controls") toggleUI();
+      return;
+    }
+
+    if (zone === "previous") goPrev();
+    else if (zone === "next") goNext();
+    else toggleUI();
+  }
+
+  function handleDoubleTap(point: GesturePoint) {
+    const tap = getTapX(point);
+    const metrics = imageMetrics.value;
+    if (!tap || !metrics) return;
+
+    if (!isDoublePageSpread(metrics.natural)) {
+      if (zoom.value.region) resetZoom();
+      return;
+    }
+
+    const region = getPointZoomRegion(tap.x, tap.width);
+    if (zoom.value.region === region) {
+      resetZoom();
+      return;
+    }
+
+    zoom.value = getHalfPageZoomTarget(metrics, region);
+    showUI.value = false;
+  }
+
+  function handleTap(point: GesturePoint) {
+    if (isDoubleTap(lastTapRef.current, point)) {
+      clearPendingTap();
+      handleDoubleTap(point);
+      return;
+    }
+
+    lastTapRef.current = point;
+    if (pendingTapTimeoutRef.current !== null) {
+      window.clearTimeout(pendingTapTimeoutRef.current);
+    }
+
+    pendingTapTimeoutRef.current = window.setTimeout(() => {
+      pendingTapTimeoutRef.current = null;
+      lastTapRef.current = null;
+      handleSingleTap(point);
+    }, DOUBLE_TAP_MAX_DELAY_MS);
+  }
+
+  function scrollPageIntoView(pageIndex: number) {
+    const viewport = scrollViewportRef.current;
+    const page = pageRefs.current[pageIndex];
+    if (!viewport || !page) return;
+
+    viewport.scrollTo({
+      left: page.offsetLeft,
+      top: 0,
+      behavior: "auto",
+    });
+  }
+
+  function goToPage(pageIndex: number) {
+    if (pages.value.length === 0) return;
+    const nextPage = Math.max(0, Math.min(pageIndex, pages.value.length - 1));
+    if (nextPage === currentPage.value) return;
+    clearPendingTap();
+    currentPage.value = nextPage;
+    resetZoom();
+    window.requestAnimationFrame(() => scrollPageIntoView(nextPage));
+  }
+
+  function syncCurrentPageFromScroll() {
+    const viewport = scrollViewportRef.current;
+    if (!viewport || pages.value.length === 0 || zoom.value.region) return;
+
+    const viewportCenter = viewport.scrollLeft + viewport.clientWidth / 2;
+    let nearestPage = currentPage.value;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    for (let index = 0; index < pages.value.length; index += 1) {
+      const page = pageRefs.current[index];
+      if (!page) continue;
+      const pageCenter = page.offsetLeft + page.offsetWidth / 2;
+      const distance = Math.abs(pageCenter - viewportCenter);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestPage = index;
+      }
+    }
+
+    if (nearestPage !== currentPage.value) {
+      clearPendingTap();
+      currentPage.value = nearestPage;
+    }
+  }
+
+  function handleScroll() {
+    if (scrollRafRef.current !== null) return;
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      syncCurrentPageFromScroll();
+    });
+  }
+
   useEffect(() => {
     supportsFullscreen.value = "requestFullscreen" in document.documentElement;
     lastSavedPageRef.current = null;
@@ -80,14 +293,14 @@ export function ComicReader({
         phase.value = "extracting";
         const urls = await extractPages(cbz);
         if (cancelled) {
-          // Effect was torn down while extracting — revoke the URLs we just created
           for (const url of urls) URL.revokeObjectURL(url);
           return;
         }
 
         createdUrls = urls;
+        pageRefs.current = new Array<HTMLDivElement | null>(urls.length).fill(null);
+        imageRefs.current = new Array<HTMLImageElement | null>(urls.length).fill(null);
         pages.value = urls;
-        // Clamp initialPage: it's 1-indexed from ES, convert to 0-indexed
         const startPage = Math.max(0, Math.min((initialPage || 1) - 1, urls.length - 1));
         currentPage.value = startPage;
         phase.value = "ready";
@@ -106,7 +319,36 @@ export function ComicReader({
     };
   }, [issueId, initialPage, cacheMetadata]);
 
-  // Keyboard navigation
+  useEffect(() => {
+    if (isLoading.value || pages.value.length === 0) return;
+    window.requestAnimationFrame(() => {
+      scrollPageIntoView(currentPage.value);
+      measureImage();
+    });
+  }, [isLoading.value, pages.value.length]);
+
+  useEffect(() => {
+    window.requestAnimationFrame(measureImage);
+  }, [currentPage.value]);
+
+  useEffect(() => {
+    const onResize = () => measureImage();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearPendingTap();
+      if (scrollRafRef.current !== null) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+      }
+      if (suppressClickTimeoutRef.current !== null) {
+        window.clearTimeout(suppressClickTimeoutRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === " ") {
@@ -130,7 +372,6 @@ export function ComicReader({
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Sync fullscreen signal with browser state
   useEffect(() => {
     const handler = () => {
       isFullscreen.value = !!document.fullscreenElement;
@@ -139,7 +380,6 @@ export function ComicReader({
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
-  // Save progress on tab hide, navigation away, and periodically as a safety net.
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") flushProgress();
@@ -169,15 +409,11 @@ export function ComicReader({
   }
 
   function goNext() {
-    if (currentPage.value < pages.value.length - 1) {
-      currentPage.value++;
-    }
+    goToPage(currentPage.value + 1);
   }
 
   function goPrev() {
-    if (currentPage.value > 0) {
-      currentPage.value--;
-    }
+    goToPage(currentPage.value - 1);
   }
 
   function navigateBack() {
@@ -189,7 +425,95 @@ export function ComicReader({
     showUI.value = !showUI.value;
   }
 
-  // Loading state
+  function handleViewportClick(event: TargetedMouseEvent<HTMLDivElement>) {
+    if (ignoreSuppressedClick(event)) return;
+    if (event.button !== 0) return;
+
+    handleTap({ x: event.clientX, y: event.clientY, time: event.timeStamp });
+  }
+
+  function handlePointerDown(event: TargetedPointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" || !event.isPrimary) return;
+
+    suppressNextClick();
+    const point = getPointerPoint(event);
+    const bounds = zoom.value.region && imageMetrics.value
+      ? getZoomBounds(imageMetrics.value, zoom.value.scale)
+      : null;
+
+    activeGestureRef.current = {
+      pointerId: event.pointerId,
+      start: point,
+      zoomStart: zoom.value,
+      edgeAtStart: bounds ? getHorizontalPanEdge(zoom.value.translateX, bounds) : null,
+    };
+    isPanning.value = !!zoom.value.region;
+
+    if (zoom.value.region) {
+      event.preventDefault();
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // Synthetic browser-test events may not create a capturable pointer.
+      }
+    }
+  }
+
+  function handlePointerMove(event: TargetedPointerEvent<HTMLDivElement>) {
+    const active = activeGestureRef.current;
+    const metrics = imageMetrics.value;
+    if (!active || active.pointerId !== event.pointerId || !active.zoomStart.region || !metrics) return;
+
+    const point = getPointerPoint(event);
+    const bounds = getZoomBounds(metrics, active.zoomStart.scale);
+    const translation = clampZoomTranslation(
+      active.zoomStart.translateX + point.x - active.start.x,
+      active.zoomStart.translateY + point.y - active.start.y,
+      bounds,
+    );
+
+    zoom.value = {
+      ...zoom.value,
+      translateX: translation.translateX,
+      translateY: translation.translateY,
+    };
+    event.preventDefault();
+  }
+
+  function finishPointerGesture(event: TargetedPointerEvent<HTMLDivElement>) {
+    const active = activeGestureRef.current;
+    if (!active || active.pointerId !== event.pointerId) return;
+
+    const end = getPointerPoint(event);
+    const swipe = classifySwipe(active.start, end);
+    const wasZoomed = !!active.zoomStart.region;
+    activeGestureRef.current = null;
+    isPanning.value = false;
+
+    if (wasZoomed) {
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // Synthetic browser-test events may not hold pointer capture.
+      }
+    }
+
+    if (wasZoomed) {
+      if (swipe === "previous" && active.edgeAtStart === "left") goPrev();
+      else if (swipe === "next" && active.edgeAtStart === "right") goNext();
+      else if (isTapGesture(active.start, end)) handleTap(end);
+      return;
+    }
+
+    if (isTapGesture(active.start, end)) handleTap(end);
+  }
+
+  function cancelPointerGesture(event: TargetedPointerEvent<HTMLDivElement>) {
+    if (activeGestureRef.current?.pointerId !== event.pointerId) return;
+    activeGestureRef.current = null;
+    isPanning.value = false;
+  }
+
   if (isLoading.value) {
     return (
       <div
@@ -220,7 +544,6 @@ export function ComicReader({
     );
   }
 
-  // Error state
   if (error.value) {
     return (
       <div
@@ -238,71 +561,109 @@ export function ComicReader({
     );
   }
 
-  // Reader
-  const nextPageUrl = pages.value[currentPage.value + 1];
+  const isZoomed = !!zoom.value.region;
+  const currentImageTransform = zoom.value.region
+    ? `translate3d(${zoom.value.translateX}px, ${zoom.value.translateY}px, 0) scale(${zoom.value.scale})`
+    : undefined;
+  const nextIssueReadUrl = nextIssue ? `/comic/${nextIssue.id}/read` : null;
 
   return (
-    <div class="relative h-dvh w-dvw select-none">
-      {/* Page image */}
-      <div class="flex h-full w-full items-center justify-center">
-        <img
-          src={pages.value[currentPage.value]}
-          alt={`Page ${currentPage.value + 1}`}
-          class="max-h-full max-w-full object-contain"
-          draggable={false}
-        />
+    <div class="relative h-dvh w-dvw select-none bg-black">
+      <div
+        ref={scrollViewportRef}
+        class={`flex h-full w-full snap-x snap-mandatory bg-black [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+          isZoomed
+            ? "overflow-hidden touch-none"
+            : "cursor-pointer touch-pan-x overflow-x-auto overflow-y-hidden overscroll-x-contain"
+        }`}
+        data-reader-gesture-layer="true"
+        data-reader-scroll-viewport="true"
+        onClick={handleViewportClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={finishPointerGesture}
+        onPointerCancel={cancelPointerGesture}
+        onScroll={handleScroll}
+        style={{
+          display: "flex",
+          height: "100%",
+          overflowX: isZoomed ? "hidden" : "auto",
+          overflowY: "hidden",
+          scrollSnapType: "x mandatory",
+          width: "100%",
+        }}
+      >
+        {pages.value.map((pageUrl, index) => {
+          const isCurrentPage = index === currentPage.value;
+          const shouldLoadEagerly = Math.abs(index - currentPage.value) <= 1;
+          return (
+            <div
+              key={pageUrl}
+              ref={(element) => {
+                pageRefs.current[index] = element;
+              }}
+              class="flex h-full w-full shrink-0 snap-center items-center justify-center overflow-hidden"
+              aria-hidden={isCurrentPage ? undefined : true}
+              data-current-page={isCurrentPage ? "true" : undefined}
+              data-reader-page={index + 1}
+              style={{
+                height: "100%",
+                minWidth: "100%",
+                scrollSnapAlign: "center",
+                width: "100%",
+              }}
+            >
+              <img
+                ref={(element) => {
+                  imageRefs.current[index] = element;
+                }}
+                src={pageUrl}
+                alt={`Page ${index + 1}`}
+                class="max-h-full max-w-full object-contain will-change-transform"
+                draggable={false}
+                data-current-page={isCurrentPage ? "true" : undefined}
+                data-zoom-region={isCurrentPage ? zoom.value.region ?? undefined : undefined}
+                loading={shouldLoadEagerly ? "eager" : "lazy"}
+                decoding="async"
+                onLoad={() => {
+                  if (isCurrentPage) measureImage();
+                }}
+                style={isCurrentPage ? {
+                  transform: currentImageTransform,
+                  transformOrigin: "center center",
+                  transition: isPanning.value ? "none" : "transform 150ms ease-in-out",
+                } : undefined}
+              />
+            </div>
+          );
+        })}
       </div>
 
-      {/* Tap zones — sit above the image but below the HUD */}
-      <div class="absolute inset-0 z-10 flex">
-        <button
-          type="button"
-          onClick={goPrev}
-          class="group flex h-full w-1/3 cursor-pointer items-center justify-start pl-4"
-          aria-label="Previous page"
-        >
-          {/* Visible only on devices that support hover (i.e. desktop) */}
-          <span class="hidden opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:hover)]:inline-flex">
-            <Icon name="chevron-left" class="h-10 w-10 text-white/80" />
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={toggleUI}
-          class="h-full w-1/3 cursor-pointer"
-          aria-label="Toggle controls"
-        />
-        <button
-          type="button"
-          onClick={goNext}
-          class="group flex h-full w-1/3 cursor-pointer items-center justify-end pr-4"
-          aria-label="Next page"
-        >
-          <span class="hidden opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:hover)]:inline-flex">
-            <Icon name="chevron-right" class="h-10 w-10 text-white/80" />
-          </span>
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={goPrev}
+        disabled={currentPage.value === 0}
+        class="pointer-events-auto absolute left-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center text-white/70 opacity-0 transition-opacity hover:text-white disabled:pointer-events-none disabled:opacity-0 [@media(hover:hover)]:flex [@media(hover:hover)]:hover:opacity-100"
+        aria-label="Previous page"
+      >
+        <Icon name="chevron-left" />
+      </button>
+      <button
+        type="button"
+        onClick={goNext}
+        disabled={currentPage.value >= pages.value.length - 1}
+        class="pointer-events-auto absolute right-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center text-white/70 opacity-0 transition-opacity hover:text-white disabled:pointer-events-none disabled:opacity-0 [@media(hover:hover)]:flex [@media(hover:hover)]:hover:opacity-100"
+        aria-label="Next page"
+      >
+        <Icon name="chevron-right" />
+      </button>
 
-      {/* Preload next page off-screen — more reliable than dynamic <link rel="preload"> */}
-      {nextPageUrl && (
-        <img
-          src={nextPageUrl}
-          alt=""
-          aria-hidden="true"
-          class="pointer-events-none absolute h-0 w-0 opacity-0"
-          loading="eager"
-          decoding="async"
-        />
-      )}
-
-      {/* HUD overlay */}
       {showUI.value && (
         <>
-          {/* Top bar */}
           <div class="pointer-events-none absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/80 to-transparent pb-12 pt-4">
             <div class="pointer-events-auto flex items-center gap-4 px-4">
               <button
+                type="button"
                 onClick={
                   supportsFullscreen.value
                     ? toggleFullscreen
@@ -316,6 +677,7 @@ export function ComicReader({
                 <Icon name={isFullscreen.value ? "fullscreen-exit" : "fullscreen"} />
               </button>
               <button
+                type="button"
                 onClick={navigateBack}
                 class="ml-auto flex h-10 w-10 items-center justify-center text-white/80 hover:text-white"
                 aria-label="Close reader"
@@ -325,19 +687,59 @@ export function ComicReader({
             </div>
           </div>
 
-          {/* Bottom bar */}
           <div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 to-transparent pb-4 pt-12">
-            <p
-              class="text-center text-sm font-semibold tabular-nums text-white/80"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {pageLabel}
-            </p>
+            <div class="pointer-events-auto mx-auto flex items-center justify-center gap-4 px-4">
+              <button
+                type="button"
+                onClick={goPrev}
+                disabled={currentPage.value === 0}
+                class="flex h-10 w-10 items-center justify-center text-white/70 transition-colors hover:text-white disabled:pointer-events-none disabled:text-white/20"
+                aria-label="Previous page"
+              >
+                <Icon name="chevron-left" />
+              </button>
+              <p
+                class="min-w-20 text-center text-sm font-semibold tabular-nums text-white/80"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {pageLabel}
+              </p>
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={currentPage.value >= pages.value.length - 1}
+                class="flex h-10 w-10 items-center justify-center text-white/70 transition-colors hover:text-white disabled:pointer-events-none disabled:text-white/20"
+                aria-label="Next page"
+              >
+                <Icon name="chevron-right" />
+              </button>
+            </div>
           </div>
         </>
       )}
-      {/* Add to Home Screen hint */}
+      {nextIssue && nextIssueReadUrl && isLastPage.value && (
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-4 pb-5 pt-16">
+          <div class="pointer-events-auto mx-auto flex max-w-xl items-center justify-between gap-4 border-t border-slate-700 bg-black/80 px-4 py-3 backdrop-blur-sm">
+            <div class="min-w-0">
+              <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-500">Next issue?</p>
+              <p class="truncate text-sm font-semibold text-white">
+                {nextIssue.seriesName} #{nextIssue.issueNumber}
+              </p>
+              {nextIssue.issueName && (
+                <p class="truncate text-xs text-slate-400">{nextIssue.issueName}</p>
+              )}
+            </div>
+            <a
+              href={nextIssueReadUrl}
+              onClick={() => flushProgress()}
+              class="shrink-0 bg-amber-500 px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-950 transition-colors hover:bg-amber-400"
+            >
+              Read next
+            </a>
+          </div>
+        </div>
+      )}
       {showHomeScreenHint.value && (
         <div class="pointer-events-auto absolute inset-x-4 bottom-16 z-30 rounded-xl bg-slate-900/95 p-4 shadow-xl">
           <p class="mb-1 text-sm font-semibold text-white">Fullscreen on iOS</p>
@@ -345,6 +747,7 @@ export function ComicReader({
             Tap <span class="font-medium text-white">Share</span> → <span class="font-medium text-white">Add to Home Screen</span> to read without browser chrome.
           </p>
           <button
+            type="button"
             onClick={() => { showHomeScreenHint.value = false; }}
             class="mt-3 text-xs font-semibold text-amber-500"
           >

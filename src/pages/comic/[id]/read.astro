@@ -1,7 +1,7 @@
 ---
 import ReaderLayout from "@layouts/ReaderLayout.astro";
 import { ComicReader } from "@components/ComicReader/ComicReader";
-import { getIssue } from "@data/elastic/queries";
+import { getIssue, getNextDownloadedIssue } from "@data/elastic/queries";
 import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
 
 const { id } = Astro.params;
@@ -11,6 +11,7 @@ if (!issue) return Astro.redirect("/series");
 if (issue.download_status !== "Downloaded")
   return Astro.redirect(`/comic/${id}`);
 
+const nextIssue = await getNextDownloadedIssue(issue);
 const cacheMetadata: ComicCacheMetadataInput = {
   issueId: issue.issue_id,
   seriesId: issue.series_id,
@@ -29,6 +30,15 @@ const cacheMetadata: ComicCacheMetadataInput = {
     client:only="preact"
     issueId={id!}
     initialPage={issue.current_page ?? 0}
+    nextIssue={nextIssue
+      ? {
+          id: nextIssue.issue_id,
+          seriesName:
+            nextIssue.series_name ?? issue.series_name ?? "Next issue",
+          issueNumber: nextIssue.issue_number,
+          issueName: nextIssue.issue_name ?? undefined,
+        }
+      : undefined}
     cacheMetadata={cacheMetadata}
   />
 </ReaderLayout>
