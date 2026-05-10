@@ -1,17 +1,17 @@
-import type {
-  ComicvineIssues,
-  ComicvineResponse,
-  ComicvineSingleIssueResponse,
-  ComicvineVolume,
-} from "./comicvine.types";
 import { env } from "@lib/env";
+import type {
+	ComicvineIssues,
+	ComicvineResponse,
+	ComicvineSingleIssueResponse,
+	ComicvineVolume,
+} from "./comicvine.types";
 
 /**
  * Represents the weekly comics data.
  */
 export type WeeklyComics = {
-  totalResults: number;
-  issues: ComicvineIssues[];
+	totalResults: number;
+	issues: ComicvineIssues[];
 };
 
 const COMICVINE_API_KEY = env("COMICVINE_API_KEY");
@@ -24,30 +24,30 @@ const COMICVINE_URL = "https://comicvine.gamespot.com/api";
  * @returns The response data from the API.
  */
 async function comicvine<T>(
-  endpoint: string,
-  params?: string
+	endpoint: string,
+	params?: string,
 ): Promise<ComicvineResponse<T>> {
-  try {
-    const response = await fetch(
-      `${COMICVINE_URL}/${endpoint}/?api_key=${COMICVINE_API_KEY}&format=json&${params}`,
-      { headers: { "User-Agent": "marabyte.com" } }
-    );
-    if (!response.ok) {
-      throw new Error("responded with HTTP status " + response.status);
-    }
-    const data = await response.json();
-    if (data.status_code !== 1) {
-      throw Error(data.error);
-    }
-    return data;
-  } catch (error) {
-    console.error(`[Comicvine API]: ${error}`);
-    if (error instanceof Error) {
-      throw Error(`[Comicvine API]: ${error.message}`);
-    } else {
-      throw Error("[Comicvine API]: An unknown error occurred");
-    }
-  }
+	try {
+		const response = await fetch(
+			`${COMICVINE_URL}/${endpoint}/?api_key=${COMICVINE_API_KEY}&format=json&${params}`,
+			{ headers: { "User-Agent": "marabyte.com" } },
+		);
+		if (!response.ok) {
+			throw new Error("responded with HTTP status " + response.status);
+		}
+		const data = await response.json();
+		if (data.status_code !== 1) {
+			throw Error(data.error);
+		}
+		return data;
+	} catch (error) {
+		console.error(`[Comicvine API]: ${error}`);
+		if (error instanceof Error) {
+			throw Error(`[Comicvine API]: ${error.message}`);
+		} else {
+			throw Error("[Comicvine API]: An unknown error occurred");
+		}
+	}
 }
 
 /**
@@ -57,23 +57,23 @@ async function comicvine<T>(
  * @returns The weekly comics data.
  */
 export async function getWeeklyComics(startOfWeek: string, endOfWeek: string) {
-  try {
-    const data = await comicvine<ComicvineIssues[]>(
-      "issues",
-      `filter=store_date:${startOfWeek}|${endOfWeek}`
-    );
-    return {
-      totalResults: data.number_of_total_results,
-      issues: data.results,
-    };
-  } catch (error) {
-    // console.error("Fetching weekly comics");
-    if (error instanceof Error) {
-      throw Error(`Fetching weekly comics: ${error.message}`);
-    } else {
-      throw Error("Fetching weekly comics: An unknown error occurred");
-    }
-  }
+	try {
+		const data = await comicvine<ComicvineIssues[]>(
+			"issues",
+			`filter=store_date:${startOfWeek}|${endOfWeek}`,
+		);
+		return {
+			totalResults: data.number_of_total_results,
+			issues: data.results,
+		};
+	} catch (error) {
+		// console.error("Fetching weekly comics");
+		if (error instanceof Error) {
+			throw Error(`Fetching weekly comics: ${error.message}`);
+		} else {
+			throw Error("Fetching weekly comics: An unknown error occurred");
+		}
+	}
 }
 
 /**
@@ -82,19 +82,19 @@ export async function getWeeklyComics(startOfWeek: string, endOfWeek: string) {
  * @returns The details of the comic issue.
  */
 export async function getComicIssueDetails(
-  issueId: string | number
+	issueId: string | number,
 ): Promise<ComicvineSingleIssueResponse> {
-  try {
-    const data = await comicvine<ComicvineSingleIssueResponse>(
-      `issue/4000-${issueId}`
-    );
-    return {
-      ...data.results,
-    };
-  } catch (error) {
-    console.error("Error fetching comic issue details", error);
-    throw Error("Error fetching comic issue details");
-  }
+	try {
+		const data = await comicvine<ComicvineSingleIssueResponse>(
+			`issue/4000-${issueId}`,
+		);
+		return {
+			...data.results,
+		};
+	} catch (error) {
+		console.error("Error fetching comic issue details", error);
+		throw Error("Error fetching comic issue details");
+	}
 }
 
 /**
@@ -103,25 +103,25 @@ export async function getComicIssueDetails(
  * @returns The details of the comic issue.
  */
 export async function getVolumeDetails(
-  volumeId: number | string
+	volumeId: number | string,
 ): Promise<ComicvineVolume> {
-  try {
-    const data = await comicvine<ComicvineVolume>(`volume/4050-${volumeId}`);
-    return {
-      ...data.results,
-    };
-  } catch (error) {
-    console.error("Error fetching comic volume details", error);
-    throw Error("Error fetching comic volume details");
-  }
+	try {
+		const data = await comicvine<ComicvineVolume>(`volume/4050-${volumeId}`);
+		return {
+			...data.results,
+		};
+	} catch (error) {
+		console.error("Error fetching comic volume details", error);
+		throw Error("Error fetching comic volume details");
+	}
 }
 
 export type VolumeSearchResult = {
-  id: number;
-  name: string;
-  start_year: string;
-  image: Pick<ComicvineImage, "thumb_url" | "small_url">;
-  publisher: { name: string } | null;
+	id: number;
+	name: string;
+	start_year: string;
+	image: Pick<ComicvineImage, "thumb_url" | "small_url">;
+	publisher: { name: string } | null;
 };
 
 /**
@@ -133,19 +133,22 @@ export type VolumeSearchResult = {
  * exact match, which breaks search results.
  */
 export async function searchVolumes(
-  query: string,
-  limit = 5,
-  offset = 0,
+	query: string,
+	limit = 5,
+	offset = 0,
 ): Promise<{ results: VolumeSearchResult[]; total: number }> {
-  try {
-    const data = await comicvine<VolumeSearchResult[]>(
-      "volumes",
-      `filter=name:${encodeURIComponent(query)}&field_list=id,name,start_year,image,publisher&limit=${limit}&offset=${offset}&sort=start_year:desc`,
-    );
-    return { results: data.results ?? [], total: data.number_of_total_results ?? 0 };
-  } catch {
-    return { results: [], total: 0 };
-  }
+	try {
+		const data = await comicvine<VolumeSearchResult[]>(
+			"volumes",
+			`filter=name:${encodeURIComponent(query)}&field_list=id,name,start_year,image,publisher&limit=${limit}&offset=${offset}&sort=start_year:desc`,
+		);
+		return {
+			results: data.results ?? [],
+			total: data.number_of_total_results ?? 0,
+		};
+	} catch {
+		return { results: [], total: 0 };
+	}
 }
 
 /**
@@ -155,18 +158,18 @@ export async function searchVolumes(
  * @returns An array of comic issues for the specified volume.
  */
 export async function getIssuesFromVolume(
-  volumeId: number | string,
-  offset: number = 0
+	volumeId: number | string,
+	offset: number = 0,
 ): Promise<ComicvineIssues[] | undefined> {
-  try {
-    const data = await comicvine<ComicvineIssues[]>(
-      "issues",
-      `filter=volume:${volumeId}&sort=cover_date:asc&offset=${offset}`
-    );
-    if (data) {
-      return data.results;
-    }
-  } catch (error) {
-    console.error("Error fetching comic issue details", error);
-  }
+	try {
+		const data = await comicvine<ComicvineIssues[]>(
+			"issues",
+			`filter=volume:${volumeId}&sort=cover_date:asc&offset=${offset}`,
+		);
+		if (data) {
+			return data.results;
+		}
+	} catch (error) {
+		console.error("Error fetching comic issue details", error);
+	}
 }

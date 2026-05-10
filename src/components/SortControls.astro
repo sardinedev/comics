@@ -2,30 +2,30 @@
 import Icon from "@components/Icon/Icon.astro";
 
 type SortOption = {
-  value: string;
-  label: string;
-  icon: "sort-asc" | "sort-desc";
+	value: string;
+	label: string;
+	icon: "sort-asc" | "sort-desc";
 };
 
 type Props = {
-  options?: SortOption[];
+	options?: SortOption[];
 };
 
 const DEFAULT_OPTIONS: SortOption[] = [
-  { value: "date-desc", label: "Newest first", icon: "sort-desc" },
-  { value: "date-asc",  label: "Oldest first", icon: "sort-asc"  },
-  { value: "title-asc", label: "Title A–Z",    icon: "sort-asc"  },
-  { value: "title-desc", label: "Title Z–A",   icon: "sort-desc" },
+	{ value: "date-desc", label: "Newest first", icon: "sort-desc" },
+	{ value: "date-asc", label: "Oldest first", icon: "sort-asc" },
+	{ value: "title-asc", label: "Title A–Z", icon: "sort-asc" },
+	{ value: "title-desc", label: "Title Z–A", icon: "sort-desc" },
 ];
 
 const { options = DEFAULT_OPTIONS } = Astro.props;
 const currentSort = Astro.url.searchParams.get("sort") ?? "";
 
 function sortUrl(value: string) {
-  const params = new URLSearchParams(Astro.url.searchParams);
-  params.set("sort", value);
-  params.set("page", "1");
-  return `?${params.toString()}`;
+	const params = new URLSearchParams(Astro.url.searchParams);
+	params.set("sort", value);
+	params.set("page", "1");
+	return `?${params.toString()}`;
 }
 ---
 

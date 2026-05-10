@@ -4,28 +4,28 @@ import { getSessionDid } from "@lib/auth/session";
 
 const allowedDids = getAllowedDids();
 if (allowedDids.length === 0) {
-  return new Response(
-    "Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
-    { status: 500 },
-  );
+	return new Response(
+		"Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
+		{ status: 500 },
+	);
 }
 
 // Already logged in → redirect home
 const did = getSessionDid(Astro.request);
 if (did && allowedDids.includes(did)) {
-  return Astro.redirect("/");
+	return Astro.redirect("/");
 }
 
 const error = Astro.url.searchParams.get("error");
 const errorMessages: Record<string, string> = {
-  missing_handle: "Please enter your Bluesky handle.",
-  authorize_failed: "Could not connect to your account. Try again.",
-  callback_failed: "Sign-in failed. Please try again.",
-  unauthorized: "This account is not authorised to access this app.",
+	missing_handle: "Please enter your Bluesky handle.",
+	authorize_failed: "Could not connect to your account. Try again.",
+	callback_failed: "Sign-in failed. Please try again.",
+	unauthorized: "This account is not authorised to access this app.",
 };
 const errorMessage = error
-  ? (errorMessages[error] ?? "Something went wrong. Please try again.")
-  : null;
+	? (errorMessages[error] ?? "Something went wrong. Please try again.")
+	: null;
 ---
 
 <!doctype html>

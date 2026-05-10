@@ -2,30 +2,30 @@
 import Icon from "@components/Icon/Icon.astro";
 
 type Props = {
-  numberOfPages: number;
-  currentPage: number;
+	numberOfPages: number;
+	currentPage: number;
 };
 
 const { numberOfPages, currentPage } = Astro.props;
 
 function pageUrl(page: number) {
-  const params = new URLSearchParams(Astro.url.searchParams);
-  params.set("page", String(page));
-  return `${Astro.url.pathname}?${params.toString()}`;
+	const params = new URLSearchParams(Astro.url.searchParams);
+	params.set("page", String(page));
+	return `${Astro.url.pathname}?${params.toString()}`;
 }
 
 let pagesArray: (string | number)[] = [];
 
 if (numberOfPages > 3) {
-  if (currentPage <= 2) {
-    pagesArray = [1, 2, "...", numberOfPages];
-  } else if (currentPage >= numberOfPages - 1) {
-    pagesArray = [1, "...", numberOfPages - 1, numberOfPages];
-  } else {
-    pagesArray = [1, "...", currentPage, "...", numberOfPages];
-  }
+	if (currentPage <= 2) {
+		pagesArray = [1, 2, "...", numberOfPages];
+	} else if (currentPage >= numberOfPages - 1) {
+		pagesArray = [1, "...", numberOfPages - 1, numberOfPages];
+	} else {
+		pagesArray = [1, "...", currentPage, "...", numberOfPages];
+	}
 } else {
-  pagesArray = Array.from({ length: numberOfPages }, (_, i) => i + 1);
+	pagesArray = Array.from({ length: numberOfPages }, (_, i) => i + 1);
 }
 ---
 

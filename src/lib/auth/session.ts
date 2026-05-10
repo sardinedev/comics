@@ -19,25 +19,25 @@ const publicUrl = env("PUBLIC_URL") ?? "";
 const isHttps = publicUrl.startsWith("https://");
 
 function isLocalDevUrl(value: string): boolean {
-  try {
-    const { protocol, hostname } = new URL(value);
-    return (
-      protocol === "http:" &&
-      (hostname === "localhost" ||
-        hostname === "127.0.0.1" ||
-        hostname === "::1" ||
-        hostname === "[::1]")
-    );
-  } catch {
-    return false;
-  }
+	try {
+		const { protocol, hostname } = new URL(value);
+		return (
+			protocol === "http:" &&
+			(hostname === "localhost" ||
+				hostname === "127.0.0.1" ||
+				hostname === "::1" ||
+				hostname === "[::1]")
+		);
+	} catch {
+		return false;
+	}
 }
 
 const _rawSecret = env("AUTH_SESSION_SECRET");
 if (!_rawSecret && !isLocalDevUrl(publicUrl)) {
-  throw new Error(
-    "AUTH_SESSION_SECRET must be set. Only local dev (http://localhost, http://127.0.0.1) may omit it."
-  );
+	throw new Error(
+		"AUTH_SESSION_SECRET must be set. Only local dev (http://localhost, http://127.0.0.1) may omit it.",
+	);
 }
 const SECRET = _rawSecret ?? "dev-secret-please-change-me";
 
@@ -46,8 +46,8 @@ const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2; // 2 years
 
 /** Returns `{value}.{base64url_signature}`. */
 function sign(value: string): string {
-  const sig = createHmac("sha256", SECRET).update(value).digest("base64url");
-  return `${value}.${sig}`;
+	const sig = createHmac("sha256", SECRET).update(value).digest("base64url");
+	return `${value}.${sig}`;
 }
 
 /**
@@ -57,20 +57,20 @@ function sign(value: string): string {
  * Returns the value on success, null on any failure.
  */
 function verify(cookie: string): string | null {
-  const lastDot = cookie.lastIndexOf(".");
-  if (lastDot === -1) return null;
-  const value = cookie.slice(0, lastDot);
-  const sig = cookie.slice(lastDot + 1);
-  const expected = createHmac("sha256", SECRET)
-    .update(value)
-    .digest("base64url");
-  try {
-    if (timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return value;
-  } catch {
-    // timingSafeEqual throws if the two buffers have different lengths,
-    // which happens when the cookie has been truncated or corrupted.
-  }
-  return null;
+	const lastDot = cookie.lastIndexOf(".");
+	if (lastDot === -1) return null;
+	const value = cookie.slice(0, lastDot);
+	const sig = cookie.slice(lastDot + 1);
+	const expected = createHmac("sha256", SECRET)
+		.update(value)
+		.digest("base64url");
+	try {
+		if (timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return value;
+	} catch {
+		// timingSafeEqual throws if the two buffers have different lengths,
+		// which happens when the cookie has been truncated or corrupted.
+	}
+	return null;
 }
 
 /**
@@ -78,30 +78,30 @@ function verify(cookie: string): string | null {
  * Returns the DID stored in the cookie, or null if absent/invalid.
  */
 export function getSessionDid(request: Request): string | null {
-  const cookieHeader = request.headers.get("cookie") ?? "";
-  for (const part of cookieHeader.split(";")) {
-    const [name, ...rest] = part.trim().split("=");
-    if (name === COOKIE_NAME) {
-      try {
-        const value = decodeURIComponent(rest.join("="));
-        return verify(value);
-      } catch {
-        return null;
-      }
-    }
-  }
-  return null;
+	const cookieHeader = request.headers.get("cookie") ?? "";
+	for (const part of cookieHeader.split(";")) {
+		const [name, ...rest] = part.trim().split("=");
+		if (name === COOKIE_NAME) {
+			try {
+				const value = decodeURIComponent(rest.join("="));
+				return verify(value);
+			} catch {
+				return null;
+			}
+		}
+	}
+	return null;
 }
 
 /** Returns the `Set-Cookie` header string for a new session. */
 export function setSessionCookie(did: string): string {
-  const value = encodeURIComponent(sign(did));
-  const secure = isHttps ? "; Secure" : "";
-  return `${COOKIE_NAME}=${value}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=${COOKIE_MAX_AGE}`;
+	const value = encodeURIComponent(sign(did));
+	const secure = isHttps ? "; Secure" : "";
+	return `${COOKIE_NAME}=${value}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=${COOKIE_MAX_AGE}`;
 }
 
 /** Returns a `Set-Cookie` header that immediately expires the session cookie. */
 export function clearSessionCookie(): string {
-  const secure = isHttps ? "; Secure" : "";
-  return `${COOKIE_NAME}=; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=0`;
+	const secure = isHttps ? "; Secure" : "";
+	return `${COOKIE_NAME}=; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=0`;
 }

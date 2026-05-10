@@ -1,66 +1,94 @@
 ---
-import Layout from "@layouts/Layout.astro";
-import { searchLibrarySeries, getSeriesFilterOptions, type SeriesSort, type SeriesFilters } from "@data/elastic/queries";
-import { searchVolumes } from "@data/comicvine/comicvine";
-import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
-import CoverGrid from "@components/CoverGrid.astro";
-import EyebrowLabel from "@components/EyebrowLabel.astro";
-import PageHeading from "@components/PageHeading.astro";
-import FilterControls from "@components/FilterControls.astro";
-import SortControls from "@components/SortControls.astro";
 import ActiveFilters from "@components/ActiveFilters.astro";
+import CoverGrid from "@components/CoverGrid.astro";
+import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
+import EyebrowLabel from "@components/EyebrowLabel.astro";
+import FilterControls from "@components/FilterControls.astro";
+import PageHeading from "@components/PageHeading.astro";
 import PageNavigator from "@components/PageNavigator.astro";
+import SortControls from "@components/SortControls.astro";
+import { searchVolumes } from "@data/comicvine/comicvine";
+import {
+	getSeriesFilterOptions,
+	type SeriesFilters,
+	type SeriesSort,
+	searchLibrarySeries,
+} from "@data/elastic/queries";
+import Layout from "@layouts/Layout.astro";
 
 const q = Astro.url.searchParams.get("q")?.trim() ?? "";
-const page = Math.max(1, parseInt(Astro.url.searchParams.get("page") ?? "1", 10));
+const page = Math.max(
+	1,
+	parseInt(Astro.url.searchParams.get("page") ?? "1", 10),
+);
 
-const validSorts: SeriesSort[] = ["title-asc", "title-desc", "date-asc", "date-desc"];
+const validSorts: SeriesSort[] = [
+	"title-asc",
+	"title-desc",
+	"date-asc",
+	"date-desc",
+];
 const sortParam = Astro.url.searchParams.get("sort") as SeriesSort;
-const sort: SeriesSort | undefined = validSorts.includes(sortParam) ? sortParam : undefined;
+const sort: SeriesSort | undefined = validSorts.includes(sortParam)
+	? sortParam
+	: undefined;
 
 const validStates = ["unread", "reading", "read"] as const;
 const stateParam = Astro.url.searchParams.get("state");
 const filters: SeriesFilters = {
-  publisher:    Astro.url.searchParams.get("publisher") || undefined,
-  year:         Astro.url.searchParams.get("year") || undefined,
-  readingState: validStates.includes(stateParam as typeof validStates[number])
-    ? (stateParam as SeriesFilters["readingState"])
-    : undefined,
+	publisher: Astro.url.searchParams.get("publisher") || undefined,
+	year: Astro.url.searchParams.get("year") || undefined,
+	readingState: validStates.includes(stateParam as (typeof validStates)[number])
+		? (stateParam as SeriesFilters["readingState"])
+		: undefined,
 };
 
 const PAGE_SIZE = 24;
 
 let libraryResults: Awaited<ReturnType<typeof searchLibrarySeries>> = {
-  items: [], total: 0, page: 1, pageSize: PAGE_SIZE, totalPages: 0,
+	items: [],
+	total: 0,
+	page: 1,
+	pageSize: PAGE_SIZE,
+	totalPages: 0,
 };
-let cvResults: { id: number; name: string; start_year: string; publisher?: string; cover_url?: string }[] = [];
+let cvResults: {
+	id: number;
+	name: string;
+	start_year: string;
+	publisher?: string;
+	cover_url?: string;
+}[] = [];
 let cvTotal = 0;
 let filterOptions = { publishers: [] as string[], years: [] as string[] };
 
 if (q.length >= 2) {
-  [libraryResults, { results: cvResults, total: cvTotal }, filterOptions] = await Promise.all([
-    searchLibrarySeries(q, page, PAGE_SIZE, sort, filters),
-    searchVolumes(q, PAGE_SIZE, (page - 1) * PAGE_SIZE).then(({ results, total }) => ({
-      // Year/publisher filters are not forwarded to ComicVine: combining name with
-      // other filter conditions switches name matching from substring to exact match,
-      // breaking results. CV results always show all matches for the query.
-      results: results.map((v) => ({
-        id: v.id,
-        name: v.name,
-        start_year: v.start_year,
-        publisher: v.publisher?.name,
-        cover_url: v.image?.small_url,
-      })),
-      total,
-    })),
-    getSeriesFilterOptions(),
-  ]);
+	[libraryResults, { results: cvResults, total: cvTotal }, filterOptions] =
+		await Promise.all([
+			searchLibrarySeries(q, page, PAGE_SIZE, sort, filters),
+			searchVolumes(q, PAGE_SIZE, (page - 1) * PAGE_SIZE).then(
+				({ results, total }) => ({
+					// Year/publisher filters are not forwarded to ComicVine: combining name with
+					// other filter conditions switches name matching from substring to exact match,
+					// breaking results. CV results always show all matches for the query.
+					results: results.map((v) => ({
+						id: v.id,
+						name: v.name,
+						start_year: v.start_year,
+						publisher: v.publisher?.name,
+						cover_url: v.image?.small_url,
+					})),
+					total,
+				}),
+			),
+			getSeriesFilterOptions(),
+		]);
 }
 
 const totalPages = Math.max(
-  libraryResults.totalPages,
-  Math.ceil(cvTotal / PAGE_SIZE),
-  1,
+	libraryResults.totalPages,
+	Math.ceil(cvTotal / PAGE_SIZE),
+	1,
 );
 
 const hasResults = libraryResults.items.length > 0 || cvResults.length > 0;

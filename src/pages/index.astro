@@ -1,30 +1,30 @@
 ---
-import Layout from "@layouts/Layout.astro";
-import {
-  getContinueReading,
-  getRecentlyAdded,
-  getAllSeries,
-} from "@data/elastic/queries";
 import { Image } from "astro:assets";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
-import Icon from "@components/Icon/Icon.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
+import Icon from "@components/Icon/Icon.astro";
+import {
+	getAllSeries,
+	getContinueReading,
+	getRecentlyAdded,
+} from "@data/elastic/queries";
+import Layout from "@layouts/Layout.astro";
 import { thumbHashToBase64 } from "@util/thumbHashToBase64";
 
 const [continueReading, recentlyAdded, seriesResult] = await Promise.all([
-  getContinueReading(5),
-  getRecentlyAdded(6),
-  getAllSeries(1, 6),
+	getContinueReading(5),
+	getRecentlyAdded(6),
+	getAllSeries(1, 6),
 ]);
 const browseSeriesItems = seriesResult.items;
 
 const heroSlides = await Promise.all(
-  continueReading.map(async (issue) => {
-    const placeholderUrl = issue.issue_cover_thumb_hash
-      ? await thumbHashToBase64(issue.issue_cover_thumb_hash)
-      : undefined;
-    return { issue, placeholderUrl };
-  }),
+	continueReading.map(async (issue) => {
+		const placeholderUrl = issue.issue_cover_thumb_hash
+			? await thumbHashToBase64(issue.issue_cover_thumb_hash)
+			: undefined;
+		return { issue, placeholderUrl };
+	}),
 );
 ---
 

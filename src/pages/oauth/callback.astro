@@ -6,40 +6,40 @@ import { setSessionCookie } from "@lib/auth/session";
 const params = Astro.url.searchParams;
 
 if (params.get("error")) {
-  console.error(
-    "[auth] OAuth provider error:",
-    params.get("error"),
-    params.get("error_description"),
-  );
-  return Astro.redirect("/login?error=oauth_error");
+	console.error(
+		"[auth] OAuth provider error:",
+		params.get("error"),
+		params.get("error_description"),
+	);
+	return Astro.redirect("/login?error=oauth_error");
 }
 
 try {
-  const client = await getOAuthClient();
-  const { session } = await client.callback(params);
-  const { did } = session;
+	const client = await getOAuthClient();
+	const { session } = await client.callback(params);
+	const { did } = session;
 
-  const allowedDids = getAllowedDids();
-  if (allowedDids.length === 0) {
-    console.error("Missing required AUTH_ALLOWED_DID configuration.");
-    return new Response(
-      "Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
-      { status: 500 },
-    );
-  }
-  if (!allowedDids.includes(did)) {
-    return Astro.redirect("/login?error=unauthorized");
-  }
+	const allowedDids = getAllowedDids();
+	if (allowedDids.length === 0) {
+		console.error("Missing required AUTH_ALLOWED_DID configuration.");
+		return new Response(
+			"Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
+			{ status: 500 },
+		);
+	}
+	if (!allowedDids.includes(did)) {
+		return Astro.redirect("/login?error=unauthorized");
+	}
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: "/",
-      "Set-Cookie": setSessionCookie(did),
-    },
-  });
+	return new Response(null, {
+		status: 302,
+		headers: {
+			Location: "/",
+			"Set-Cookie": setSessionCookie(did),
+		},
+	});
 } catch (err) {
-  console.error("[auth] callback error:", err);
-  return Astro.redirect("/login?error=callback_failed");
+	console.error("[auth] callback error:", err);
+	return Astro.redirect("/login?error=callback_failed");
 }
 ---

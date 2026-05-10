@@ -1,5 +1,8 @@
+import type {
+	DownloadActionCopy,
+	DownloadActionCopyInput,
+} from "./bulkDownload.types";
 import type { ComicCacheMetadataInput } from "./comicCache.utils";
-import type { DownloadActionCopy, DownloadActionCopyInput } from "./bulkDownload.types";
 
 const ISSUE_PLURAL_RULES = new Intl.PluralRules("en");
 
@@ -10,7 +13,7 @@ const ISSUE_PLURAL_RULES = new Intl.PluralRules("en");
  * @returns `issue` when the native plural category is `one`; otherwise `issues`.
  */
 function pluralizeIssue(count: number): string {
-  return ISSUE_PLURAL_RULES.select(count) === "one" ? "issue" : "issues";
+	return ISSUE_PLURAL_RULES.select(count) === "one" ? "issue" : "issues";
 }
 
 /**
@@ -19,47 +22,49 @@ function pluralizeIssue(count: number): string {
  * @param input - Current cache/download phase and issue counts.
  * @returns Label and supporting detail text for the action row.
  */
-export function getDownloadActionCopy(input: DownloadActionCopyInput): DownloadActionCopy {
-  const {
-    phase,
-    unreadIssueCount,
-    missingIssueCount,
-    completedCount,
-    totalCount,
-  } = input;
+export function getDownloadActionCopy(
+	input: DownloadActionCopyInput,
+): DownloadActionCopy {
+	const {
+		phase,
+		unreadIssueCount,
+		missingIssueCount,
+		completedCount,
+		totalCount,
+	} = input;
 
-  if (phase === "checking") {
-    return {
-      label: "Checking cache",
-      detail: "Looking for cached downloaded issues",
-    };
-  }
+	if (phase === "checking") {
+		return {
+			label: "Checking cache",
+			detail: "Looking for cached downloaded issues",
+		};
+	}
 
-  if (phase === "downloading") {
-    return {
-      label: "Downloading unread issues",
-      detail: `${completedCount} of ${totalCount} ${pluralizeIssue(totalCount)} complete`,
-    };
-  }
+	if (phase === "downloading") {
+		return {
+			label: "Downloading unread issues",
+			detail: `${completedCount} of ${totalCount} ${pluralizeIssue(totalCount)} complete`,
+		};
+	}
 
-  if (unreadIssueCount === 0) {
-    return {
-      label: "No unread issues",
-      detail: "There are no unread downloaded issues to cache",
-    };
-  }
+	if (unreadIssueCount === 0) {
+		return {
+			label: "No unread issues",
+			detail: "There are no unread downloaded issues to cache",
+		};
+	}
 
-  if (missingIssueCount === 0) {
-    return {
-      label: "Unread issues downloaded",
-      detail: "All unread downloaded issues are cached",
-    };
-  }
+	if (missingIssueCount === 0) {
+		return {
+			label: "Unread issues downloaded",
+			detail: "All unread downloaded issues are cached",
+		};
+	}
 
-  return {
-    label: "Bulk download unread issues",
-    detail: `${missingIssueCount} ${pluralizeIssue(missingIssueCount)} ready to cache`,
-  };
+	return {
+		label: "Bulk download unread issues",
+		detail: `${missingIssueCount} ${pluralizeIssue(missingIssueCount)} ready to cache`,
+	};
 }
 
 /**
@@ -69,6 +74,6 @@ export function getDownloadActionCopy(input: DownloadActionCopyInput): DownloadA
  * @returns A display label such as `Saga #1`.
  */
 export function formatIssueLabel(issue: ComicCacheMetadataInput): string {
-  const issueNumber = issue.issueNumber != null ? ` #${issue.issueNumber}` : "";
-  return `${issue.seriesName ?? "Comic"}${issueNumber}`;
+	const issueNumber = issue.issueNumber != null ? ` #${issue.issueNumber}` : "";
+	return `${issue.seriesName ?? "Comic"}${issueNumber}`;
 }

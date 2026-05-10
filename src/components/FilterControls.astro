@@ -2,8 +2,8 @@
 import Icon from "@components/Icon/Icon.astro";
 
 type Props = {
-  filterOptions: { publishers: string[]; years: string[] };
-  showReadingState?: boolean;
+	filterOptions: { publishers: string[]; years: string[] };
+	showReadingState?: boolean;
 };
 
 const { filterOptions, showReadingState = true } = Astro.props;
@@ -15,11 +15,11 @@ const readingState = Astro.url.searchParams.get("state") ?? undefined;
 const activeCount = [publisher, year, readingState].filter(Boolean).length;
 
 function filterUrl(key: string, value: string | null) {
-  const params = new URLSearchParams(Astro.url.searchParams);
-  if (value) params.set(key, value);
-  else params.delete(key);
-  params.set("page", "1");
-  return `?${params.toString()}`;
+	const params = new URLSearchParams(Astro.url.searchParams);
+	if (value) params.set(key, value);
+	else params.delete(key);
+	params.set("page", "1");
+	return `?${params.toString()}`;
 }
 ---
 

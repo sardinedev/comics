@@ -1,10 +1,10 @@
 ---
-import Layout from "@layouts/Layout.astro";
-import { getIssue } from "@data/elastic/queries";
 import { Image } from "astro:assets";
-import SubHeading from "@components/SubHeading.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
 import PageHeading from "@components/PageHeading.astro";
+import SubHeading from "@components/SubHeading.astro";
+import { getIssue } from "@data/elastic/queries";
+import Layout from "@layouts/Layout.astro";
 import { thumbHashToBase64 } from "@util/thumbHashToBase64";
 
 import styles from "./index.module.css";
@@ -15,30 +15,30 @@ const issue = await getIssue(id!);
 if (!issue) return Astro.redirect("/series");
 
 const pct =
-  issue.current_page && issue.issue_page_count
-    ? Math.round((issue.current_page / issue.issue_page_count) * 100)
-    : null;
+	issue.current_page && issue.issue_page_count
+		? Math.round((issue.current_page / issue.issue_page_count) * 100)
+		: null;
 
 const creators: { label: string; names: string[] }[] = [
-  { label: "Writer", names: issue.writers ?? [] },
-  { label: "Artist", names: issue.artists ?? [] },
-  { label: "Colorist", names: issue.colorists ?? [] },
-  { label: "Letterer", names: issue.letterers ?? [] },
-  { label: "Cover", names: issue.cover_artists ?? [] },
-  { label: "Editor", names: issue.editors ?? [] },
+	{ label: "Writer", names: issue.writers ?? [] },
+	{ label: "Artist", names: issue.artists ?? [] },
+	{ label: "Colorist", names: issue.colorists ?? [] },
+	{ label: "Letterer", names: issue.letterers ?? [] },
+	{ label: "Cover", names: issue.cover_artists ?? [] },
+	{ label: "Editor", names: issue.editors ?? [] },
 ].filter((c) => c.names.length > 0);
 
 const statusColors: Record<string, string> = {
-  reading: "bg-amber-500 text-slate-900",
-  read: "bg-slate-700 text-slate-300",
-  unread: "bg-slate-800 text-slate-400",
+	reading: "bg-amber-500 text-slate-900",
+	read: "bg-slate-700 text-slate-300",
+	unread: "bg-slate-800 text-slate-400",
 };
 const statusColor =
-  statusColors[issue.reading_state ?? "unread"] ?? statusColors.unread;
+	statusColors[issue.reading_state ?? "unread"] ?? statusColors.unread;
 
 let heroPlaceholderUrl: string | undefined;
 if (issue.issue_cover_thumb_hash) {
-  heroPlaceholderUrl = await thumbHashToBase64(issue.issue_cover_thumb_hash);
+	heroPlaceholderUrl = await thumbHashToBase64(issue.issue_cover_thumb_hash);
 }
 ---
 

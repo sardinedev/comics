@@ -4,11 +4,11 @@ import { getSessionDid } from "@lib/auth/session";
 import { env } from "@lib/env";
 
 const PUBLIC_PATHS = [
-  "/login",
-  "/oauth/callback",
-  "/client-metadata.json",
-  "/api/auth/authorize",
-  "/api/auth/logout",
+	"/login",
+	"/oauth/callback",
+	"/client-metadata.json",
+	"/api/auth/authorize",
+	"/api/auth/logout",
 ];
 
 // Allow public static assets needed by unauthenticated pages like /login.
@@ -18,42 +18,48 @@ const PUBLIC_PATHS = [
 const PUBLIC_PREFIXES = ["/_astro/", "/covers/"];
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  const { url, request, locals } = context;
+	const { url, request, locals } = context;
 
-  if (
-    PUBLIC_PATHS.includes(url.pathname) ||
-    PUBLIC_PREFIXES.some((p) => url.pathname.startsWith(p))
-  ) {
-    return next();
-  }
+	if (
+		PUBLIC_PATHS.includes(url.pathname) ||
+		PUBLIC_PREFIXES.some((p) => url.pathname.startsWith(p))
+	) {
+		return next();
+	}
 
-  const devBypassDid = env("DEV_BYPASS_AUTH");
-  const isLocalDevRequest =
-    import.meta.env.DEV &&
-    (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "192.168.50.26");
-  if (devBypassDid && isLocalDevRequest) {
-    console.info(`DEV_BYPASS_AUTH is set, bypassing authentication and using DID ${devBypassDid}`);
-    locals.did = devBypassDid;
-    return next();
-  }
-  if (devBypassDid && !isLocalDevRequest) {
-    console.warn("Ignoring DEV_BYPASS_AUTH: only allowed on localhost in dev mode.");
-  }
+	const devBypassDid = env("DEV_BYPASS_AUTH");
+	const isLocalDevRequest =
+		import.meta.env.DEV &&
+		(url.hostname === "localhost" ||
+			url.hostname === "127.0.0.1" ||
+			url.hostname === "192.168.50.26");
+	if (devBypassDid && isLocalDevRequest) {
+		console.info(
+			`DEV_BYPASS_AUTH is set, bypassing authentication and using DID ${devBypassDid}`,
+		);
+		locals.did = devBypassDid;
+		return next();
+	}
+	if (devBypassDid && !isLocalDevRequest) {
+		console.warn(
+			"Ignoring DEV_BYPASS_AUTH: only allowed on localhost in dev mode.",
+		);
+	}
 
-  const allowedDids = getAllowedDids();
-  if (allowedDids.length === 0) {
-    console.error("Missing required AUTH_ALLOWED_DID configuration.");
-    return new Response(
-      "Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
-      { status: 500 },
-    );
-  }
+	const allowedDids = getAllowedDids();
+	if (allowedDids.length === 0) {
+		console.error("Missing required AUTH_ALLOWED_DID configuration.");
+		return new Response(
+			"Server misconfiguration: AUTH_ALLOWED_DID is not set or is empty/invalid.",
+			{ status: 500 },
+		);
+	}
 
-  const did = getSessionDid(request);
-  if (!did || !allowedDids.includes(did)) {
-    return context.redirect("/login");
-  }
+	const did = getSessionDid(request);
+	if (!did || !allowedDids.includes(did)) {
+		return context.redirect("/login");
+	}
 
-  locals.did = did;
-  return next();
+	locals.did = did;
+	return next();
 });

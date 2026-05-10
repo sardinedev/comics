@@ -1,33 +1,33 @@
 ---
-import Layout from "@layouts/Layout.astro";
-import {
-  getDownloadedSeriesIssues,
-  getSeriesIssues,
-  getUnreadDownloadedSeriesIssues,
-} from "@data/elastic/queries";
-import {
-  getVolumeDetails,
-  getIssuesFromVolume,
-} from "@data/comicvine/comicvine";
-import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
-import type { ComicvineVolume } from "@data/comicvine/comicvine.types";
 import { Image } from "astro:assets";
 import Breadcrumbs from "@components/Breadcrumbs.astro";
-import PageNavigator from "@components/PageNavigator.astro";
+import { BulkDownload } from "@components/ComicCache/BulkDownload";
+import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
+import CoverGrid from "@components/CoverGrid.astro";
 import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import Icon from "@components/Icon/Icon.astro";
 import PageHeading from "@components/PageHeading.astro";
-import CoverGrid from "@components/CoverGrid.astro";
-import { BulkDownload } from "@components/ComicCache/BulkDownload";
+import PageNavigator from "@components/PageNavigator.astro";
+import {
+	getIssuesFromVolume,
+	getVolumeDetails,
+} from "@data/comicvine/comicvine";
+import type { ComicvineVolume } from "@data/comicvine/comicvine.types";
+import {
+	getDownloadedSeriesIssues,
+	getSeriesIssues,
+	getUnreadDownloadedSeriesIssues,
+} from "@data/elastic/queries";
+import Layout from "@layouts/Layout.astro";
 
 const { id } = Astro.params;
 const currentPage = parseInt(Astro.url.searchParams.get("page") || "1", 10);
 const CV_PAGE_SIZE = 24;
 const {
-  series,
-  items: issues,
-  totalPages,
-  total,
+	series,
+	items: issues,
+	totalPages,
+	total,
 } = await getSeriesIssues(id!, currentPage, CV_PAGE_SIZE);
 
 let cvVolume: ComicvineVolume | null = null;
@@ -35,17 +35,17 @@ let cvPageIssues: Awaited<ReturnType<typeof getIssuesFromVolume>> = [];
 let cvTotalPages = 0;
 
 if (!series) {
-  try {
-    cvVolume = await getVolumeDetails(id!);
-  } catch {
-    cvVolume = null;
-  }
-  if (!cvVolume) return Astro.redirect("/series");
+	try {
+		cvVolume = await getVolumeDetails(id!);
+	} catch {
+		cvVolume = null;
+	}
+	if (!cvVolume) return Astro.redirect("/series");
 
-  const offset = (currentPage - 1) * CV_PAGE_SIZE;
-  cvPageIssues =
-    (await getIssuesFromVolume(id!, offset))?.slice(0, CV_PAGE_SIZE) ?? [];
-  cvTotalPages = Math.ceil((cvVolume.count_of_issues ?? 0) / CV_PAGE_SIZE);
+	const offset = (currentPage - 1) * CV_PAGE_SIZE;
+	cvPageIssues =
+		(await getIssuesFromVolume(id!, offset))?.slice(0, CV_PAGE_SIZE) ?? [];
+	cvTotalPages = Math.ceil((cvVolume.count_of_issues ?? 0) / CV_PAGE_SIZE);
 }
 
 /**
@@ -55,30 +55,30 @@ if (!series) {
  * @returns Metadata shape consumed by the bulk cache island.
  */
 function toCacheMetadata(
-  issue: Awaited<ReturnType<typeof getDownloadedSeriesIssues>>[number],
+	issue: Awaited<ReturnType<typeof getDownloadedSeriesIssues>>[number],
 ): ComicCacheMetadataInput {
-  return {
-    issueId: issue.issue_id,
-    seriesId: issue.series_id,
-    seriesName: issue.series_name,
-    seriesYear: issue.series_year,
-    issueNumber: issue.issue_number,
-    issueName: issue.issue_name ?? undefined,
-    issueDate: issue.issue_date,
-    coverUrl: issue.issue_cover_url,
-    coverThumbHash: issue.issue_cover_thumb_hash,
-  };
+	return {
+		issueId: issue.issue_id,
+		seriesId: issue.series_id,
+		seriesName: issue.series_name,
+		seriesYear: issue.series_year,
+		issueNumber: issue.issue_number,
+		issueName: issue.issue_name ?? undefined,
+		issueDate: issue.issue_date,
+		coverUrl: issue.issue_cover_url,
+		coverThumbHash: issue.issue_cover_thumb_hash,
+	};
 }
 
 let downloadedIssues: ComicCacheMetadataInput[] = [];
 let bulkDownloadIssues: ComicCacheMetadataInput[] = [];
 if (series) {
-  const [allDownloadedIssues, unreadDownloadedIssues] = await Promise.all([
-    getDownloadedSeriesIssues(id!),
-    getUnreadDownloadedSeriesIssues(id!),
-  ]);
-  downloadedIssues = allDownloadedIssues.map(toCacheMetadata);
-  bulkDownloadIssues = unreadDownloadedIssues.map(toCacheMetadata);
+	const [allDownloadedIssues, unreadDownloadedIssues] = await Promise.all([
+		getDownloadedSeriesIssues(id!),
+		getUnreadDownloadedSeriesIssues(id!),
+	]);
+	downloadedIssues = allDownloadedIssues.map(toCacheMetadata);
+	bulkDownloadIssues = unreadDownloadedIssues.map(toCacheMetadata);
 }
 
 // Normalise to a common shape for the template
@@ -93,7 +93,7 @@ const readPct = total ? Math.round((readCount / total) * 100) : 0;
 
 // Cover images for the stack
 const cover1 =
-  issues[0]?.issue_cover_url ?? cvVolume?.image?.medium_url ?? null;
+	issues[0]?.issue_cover_url ?? cvVolume?.image?.medium_url ?? null;
 const cover2 = issues[1]?.issue_cover_url ?? null;
 ---
 

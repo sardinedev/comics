@@ -1,11 +1,11 @@
 ---
-import Layout from "@layouts/Layout.astro";
-import { getNewlyAddedIssues } from "@data/elastic/queries";
-import { getWeeklyComics } from "@data/comicvine/comicvine";
-import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import CoverGrid from "@components/CoverGrid.astro";
+import CoverLeaf from "@components/CoverLeaf/CoverLeaf.astro";
 import EyebrowLabel from "@components/EyebrowLabel.astro";
 import PageHeading from "@components/PageHeading.astro";
+import { getWeeklyComics } from "@data/comicvine/comicvine";
+import { getNewlyAddedIssues } from "@data/elastic/queries";
+import Layout from "@layouts/Layout.astro";
 
 const now = new Date();
 const dayOfWeek = now.getDay();
@@ -18,13 +18,18 @@ const sunday = new Date(monday);
 sunday.setDate(monday.getDate() + 6);
 
 const fmt = (d: Date) => d.toISOString().slice(0, 10);
-const weekLabel = monday.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-  + " – "
-  + sunday.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const weekLabel =
+	monday.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+	" – " +
+	sunday.toLocaleDateString("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+	});
 
 const [addedIssues, weeklyComics] = await Promise.all([
-  getNewlyAddedIssues(),
-  getWeeklyComics(fmt(monday), fmt(sunday)),
+	getNewlyAddedIssues(),
+	getWeeklyComics(fmt(monday), fmt(sunday)),
 ]);
 ---
 

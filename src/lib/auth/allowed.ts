@@ -11,9 +11,9 @@ import { env } from "@lib/env";
  * than re-invoking this function.
  */
 export function getAllowedDids(): string[] {
-  const raw = env("AUTH_ALLOWED_DID") ?? "";
-  return raw
-    .split(",")
-    .map((d) => d.trim())
-    .filter(Boolean);
+	const raw = env("AUTH_ALLOWED_DID") ?? "";
+	return raw
+		.split(",")
+		.map((d) => d.trim())
+		.filter(Boolean);
 }

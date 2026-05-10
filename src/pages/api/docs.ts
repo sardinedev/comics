@@ -1,19 +1,16 @@
-import type { APIRoute } from "astro";
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { APIRoute } from "astro";
 
 export const GET: APIRoute = async () => {
-  const specPath = path.join(
-    import.meta.dirname,
-    "openapi.yaml",
-  );
-  const spec = await fs.readFile(specPath, "utf-8");
+	const specPath = path.join(import.meta.dirname, "openapi.yaml");
+	const spec = await fs.readFile(specPath, "utf-8");
 
-  return new Response(spec, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/x-yaml",
-      "Access-Control-Allow-Origin": "*",
-    },
-  });
+	return new Response(spec, {
+		status: 200,
+		headers: {
+			"Content-Type": "application/x-yaml",
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
 };

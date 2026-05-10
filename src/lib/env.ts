@@ -3,5 +3,5 @@
  * or process.env (Node scripts / cron jobs).
  */
 export function env(key: string): string | undefined {
-  return (import.meta as any).env?.[key] ?? process.env[key];
+	return (import.meta as any).env?.[key] ?? process.env[key];
 }

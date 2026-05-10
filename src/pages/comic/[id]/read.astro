@@ -1,27 +1,27 @@
 ---
-import ReaderLayout from "@layouts/ReaderLayout.astro";
+import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
 import { ComicReader } from "@components/ComicReader/ComicReader";
 import { getIssue, getNextDownloadedIssue } from "@data/elastic/queries";
-import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
+import ReaderLayout from "@layouts/ReaderLayout.astro";
 
 const { id } = Astro.params;
 const issue = await getIssue(id!);
 
 if (!issue) return Astro.redirect("/series");
 if (issue.download_status !== "Downloaded")
-  return Astro.redirect(`/comic/${id}`);
+	return Astro.redirect(`/comic/${id}`);
 
 const nextIssue = await getNextDownloadedIssue(issue);
 const cacheMetadata: ComicCacheMetadataInput = {
-  issueId: issue.issue_id,
-  seriesId: issue.series_id,
-  seriesName: issue.series_name,
-  seriesYear: issue.series_year,
-  issueNumber: issue.issue_number,
-  issueName: issue.issue_name ?? undefined,
-  issueDate: issue.issue_date,
-  coverUrl: issue.issue_cover_url,
-  coverThumbHash: issue.issue_cover_thumb_hash,
+	issueId: issue.issue_id,
+	seriesId: issue.series_id,
+	seriesName: issue.series_name,
+	seriesYear: issue.series_year,
+	issueNumber: issue.issue_number,
+	issueName: issue.issue_name ?? undefined,
+	issueDate: issue.issue_date,
+	coverUrl: issue.issue_cover_url,
+	coverThumbHash: issue.issue_cover_thumb_hash,
 };
 ---
 

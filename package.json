@@ -1,51 +1,52 @@
 {
-  "name": "comics",
-  "type": "module",
-  "version": "0.0.1",
-  "engines": {
-    "node": "24.14.0"
-  },
-  "scripts": {
-    "dev": "astro dev --host",
-    "start": "astro dev",
-    "start:prod": "node ./dist/server/entry.mjs",
-    "type:check": "astro check",
-    "type:check:tsc": "tsc --noEmit",
-    "build": "astro build && npx esbuild src/data/sync/sync-mylar-to-elastic.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/sync/sync-mylar-to-elastic.mjs",
-    "sync": "node --env-file=.env.local --import tsx/esm src/data/sync/sync-mylar-to-elastic.ts",
-    "preview": "npx wrangler pages dev ./dist",
-    "test": "vitest run",
-    "astro": "astro"
-  },
-  "dependencies": {
-    "@astrojs/node": "10.0.6",
-    "@astrojs/preact": "5.1.2",
-    "@atproto/jwk-jose": "^0.1.11",
-    "@atproto/oauth-client-node": "^0.3.17",
-    "@elastic/elasticsearch": "8.17.1",
-    "@nanostores/persistent": "1.3.4",
-    "@nanostores/preact": "1.1.0",
-    "@preact/signals": "^2.9.0",
-    "@tailwindcss/vite": "4.2.2",
-    "@types/unzipper": "^0.10.11",
-    "astro": "6.2.2",
-    "fflate": "^0.8.2",
-    "nanostores": "1.3.0",
-    "preact": "10.29.1",
-    "sharp": "^0.34.5",
-    "tailwindcss": "4.2.2",
-    "thumbhash": "^0.1.1",
-    "unzipper": "^0.12.3"
-  },
-  "devDependencies": {
-    "@astrojs/check": "0.9.8",
-    "@biomejs/biome": "2.4.15",
-    "@vitest/browser-playwright": "^4.1.5",
-    "esbuild": "^0.28.0",
-    "playwright": "^1.59.1",
-    "tsx": "^4.21.0",
-    "typescript": "5.9.3",
-    "vitest": "^4.1.5",
-    "vitest-browser-preact": "^1.0.0"
-  }
+	"name": "comics",
+	"type": "module",
+	"version": "0.0.1",
+	"engines": {
+		"node": "24.14.0"
+	},
+	"scripts": {
+		"dev": "astro dev --host",
+		"start": "astro dev",
+		"start:prod": "node ./dist/server/entry.mjs",
+		"type:check": "astro check",
+		"type:check:tsc": "tsc --noEmit",
+		"build": "astro build && npx esbuild src/data/sync/sync-mylar-to-elastic.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/sync/sync-mylar-to-elastic.mjs",
+		"sync": "node --env-file=.env.local --import tsx/esm src/data/sync/sync-mylar-to-elastic.ts",
+		"preview": "npx wrangler pages dev ./dist",
+		"test": "vitest run",
+		"astro": "astro",
+		"lint": "biome check"
+	},
+	"dependencies": {
+		"@astrojs/node": "10.0.6",
+		"@astrojs/preact": "5.1.2",
+		"@atproto/jwk-jose": "^0.1.11",
+		"@atproto/oauth-client-node": "^0.3.17",
+		"@elastic/elasticsearch": "8.17.1",
+		"@nanostores/persistent": "1.3.4",
+		"@nanostores/preact": "1.1.0",
+		"@preact/signals": "^2.9.0",
+		"@tailwindcss/vite": "4.2.2",
+		"@types/unzipper": "^0.10.11",
+		"astro": "6.2.2",
+		"fflate": "^0.8.2",
+		"nanostores": "1.3.0",
+		"preact": "10.29.1",
+		"sharp": "^0.34.5",
+		"tailwindcss": "4.2.2",
+		"thumbhash": "^0.1.1",
+		"unzipper": "^0.12.3"
+	},
+	"devDependencies": {
+		"@astrojs/check": "0.9.8",
+		"@biomejs/biome": "2.4.15",
+		"@vitest/browser-playwright": "^4.1.5",
+		"esbuild": "^0.28.0",
+		"playwright": "^1.59.1",
+		"tsx": "^4.21.0",
+		"typescript": "5.9.3",
+		"vitest": "^4.1.5",
+		"vitest-browser-preact": "^1.0.0"
+	}
 }

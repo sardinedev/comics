@@ -1,13 +1,13 @@
 ---
-import PageNavigator from "../PageNavigator.astro";
-import SortControls from "@components/SortControls.astro";
 import ActiveFilters from "@components/ActiveFilters.astro";
 import CoverGrid from "@components/CoverGrid.astro";
+import SortControls from "@components/SortControls.astro";
+import PageNavigator from "../PageNavigator.astro";
 import styles from "./IssueGrid.module.css";
 
 type Props = {
-  currentPage: number;
-  totalNumberOfPages: number;
+	currentPage: number;
+	totalNumberOfPages: number;
 };
 
 const { currentPage, totalNumberOfPages } = Astro.props;
