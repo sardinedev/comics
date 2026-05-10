@@ -1,6 +1,6 @@
 /// <reference types="astro/client" />
 
-export {};
+export { };
 
 declare global {
 	interface ImportMetaEnv {
