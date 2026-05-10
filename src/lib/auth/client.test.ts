@@ -91,7 +91,7 @@ describe("getOAuthClient", () => {
 
 	it("throws when ATPROTO_PRIVATE_KEY_JWK is missing in production", async () => {
 		process.env.PUBLIC_URL = "https://example.com";
-		vi.spyOn(console, "error").mockImplementation(() => {});
+		vi.spyOn(console, "error").mockImplementation(() => { });
 
 		const { getOAuthClient } = await import("./client");
 
@@ -102,10 +102,10 @@ describe("getOAuthClient", () => {
 
 	it("logs instructions without generating a key when JWK is missing in production", async () => {
 		process.env.PUBLIC_URL = "https://example.com";
-		const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => { });
 
 		const { getOAuthClient } = await import("./client");
-		await getOAuthClient().catch(() => {});
+		await getOAuthClient().catch(() => { });
 
 		// Must NOT generate or log a private key — that would leak secrets via logs.
 		expect(JoseKeyMock.generate).not.toHaveBeenCalled();
