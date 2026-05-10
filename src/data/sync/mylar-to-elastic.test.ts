@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ComicvineSingleIssueResponse } from "../comicvine/comicvine.types";
 
 // Env before imports
 process.env.ELASTIC_API_KEY = "test-api-key";
@@ -9,13 +10,77 @@ const elasticState = {
 	search: vi.fn(),
 };
 
+type ComicvineIssueOverrides = Partial<
+	Omit<ComicvineSingleIssueResponse, "image" | "volume">
+> & {
+	image?: Partial<ComicvineSingleIssueResponse["image"]>;
+	volume?: Partial<ComicvineSingleIssueResponse["volume"]>;
+};
+
+function comicvineIssue(
+	overrides: ComicvineIssueOverrides = {},
+): ComicvineSingleIssueResponse {
+	const { image, volume, ...issueOverrides } = overrides;
+
+	return {
+		aliases: "",
+		api_detail_url: "",
+		character_credits: [],
+		characters_died_in: [],
+		concept_credits: [],
+		cover_date: "",
+		date_added: "",
+		date_last_updated: "",
+		deck: "",
+		description: "",
+		disbanded_teams: [],
+		first_appearance_characters: [],
+		first_appearance_concepts: [],
+		first_appearance_locations: [],
+		first_appearance_objects: [],
+		first_appearance_storyarcs: [],
+		first_appearance_teams: [],
+		has_staff_review: false,
+		id: 1,
+		image: {
+			icon_url: "",
+			medium_url: "",
+			screen_url: "",
+			screen_large_url: "",
+			small_url: "",
+			super_url: "",
+			thumb_url: "",
+			tiny_url: "",
+			original_url: "",
+			image_tags: "",
+			...image,
+		},
+		issue_number: "1",
+		location_credits: [],
+		name: "",
+		object_credits: [],
+		person_credits: [],
+		site_detail_url: "",
+		store_date: "",
+		story_arc_credits: [],
+		team_credits: [],
+		teams_disbanded_in: [],
+		volume: {
+			api_detail_url: "",
+			id: 1,
+			name: "Saga",
+			site_detail_url: "",
+			...volume,
+		},
+		...issueOverrides,
+	};
+}
+
 vi.mock("@elastic/elasticsearch", () => {
 	return {
 		Client: class {
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			constructor(_opts: unknown) {}
-			bulk = (...args: any[]) => elasticState.bulk(...args);
-			search = (...args: any[]) => elasticState.search(...args);
+			bulk = (...args: unknown[]) => elasticState.bulk(...args);
+			search = (...args: unknown[]) => elasticState.search(...args);
 			indices = {};
 		},
 	};
@@ -47,6 +112,12 @@ const comicvine = await import("../comicvine/comicvine");
 const covers = await import("../../util/covers");
 const sync = await import("./mylar-to-elastic");
 
+const mockedGetComicIssueDetails = vi.mocked(comicvine.getComicIssueDetails);
+const mockedEnsureCoverCached = vi.mocked(covers.ensureCoverCached);
+const mockedMylarGetAllSeries = vi.mocked(mylar.mylarGetAllSeries);
+const mockedMylarGetHistory = vi.mocked(mylar.mylarGetHistory);
+const mockedMylarGetSeries = vi.mocked(mylar.mylarGetSeries);
+
 describe("syncMylarToElastic", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -63,7 +134,7 @@ describe("syncMylarToElastic", () => {
 			hits: { hits: [] },
 		});
 
-		(mylar.mylarGetAllSeries as any).mockResolvedValue({
+		mockedMylarGetAllSeries.mockResolvedValue({
 			result: "success",
 			data: [
 				{
@@ -80,7 +151,7 @@ describe("syncMylarToElastic", () => {
 			],
 		});
 
-		(mylar.mylarGetSeries as any).mockResolvedValue({
+		mockedMylarGetSeries.mockResolvedValue({
 			result: "success",
 			data: {
 				comic: [
@@ -111,7 +182,7 @@ describe("syncMylarToElastic", () => {
 			},
 		});
 
-		(mylar.mylarGetHistory as any).mockResolvedValue({
+		mockedMylarGetHistory.mockResolvedValue({
 			result: "success",
 			data: [
 				{
@@ -126,17 +197,19 @@ describe("syncMylarToElastic", () => {
 			],
 		});
 
-		(comicvine.getComicIssueDetails as any).mockResolvedValue({
-			store_date: "2026-01-03",
-			description: "desc",
-			image: { original_url: "http://example.com/i1-cv.jpg" },
-			character_credits: [
-				{ id: 1, name: "Alana", api_detail_url: "", site_detail_url: "" },
-				{ id: 2, name: "Marko", api_detail_url: "", site_detail_url: "" },
-			],
-		});
+		mockedGetComicIssueDetails.mockResolvedValue(
+			comicvineIssue({
+				store_date: "2026-01-03",
+				description: "desc",
+				image: { original_url: "http://example.com/i1-cv.jpg" },
+				character_credits: [
+					{ id: 1, name: "Alana", api_detail_url: "", site_detail_url: "" },
+					{ id: 2, name: "Marko", api_detail_url: "", site_detail_url: "" },
+				],
+			}),
+		);
 
-		(covers.ensureCoverCached as any).mockResolvedValue("/covers/i1.jpg");
+		mockedEnsureCoverCached.mockResolvedValue("/covers/i1.jpg");
 	});
 
 	afterEach(() => {
@@ -210,7 +283,7 @@ describe("syncMylarToElastic", () => {
 	});
 
 	it("does not set added_to_library_at for non-Downloaded issues", async () => {
-		(mylar.mylarGetSeries as any).mockResolvedValue({
+		mockedMylarGetSeries.mockResolvedValue({
 			result: "success",
 			data: {
 				comic: [
@@ -249,7 +322,7 @@ describe("syncMylarToElastic", () => {
 	});
 
 	it("respects seriesLimit option", async () => {
-		(mylar.mylarGetAllSeries as any).mockResolvedValue({
+		mockedMylarGetAllSeries.mockResolvedValue({
 			result: "success",
 			data: [
 				{
@@ -288,7 +361,7 @@ describe("syncMylarToElastic", () => {
 	});
 
 	it("handles multiple series and batches them", async () => {
-		(mylar.mylarGetAllSeries as any).mockResolvedValue({
+		mockedMylarGetAllSeries.mockResolvedValue({
 			result: "success",
 			data: [
 				{
@@ -316,7 +389,7 @@ describe("syncMylarToElastic", () => {
 			],
 		});
 
-		(mylar.mylarGetSeries as any).mockImplementation((seriesId: string) => {
+		mockedMylarGetSeries.mockImplementation((seriesId: string) => {
 			if (seriesId === "s1") {
 				return Promise.resolve({
 					result: "success",
@@ -399,7 +472,7 @@ describe("syncMylarToElastic", () => {
 	});
 
 	it("continues when ComicVine enrichment fails for an issue", async () => {
-		(comicvine.getComicIssueDetails as any).mockRejectedValue(
+		mockedGetComicIssueDetails.mockRejectedValue(
 			new Error("ComicVine API rate limit"),
 		);
 
@@ -411,7 +484,7 @@ describe("syncMylarToElastic", () => {
 	});
 
 	it("continues when cover caching fails for an issue", async () => {
-		(covers.ensureCoverCached as any).mockResolvedValue(null);
+		mockedEnsureCoverCached.mockResolvedValue(null);
 
 		await sync.syncMylarToElastic({ cacheCovers: true, refresh: "false" });
 
@@ -421,7 +494,7 @@ describe("syncMylarToElastic", () => {
 	});
 
 	it("handles Mylar API failures", async () => {
-		(mylar.mylarGetAllSeries as any).mockRejectedValue(
+		mockedMylarGetAllSeries.mockRejectedValue(
 			new Error("Mylar connection refused"),
 		);
 

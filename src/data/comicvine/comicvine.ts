@@ -1,5 +1,6 @@
 import { env } from "@lib/env";
 import type {
+	ComicvineImage,
 	ComicvineIssues,
 	ComicvineResponse,
 	ComicvineSingleIssueResponse,
@@ -33,7 +34,7 @@ async function comicvine<T>(
 			{ headers: { "User-Agent": "marabyte.com" } },
 		);
 		if (!response.ok) {
-			throw new Error("responded with HTTP status " + response.status);
+			throw new Error(`responded with HTTP status ${response.status}`);
 		}
 		const data = await response.json();
 		if (data.status_code !== 1) {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
 	COMIC_CACHE_NAME,
+	type ComicCacheMetadataInput,
 	deleteCachedIssue,
 	downloadIssueToCache,
 	getComicDownloadUrl,
@@ -143,7 +144,10 @@ describe("comic cache utilities", () => {
 	test("keeps the archive cached when metadata sidecar serialization fails", async () => {
 		const issueId = trackIssueId(`metadata-fail-${crypto.randomUUID()}`);
 		const archiveBytes = new Uint8Array([1, 3, 5, 7]);
-		const circularMetadata = { issueId, seriesName: "Saga" } as any;
+		type CircularMetadata = ComicCacheMetadataInput & {
+			self?: CircularMetadata;
+		};
+		const circularMetadata: CircularMetadata = { issueId, seriesName: "Saga" };
 		circularMetadata.self = circularMetadata;
 
 		fetchSpy.mockResolvedValueOnce(
@@ -155,7 +159,7 @@ describe("comic cache utilities", () => {
 
 		const output = await downloadIssueToCache(
 			issueId,
-			() => {},
+			() => { },
 			circularMetadata,
 		);
 

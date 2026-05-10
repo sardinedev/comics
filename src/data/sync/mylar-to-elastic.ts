@@ -216,6 +216,12 @@ function buildIssueBaseDoc(
 	return { doc, upsert };
 }
 
+function removeUndefinedFields<T extends object>(value: T): T {
+	return Object.fromEntries(
+		Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined),
+	) as T;
+}
+
 /**
  * Build a map of issue IDs to their "added to library" timestamps.
  *
@@ -403,16 +409,7 @@ export async function syncMylarToElastic(
 				characters,
 			});
 
-			// Remove undefined values to avoid null overwrites in Elasticsearch
-			// (undefined fields are not sent, so existing values are preserved)
-			for (const [key, value] of Object.entries(doc)) {
-				if (value === undefined) {
-					// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-					delete (doc as any)[key];
-				}
-			}
-
-			issueDocs.push({ id: issue.id, doc, upsert });
+			issueDocs.push({ id: issue.id, doc: removeUndefinedFields(doc), upsert });
 		}
 
 		// Bulk upsert all issues for this series

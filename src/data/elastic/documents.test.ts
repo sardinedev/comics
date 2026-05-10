@@ -11,9 +11,7 @@ const elasticState = {
 vi.mock("@elastic/elasticsearch", () => {
 	return {
 		Client: class {
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			constructor(_opts: unknown) {}
-			bulk = (...args: any[]) => elasticState.bulk(...args);
+			bulk = (...args: unknown[]) => elasticState.bulk(...args);
 			indices = {};
 		},
 	};

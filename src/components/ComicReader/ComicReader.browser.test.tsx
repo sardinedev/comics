@@ -506,8 +506,11 @@ describe("ComicReader", () => {
 
 			expect(beacon).toHaveBeenCalledWith(PROGRESS_URL, expect.any(Blob));
 			// Decode the body and assert the API contract.
-			const [, blob] = beacon.mock.calls.at(-1)!;
-			const body = JSON.parse(await (blob as Blob).text());
+			const lastBeaconCall = beacon.mock.calls.at(-1);
+			if (!lastBeaconCall) throw new Error("Expected progress beacon call");
+			const [, blob] = lastBeaconCall;
+			if (!(blob instanceof Blob)) throw new Error("Expected beacon Blob body");
+			const body = JSON.parse(await blob.text());
 			expect(body).toEqual({ current_page: 2, total_pages: 3 });
 		});
 

@@ -18,6 +18,7 @@ export const POST: APIRoute = async ({ request }) => {
 			headers: { "Content-Type": "application/json" },
 		});
 	} catch (error) {
+		console.error("Failed to add series to library", error);
 		return new Response(
 			JSON.stringify({ error: "Failed to add series to library" }),
 			{

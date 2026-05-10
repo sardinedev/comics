@@ -1,4 +1,3 @@
-import type { estypes } from "@elastic/elasticsearch";
 import {
 	elastic,
 	elasticCreateIndex,
@@ -49,7 +48,7 @@ export async function elasticReindex(
 	options: ElasticReindexOptions,
 ) {
 	const { mappings, suffix, settings, keepOldIndex = false } = options;
-	const timestampMs = new Date().getTime();
+	const timestampMs = Date.now();
 	const indexSuffix = suffix ?? timestampMs.toString();
 	const newIndex = `${oldIndex}_${indexSuffix}`;
 
