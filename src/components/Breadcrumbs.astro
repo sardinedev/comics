@@ -7,9 +7,11 @@ type Crumb = {
 const { crumbs } = Astro.props as { crumbs: Crumb[] };
 ---
 
-<nav class="mb-8 flex items-center gap-2 text-xs font-bold uppercase tracking-widest" aria-label="Breadcrumb">
-  {
-    crumbs.map((crumb, i) => (
+<nav
+	class="mb-8 flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
+	aria-label="Breadcrumb"
+>
+	{crumbs.map((crumb, i) => (
       <>
         {i > 0 && <span class="text-slate-700">/</span>}
         {crumb.url ? (
@@ -20,6 +22,5 @@ const { crumbs } = Astro.props as { crumbs: Crumb[] };
           <span class="text-slate-400">{crumb.title}</span>
         )}
       </>
-    ))
-  }
+    ))}
 </nav>

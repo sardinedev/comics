@@ -21,8 +21,7 @@ const isLocalCoverRoute = (src: string) => src.startsWith("/covers/");
 ---
 
 <ul class="flex overflow-x-scroll hide-scrollbar">
-  {
-    issues.map((issue) => (
+	{issues.map((issue) => (
       <li class="mr-4 last:mr-0 flex flex-col-reverse text-center">
         <a href={`/comic/${issue.issue_id}`}>
           {isRemoteCover(issue.issue_cover) ? (
@@ -53,10 +52,8 @@ const isLocalCoverRoute = (src: string) => src.startsWith("/covers/");
           )}
         </a>
       </li>
-    ))
-  }
-  {
-    showMore ? (
+    ))}
+	{showMore ? (
       <li class="mr-4 last:mr-0 flex flex-col-reverse text-center">
         <a class="relative" href={`/series/${showMore.volumeId}`}>
           <span class="absolute inset-0 flex justify-center items-center backdrop-blur-xs bg-black/40">
@@ -72,6 +69,5 @@ const isLocalCoverRoute = (src: string) => src.startsWith("/covers/");
           />
         </a>
       </li>
-    ) : null
-  }
+    ) : null}
 </ul>

@@ -24,16 +24,16 @@ function filterUrl(key: string, value: string | null) {
 ---
 
 <button
-  type="button"
-  popovertarget="filter-popover"
-  class:list={[
+	type="button"
+	popovertarget="filter-popover"
+	class:list={[
     "flex h-12 items-center gap-1.5 border bg-slate-800 px-3 text-xs font-bold uppercase tracking-widest transition-colors hover:border-amber-500 hover:text-amber-500",
     activeCount > 0 ? "border-amber-500 text-amber-500" : "border-slate-700 text-slate-300",
   ]}
 >
-  <Icon name="filter-list" class="h-3.5 w-3.5" color="currentColor" />
-  Filter
-  {activeCount > 0 && (
+	<Icon name="filter-list" class="h-3.5 w-3.5" color="currentColor" />
+	Filter
+	{activeCount > 0 && (
     <span class="flex h-4 w-4 items-center justify-center bg-amber-500 text-[9px] font-black text-slate-900">
       {activeCount}
     </span>
@@ -41,9 +41,10 @@ function filterUrl(key: string, value: string | null) {
 </button>
 
 <div id="filter-popover" popover="manual" class="filter-popover" role="dialog">
-  <div class="flex w-full flex-col border-t-2 border-amber-500 bg-slate-900 shadow-xl shadow-black/40">
-
-    {showReadingState && (
+	<div
+		class="flex w-full flex-col border-t-2 border-amber-500 bg-slate-900 shadow-xl shadow-black/40"
+	>
+		{showReadingState && (
       <div class="flex flex-col gap-3 border-b border-slate-800 p-4">
         <span class="text-[10px] font-bold uppercase tracking-widest text-slate-600">Reading State</span>
         <div class="flex flex-wrap gap-2">
@@ -69,7 +70,7 @@ function filterUrl(key: string, value: string | null) {
       </div>
     )}
 
-    {filterOptions.publishers.length > 0 && (
+		{filterOptions.publishers.length > 0 && (
       <div class="flex flex-col gap-3 border-b border-slate-800 p-4">
         <span class="text-[10px] font-bold uppercase tracking-widest text-slate-600">Publisher</span>
         <div class="flex flex-wrap gap-2">
@@ -101,7 +102,7 @@ function filterUrl(key: string, value: string | null) {
       </div>
     )}
 
-    {filterOptions.years.length > 0 && (
+		{filterOptions.years.length > 0 && (
       <div class="flex flex-col gap-3 p-4">
         <span class="text-[10px] font-bold uppercase tracking-widest text-slate-600">Year</span>
         <div class="flex flex-wrap gap-2">
@@ -132,20 +133,19 @@ function filterUrl(key: string, value: string | null) {
         </div>
       </div>
     )}
-
-  </div>
+	</div>
 </div>
 
 <style>
-  .filter-popover {
-    position: fixed;
-    position-anchor: --util-anchor;
-    position-area: bottom;
-    width: 100vw;
-    max-width: 1600px;
-    left: 0;
-    right: 0;
-    margin-inline: auto;
-    margin-top: 0.5rem;
-  }
+.filter-popover {
+	position: fixed;
+	position-anchor: --util-anchor;
+	position-area: bottom;
+	width: 100vw;
+	max-width: 1600px;
+	left: 0;
+	right: 0;
+	margin-inline: auto;
+	margin-top: 0.5rem;
+}
 </style>

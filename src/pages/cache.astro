@@ -6,10 +6,10 @@ import Layout from "@layouts/Layout.astro";
 ---
 
 <Layout title="Cached comics">
-  <div class="mb-8 border-b border-slate-800 pb-6">
-    <EyebrowLabel class="mb-1">Offline reading</EyebrowLabel>
-    <PageHeading>Cached Comics</PageHeading>
-  </div>
+	<div class="mb-8 border-b border-slate-800 pb-6">
+		<EyebrowLabel class="mb-1">Offline reading</EyebrowLabel>
+		<PageHeading>Cached Comics</PageHeading>
+	</div>
 
-  <ComicCacheManager client:only="preact" />
+	<ComicCacheManager client:only="preact" />
 </Layout>

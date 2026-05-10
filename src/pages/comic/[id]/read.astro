@@ -26,11 +26,11 @@ const cacheMetadata: ComicCacheMetadataInput = {
 ---
 
 <ReaderLayout title={`Read: ${issue.series_name} #${issue.issue_number}`}>
-  <ComicReader
-    client:only="preact"
-    issueId={id!}
-    initialPage={issue.current_page ?? 0}
-    nextIssue={nextIssue
+	<ComicReader
+		client:only="preact"
+		issueId={id!}
+		initialPage={issue.current_page ?? 0}
+		nextIssue={nextIssue
       ? {
           id: nextIssue.issue_id,
           seriesName:
@@ -39,6 +39,6 @@ const cacheMetadata: ComicCacheMetadataInput = {
           issueName: nextIssue.issue_name ?? undefined,
         }
       : undefined}
-    cacheMetadata={cacheMetadata}
-  />
+		cacheMetadata={cacheMetadata}
+	/>
 </ReaderLayout>

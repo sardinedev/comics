@@ -30,17 +30,19 @@ function sortUrl(value: string) {
 ---
 
 <button
-  type="button"
-  popovertarget="sort-popover"
-  class="flex h-12 items-center gap-1.5 border border-slate-700 bg-slate-800 px-3 text-xs font-bold uppercase tracking-widest text-slate-300 transition-colors hover:border-amber-500 hover:text-amber-500"
+	type="button"
+	popovertarget="sort-popover"
+	class="flex h-12 items-center gap-1.5 border border-slate-700 bg-slate-800 px-3 text-xs font-bold uppercase tracking-widest text-slate-300 transition-colors hover:border-amber-500 hover:text-amber-500"
 >
-  <Icon name="sort" class="h-3.5 w-3.5" color="currentColor" />
-  Sort
+	<Icon name="sort" class="h-3.5 w-3.5" color="currentColor" />
+	Sort
 </button>
 
 <div id="sort-popover" popover="manual" class="sort-popover" role="dialog">
-  <menu class="flex w-full flex-col border-t-2 border-amber-500 bg-slate-900 shadow-xl shadow-black/40">
-    {options.map((opt, i) => (
+	<menu
+		class="flex w-full flex-col border-t-2 border-amber-500 bg-slate-900 shadow-xl shadow-black/40"
+	>
+		{options.map((opt, i) => (
       <li class:list={[{ "border-t border-slate-800": i > 0 }]}>
         <a
           href={sortUrl(opt.value)}
@@ -54,19 +56,19 @@ function sortUrl(value: string) {
         </a>
       </li>
     ))}
-  </menu>
+	</menu>
 </div>
 
 <style>
-  .sort-popover {
-    position: fixed;
-    position-anchor: --util-anchor;
-    position-area: bottom;
-    width: 100vw;
-    max-width: 1600px;
-    left: 0;
-    right: 0;
-    margin-inline: auto;
-    margin-top: 0.5rem;
-  }
+.sort-popover {
+	position: fixed;
+	position-anchor: --util-anchor;
+	position-area: bottom;
+	width: 100vw;
+	max-width: 1600px;
+	left: 0;
+	right: 0;
+	margin-inline: auto;
+	margin-top: 0.5rem;
+}
 </style>

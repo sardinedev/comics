@@ -6,8 +6,7 @@ const { covers } = Astro.props;
 ---
 
 <div class="relative w-28 h-40 mr-4 mt-4">
-  {
-    covers.map((cover, index) => (
+	{covers.map((cover, index) => (
       <img
         class="absolute"
         class:list={
@@ -26,6 +25,5 @@ const { covers } = Astro.props;
         loading={index === 4 ? "eager" : "lazy"}
         src={cover}
       />
-    ))
-  }
+    ))}
 </div>

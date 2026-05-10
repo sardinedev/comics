@@ -42,17 +42,21 @@ for (const [key, display] of [
 }
 ---
 
-<div class="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-800 pb-4">
-  <div class="flex items-center gap-2">
-    <span class="text-xs uppercase tracking-widest text-slate-600">Sorted by</span>
-    {sortLabel ? (
+<div
+	class="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-800 pb-4"
+>
+	<div class="flex items-center gap-2">
+		<span class="text-xs uppercase tracking-widest text-slate-600"
+			>Sorted by</span
+		>
+		{sortLabel ? (
       <span class="text-xs font-bold uppercase tracking-widest text-amber-500">{sortLabel}</span>
     ) : (
       <span class="text-xs font-bold uppercase tracking-widest text-slate-400">{defaultSortLabel}</span>
     )}
-  </div>
+	</div>
 
-  {activeFilters.length > 0 && (
+	{activeFilters.length > 0 && (
     <div class="flex flex-wrap items-center gap-2">
       <span class="text-xs uppercase tracking-widest text-slate-600">·</span>
       {activeFilters.map(({ label, clearUrl }) => (
