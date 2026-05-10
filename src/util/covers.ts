@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { mylarDownloadIssue } from "../data/mylar/mylar";
+import { mylarDownloadIssue } from "@data/mylar/mylar";
 import { unzip } from "fflate";
 import sharp from "sharp";
 import { rgbaToThumbHash } from "thumbhash";
