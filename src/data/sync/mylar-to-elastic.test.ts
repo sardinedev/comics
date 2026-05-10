@@ -255,6 +255,79 @@ describe("syncMylarToElastic", () => {
 		expect(payload.doc.issue_description).toBe("desc");
 		expect(payload.doc.issue_cover_url).toBe("/covers/i1.jpg");
 		expect(payload.doc.characters).toEqual(["Alana", "Marko"]);
+		expect(payload.doc.comicvine_enriched_at).toEqual(expect.any(String));
+	});
+
+	it("reports sync progress without changing returned stats", async () => {
+		const progressReporter = {
+			start: vi.fn(),
+			seriesStart: vi.fn(),
+			seriesFetched: vi.fn(),
+			seriesComplete: vi.fn(),
+		};
+
+		const stats = await sync.syncMylarToElastic({
+			refresh: "false",
+			progressReporter,
+		});
+
+		expect(progressReporter.start).toHaveBeenCalledWith(
+			expect.objectContaining({
+				seriesSeen: 1,
+				seriesTotal: 1,
+				issuesSeen: 0,
+				stats: expect.objectContaining({ seriesSynced: 0 }),
+			}),
+		);
+		expect(progressReporter.seriesStart).toHaveBeenCalledWith(
+			expect.objectContaining({
+				currentSeries: { id: "s1", name: "Saga" },
+			}),
+		);
+		expect(progressReporter.seriesFetched).toHaveBeenCalledWith(
+			expect.objectContaining({
+				issuesSeen: 1,
+				currentSeries: { id: "s1", name: "Saga" },
+			}),
+		);
+		expect(progressReporter.seriesComplete).toHaveBeenCalledWith(
+			expect.objectContaining({
+				stats: expect.objectContaining({
+					seriesSynced: 1,
+					issuesUpserted: 1,
+				}),
+			}),
+		);
+		expect(stats).toEqual({
+			seriesSeen: 1,
+			seriesSynced: 1,
+			issuesUpserted: 1,
+			issuesEnriched: 0,
+			coversCached: 0,
+		});
+	});
+
+	it("does not fail sync when progress reporting fails", async () => {
+		const consoleError = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+
+		try {
+			const stats = await sync.syncMylarToElastic({
+				refresh: "false",
+				progressReporter: {
+					start: vi.fn().mockRejectedValue(new Error("progress unavailable")),
+				},
+			});
+
+			expect(stats.issuesUpserted).toBe(1);
+			expect(consoleError).toHaveBeenCalledWith(
+				"Failed to record sync progress",
+				expect.any(Error),
+			);
+		} finally {
+			consoleError.mockRestore();
+		}
 	});
 
 	it("skips ComicVine call for issues already enriched", async () => {

@@ -1,6 +1,7 @@
 import { elasticInitializeIndex } from "./elastic";
 import { ISSUES_INDEX, issuesMappings } from "./models/issue.model";
 import { STORY_ARCS_INDEX, storyArcsMappings } from "./models/story-arc.model";
+import { SYNC_RUNS_INDEX, syncRunsMappings } from "./models/sync-run.model";
 
 /**
  * Initialize all Elasticsearch indices with their mappings.
@@ -25,6 +26,11 @@ export async function initializeAllIndices() {
 		console.info(`📖 Initializing ${STORY_ARCS_INDEX} index...`);
 		await elasticInitializeIndex(STORY_ARCS_INDEX, storyArcsMappings);
 		console.info(`✅ ${STORY_ARCS_INDEX} index ready\n`);
+
+		// Initialize sync_runs index
+		console.info(`⏱️ Initializing ${SYNC_RUNS_INDEX} index...`);
+		await elasticInitializeIndex(SYNC_RUNS_INDEX, syncRunsMappings);
+		console.info(`✅ ${SYNC_RUNS_INDEX} index ready\n`);
 
 		console.info("✨ All indices initialized successfully!");
 	} catch (error) {

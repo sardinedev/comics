@@ -71,6 +71,8 @@ export type Issue = {
 	// === CHARACTERS ===
 	/** List of character names that appear in this issue (from ComicVine enrichment) */
 	characters?: string[];
+	/** ISO timestamp when this issue was successfully enriched from ComicVine */
+	comicvine_enriched_at?: string;
 
 	// === MYLAR STATUS ===
 	/** Download/library status from Mylar (Wanted, Downloaded, Skipped, etc.) */

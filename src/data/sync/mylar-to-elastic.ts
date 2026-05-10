@@ -34,6 +34,8 @@ export type MylarToElasticSyncOptions = {
 	comicVineConcurrency?: number;
 	/** Refresh after bulk (useful in dev/tests). */
 	refresh?: "true" | "false" | "wait_for";
+	/** Optional reporter for durable operational sync progress. */
+	progressReporter?: SyncProgressReporter;
 };
 
 /**
@@ -45,6 +47,42 @@ export type SyncStats = {
 	issuesUpserted: number;
 	issuesEnriched: number;
 	coversCached: number;
+};
+
+type SyncProgressHandler = (
+	snapshot: SyncProgressSnapshot,
+) => Promise<void> | void;
+
+export type SyncProgressSeries = {
+	id: string;
+	name?: string;
+};
+
+export type SyncProgressIssue = {
+	id: string;
+	number?: string;
+	name?: string;
+};
+
+export type SyncProgressSnapshot = {
+	seriesSeen: number;
+	seriesTotal: number;
+	issuesSeen: number;
+	stats: SyncStats;
+	enrichFromComicVine: boolean;
+	cacheCovers: boolean;
+	seriesLimit?: number;
+	currentSeries?: SyncProgressSeries;
+	currentIssue?: SyncProgressIssue;
+};
+
+export type SyncProgressReporter = {
+	start?: SyncProgressHandler;
+	seriesStart?: SyncProgressHandler;
+	seriesFetched?: SyncProgressHandler;
+	issueEnrichmentStart?: SyncProgressHandler;
+	issueEnriched?: SyncProgressHandler;
+	seriesComplete?: SyncProgressHandler;
 };
 
 /**
@@ -183,6 +221,7 @@ function buildIssueBaseDoc(
 		issueDate: string;
 		addedToLibraryAt?: string;
 		characters?: string[];
+		comicVineEnrichedAt?: string;
 	},
 ): { doc: IssueElasticDoc; upsert: IssueElasticUpsert } {
 	const seriesInfo = buildSeriesInfo(series);
@@ -199,6 +238,7 @@ function buildIssueBaseDoc(
 		issue_cover_url: opts.coverUrl,
 		issue_cover_thumb_hash: opts.thumbHash,
 		characters: opts.characters,
+		comicvine_enriched_at: opts.comicVineEnrichedAt,
 		...seriesInfo,
 		download_status: issue.status,
 		added_to_library_at: opts.addedToLibraryAt,
@@ -273,6 +313,25 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Invokes a progress reporter hook without allowing telemetry failures to stop sync.
+ *
+ * @param handler - Optional progress reporter callback.
+ * @param snapshot - Current sync progress snapshot.
+ */
+async function reportProgress(
+	handler: SyncProgressHandler | undefined,
+	snapshot: SyncProgressSnapshot,
+): Promise<void> {
+	if (!handler) return;
+
+	try {
+		await handler(snapshot);
+	} catch (error) {
+		console.error("Failed to record sync progress", error);
+	}
+}
+
+/**
  * Sync all comic issues from Mylar to Elasticsearch.
  *
  * ETL Pipeline:
@@ -329,6 +388,27 @@ export async function syncMylarToElastic(
 		issuesEnriched: 0,
 		coversCached: 0,
 	};
+	let issuesSeen = 0;
+
+	const buildProgressSnapshot = (
+		extra: Partial<
+			Pick<SyncProgressSnapshot, "currentSeries" | "currentIssue">
+		> = {},
+	): SyncProgressSnapshot => ({
+		seriesSeen: allSeries.length,
+		seriesTotal: series.length,
+		issuesSeen,
+		stats: { ...stats },
+		enrichFromComicVine: Boolean(options.enrichFromComicVine),
+		cacheCovers: options.cacheCovers !== false,
+		seriesLimit: options.seriesLimit,
+		...extra,
+	});
+
+	await reportProgress(
+		options.progressReporter?.start,
+		buildProgressSnapshot(),
+	);
 
 	// Pre-fetch IDs of issues already enriched with character data so we can skip
 	// them during enrichment — avoids re-hitting ComicVine for the full library
@@ -339,7 +419,15 @@ export async function syncMylarToElastic(
 			index: ISSUES_INDEX,
 			size: 10_000,
 			_source: ["issue_id"],
-			query: { exists: { field: "characters" } },
+			query: {
+				bool: {
+					should: [
+						{ exists: { field: "comicvine_enriched_at" } },
+						{ exists: { field: "characters" } },
+					],
+					minimum_should_match: 1,
+				},
+			},
 		});
 		for (const hit of enrichedResp.hits.hits) {
 			if (hit._source?.issue_id) alreadyEnrichedIds.add(hit._source.issue_id);
@@ -349,10 +437,29 @@ export async function syncMylarToElastic(
 	// === TRANSFORM & LOAD: Process each series sequentially ===
 	// Sequential processing keeps Mylar load predictable (avoid overwhelming the API)
 	for (const seriesEntry of series) {
+		const seriesProgress = {
+			id: seriesEntry.id,
+			name: seriesEntry.name,
+		};
+		await reportProgress(
+			options.progressReporter?.seriesStart,
+			buildProgressSnapshot({ currentSeries: seriesProgress }),
+		);
+
 		// Fetch detailed series info and all its issues
 		const seriesDetailResp = await mylarGetSeries(seriesEntry.id);
 		const seriesInfo = seriesDetailResp.data.comic[0];
 		const issues = seriesDetailResp.data.issues;
+		issuesSeen += issues.length;
+
+		const currentSeries = {
+			id: seriesInfo.id,
+			name: seriesInfo.name,
+		};
+		await reportProgress(
+			options.progressReporter?.seriesFetched,
+			buildProgressSnapshot({ currentSeries }),
+		);
 
 		const issueDocs: {
 			id: string;
@@ -366,18 +473,36 @@ export async function syncMylarToElastic(
 			let issueDescription: string | undefined;
 			let comicVineStoreDate: string | undefined;
 			let characters: string[] | undefined;
+			let comicVineEnrichedAt: string | undefined;
+			const currentIssue = {
+				id: issue.id,
+				number: issue.number,
+				name: issue.name ?? undefined,
+			};
 
 			// Optional: Enrich with ComicVine metadata (better dates, descriptions, characters).
 			// Skips issues already enriched to stay within the 200 req/hour API limit.
 			// Throttled to 1 request per 20s (~180/hour) to avoid velocity blocks.
 			if (options.enrichFromComicVine && !alreadyEnrichedIds.has(issue.id)) {
+				await reportProgress(
+					options.progressReporter?.issueEnrichmentStart,
+					buildProgressSnapshot({ currentSeries, currentIssue }),
+				);
+
 				const cv = await getComicIssueDetails(issue.id);
 				comicVineStoreDate = cv.store_date;
 				issueDescription = cv.description;
 				// Prefer ComicVine cover for remote, unless we cache local
 				coverUrl = cv.image?.original_url ?? coverUrl;
 				characters = cv.character_credits.map((c) => c.name);
+				comicVineEnrichedAt = new Date().toISOString();
 				stats.issuesEnriched += 1;
+
+				await reportProgress(
+					options.progressReporter?.issueEnriched,
+					buildProgressSnapshot({ currentSeries, currentIssue }),
+				);
+
 				await sleep(20_000);
 			}
 
@@ -407,6 +532,7 @@ export async function syncMylarToElastic(
 				issueDate,
 				addedToLibraryAt,
 				characters,
+				comicVineEnrichedAt,
 			});
 
 			issueDocs.push({ id: issue.id, doc: removeUndefinedFields(doc), upsert });
@@ -422,6 +548,11 @@ export async function syncMylarToElastic(
 
 		console.info(
 			`Synced series ${seriesInfo.id} (${seriesInfo.name}) issues=${issueDocs.length}`,
+		);
+
+		await reportProgress(
+			options.progressReporter?.seriesComplete,
+			buildProgressSnapshot({ currentSeries }),
 		);
 	}
 

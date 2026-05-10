@@ -13,6 +13,7 @@ interface ImportMetaEnv {
 	readonly ATPROTO_PRIVATE_KEY_JWK: string;
 	readonly AUTH_ALLOWED_DID: string;
 	readonly AUTH_SESSION_SECRET: string;
+	readonly DEV_BYPASS_AUTH?: string;
 }
 
 interface ImportMeta {

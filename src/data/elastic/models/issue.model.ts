@@ -64,6 +64,7 @@ export const issuesMappings: estypes.MappingTypeMapping = {
 
 		// === CHARACTERS ===
 		characters: { type: "keyword" }, // Array of character names (from ComicVine enrichment)
+		comicvine_enriched_at: { type: "date" },
 
 		// === MYLAR STATUS ===
 		download_status: { type: "keyword" },
