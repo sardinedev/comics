@@ -145,38 +145,33 @@ export async function extractCoverFromCbz(archiveData: Uint8Array): Promise<Uint
 
   console.info(`Parsing CBZ (ZIP) archive: ${(archiveData.length / 1024 / 1024).toFixed(2)} MB`);
 
-  try {
-    return new Promise<Uint8Array | null>((resolve) => {
-      unzip(
-        archiveData,
-        {
-          filter: (file) =>
-            !file.name.startsWith("__MACOSX/") && isImageFile(file.name),
-        },
-        (err, entries) => {
-          if (err) {
-            console.error("Error extracting cover from CBZ:", err);
-            resolve(null);
-            return;
-          }
-
-          const sortedPaths = Object.keys(entries).sort((a, b) => a.localeCompare(b));
-          if (sortedPaths.length === 0) {
-            console.error("No image files found in CBZ archive");
-            resolve(null);
-            return;
-          }
-
-          const coverPath = sortedPaths[0];
-          console.info(`Extracted cover: ${coverPath}`);
-          resolve(entries[coverPath]);
+  return new Promise<Uint8Array | null>((resolve) => {
+    unzip(
+      archiveData,
+      {
+        filter: (file) =>
+          !file.name.startsWith("__MACOSX/") && isImageFile(file.name),
+      },
+      (err, entries) => {
+        if (err) {
+          console.error("Error extracting cover from CBZ:", err);
+          resolve(null);
+          return;
         }
-      );
-    });
-  } catch (error) {
-    console.error("Error extracting cover from CBZ:", error);
-    return null;
-  }
+
+        const sortedPaths = Object.keys(entries).sort((a, b) => a.localeCompare(b));
+        if (sortedPaths.length === 0) {
+          console.error("No image files found in CBZ archive");
+          resolve(null);
+          return;
+        }
+
+        const coverPath = sortedPaths[0];
+        console.info(`Extracted cover: ${coverPath}`);
+        resolve(entries[coverPath]);
+      }
+    );
+  });
 }
 
 /**
