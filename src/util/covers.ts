@@ -126,6 +126,11 @@ function detectArchiveType(data: Uint8Array): "zip" | "rar" | "unknown" {
 	return "unknown";
 }
 
+/**
+ * Extracts the first image entry (alphabetically) from a CBZ archive payload.
+ * @param archiveData Raw archive bytes expected to be ZIP-based CBZ data.
+ * @returns Image bytes when extraction succeeds, otherwise null.
+ */
 export async function extractCoverFromCbz(
 	archiveData: Uint8Array,
 ): Promise<Uint8Array | null> {

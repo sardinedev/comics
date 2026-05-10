@@ -2,6 +2,7 @@ import { zipSync } from "fflate";
 import { describe, expect, test } from "vitest";
 import { extractCoverFromCbz } from "./covers";
 
+// Minimal magic-number signatures for image-type fixtures (not full valid images).
 const JPG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x43, 0x00]);
 const PNG_BYTES = new Uint8Array([
 	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01,
