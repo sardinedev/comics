@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { Issue } from "../comics.types";
+import type { Issue } from "@data/comics.types";
 
 process.env.ELASTIC_API_KEY = "test-api-key";
 process.env.ELASTIC_URL = "http://localhost:9200";
