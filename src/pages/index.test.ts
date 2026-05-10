@@ -1,8 +1,14 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parse } from "@astrojs/compiler";
 import { describe, expect, it } from "vitest";
 
-const source = readFileSync(new URL("./index.astro", import.meta.url), "utf8");
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const homepageSource = readFileSync(
+	resolve(repoRoot, "src/pages/index.astro"),
+	"utf8",
+);
 
 type AstroNode = {
 	type?: string;
@@ -36,9 +42,24 @@ function attributeValue(node: AstroNode, name: string) {
 			: undefined;
 }
 
+describe("homepage carousel controls", () => {
+	it("uses existing paired icon assets for previous and next controls", () => {
+		const carouselIcons = ["arrow-back", "arrow-forward"];
+
+		expect(homepageSource).toContain('aria-label="Previous slide"');
+		expect(homepageSource).toContain('aria-label="Next slide"');
+		for (const iconName of carouselIcons) {
+			expect(homepageSource).toContain(`name="${iconName}"`);
+			expect(
+				existsSync(resolve(repoRoot, "public/icons", `${iconName}.svg`)),
+			).toBe(true);
+		}
+	});
+});
+
 describe("homepage hero cover", () => {
 	it("uses a strict 2:3 cover ratio at the featured width", async () => {
-		const { ast } = await parse(source);
+		const { ast } = await parse(homepageSource);
 		const root = ast as AstroNode;
 
 		const heroCover = findNode(root, (node) => {
@@ -64,6 +85,6 @@ describe("homepage hero cover", () => {
 		expect(attributeValue(heroImage ?? {}, "sizes")).toBe("220px");
 		expect(attributeValue(heroImage ?? {}, "width")).toBe("220");
 		expect(attributeValue(heroImage ?? {}, "height")).toBe("330");
-		expect(source).not.toContain("h-[340px] w-[220px]");
+		expect(homepageSource).not.toContain("h-[340px] w-[220px]");
 	});
 });
