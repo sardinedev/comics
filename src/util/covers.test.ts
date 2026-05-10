@@ -2,7 +2,9 @@ import { zipSync } from "fflate";
 import { describe, expect, test } from "vitest";
 import { extractCoverFromCbz } from "./covers";
 
-// Minimal magic-number signatures for image-type fixtures (not full valid images).
+// Minimal magic-number fixtures: JPG_BYTES starts with JPEG SOI (0xFF,0xD8),
+// PNG_BYTES starts with the PNG signature header (0x89, "PNG", CR, LF, SUB, LF).
+// These are byte-signature stubs only, not complete valid image files.
 const JPG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x43, 0x00]);
 const PNG_BYTES = new Uint8Array([
 	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01,
