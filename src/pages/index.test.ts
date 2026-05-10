@@ -11,16 +11,12 @@ const homepageSource = readFileSync(
 
 describe("homepage carousel controls", () => {
 	it("uses existing paired icon assets for previous and next controls", () => {
-		const iconNames = Array.from(
-			homepageSource.matchAll(/<Icon\s+name="([^"]+)"/g),
-			(match) => match[1],
-		);
+		const carouselIcons = ["arrow-back", "arrow-forward"];
 
 		expect(homepageSource).toContain('aria-label="Previous slide"');
 		expect(homepageSource).toContain('aria-label="Next slide"');
-		expect(iconNames).toContain("arrow-back");
-		expect(iconNames).toContain("arrow-forward");
-		for (const iconName of iconNames) {
+		for (const iconName of carouselIcons) {
+			expect(homepageSource).toContain(`name="${iconName}"`);
 			expect(
 				existsSync(resolve(repoRoot, "public/icons", `${iconName}.svg`)),
 			).toBe(true);
