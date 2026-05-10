@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.8",
+    "@biomejs/biome": "2.4.15",
     "@vitest/browser-playwright": "^4.1.5",
     "esbuild": "^0.28.0",
     "playwright": "^1.59.1",
