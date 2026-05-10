@@ -1,19 +1,10 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { Readable } from "node:stream";
+import { mylarDownloadIssue } from "@data/mylar/mylar";
 import { env } from "@lib/env";
+import { unzip } from "fflate";
 import sharp from "sharp";
 import { rgbaToThumbHash } from "thumbhash";
-import { mylarDownloadIssue } from "../data/mylar/mylar";
-
-// Use dynamic import for unzipper since it's a CJS module
-let unzipper: typeof import("unzipper") | null = null;
-async function getUnzipper() {
-	if (!unzipper) {
-		unzipper = await import("unzipper");
-	}
-	return unzipper;
-}
 
 const COVERS_DIR = env("COVERS_DIR") ?? "data/covers";
 
@@ -135,14 +126,14 @@ function detectArchiveType(data: Uint8Array): "zip" | "rar" | "unknown" {
 	return "unknown";
 }
 
-async function extractCoverFromCbz(
+export async function extractCoverFromCbz(
 	archiveData: Uint8Array,
 ): Promise<Uint8Array | null> {
 	// Detect archive type
 	const archiveType = detectArchiveType(archiveData);
 
 	if (archiveType === "rar") {
-		// CBR (RAR) files are not supported by unzipper
+		// CBR (RAR) files are not supported by this ZIP-only extraction path.
 		console.warn(
 			`Archive is CBR (RAR format) - not supported. Size: ${(archiveData.length / 1024 / 1024).toFixed(2)} MB`,
 		);
@@ -169,81 +160,35 @@ async function extractCoverFromCbz(
 		`Parsing CBZ (ZIP) archive: ${(archiveData.length / 1024 / 1024).toFixed(2)} MB`,
 	);
 
-	try {
-		const unzip = await getUnzipper();
-
-		// Use streaming approach - more robust for various ZIP formats
-		return new Promise<Uint8Array | null>((resolve) => {
-			const chunks: { path: string; buffer: Uint8Array }[] = [];
-			let resolved = false;
-			// Multiple events (close/error/source error) can fire in different orders.
-			// Guard resolution so the Promise settles once and we don't attempt multiple resolves.
-			const resolveOnce = (value: Uint8Array | null) => {
-				if (resolved) return;
-				resolved = true;
-				resolve(value);
-			};
-
-			const stream = unzip.Parse();
-
-			stream.on("entry", async (entry) => {
-				const filePath = entry.path;
-
-				// Skip non-image files and macOS metadata
-				if (filePath.startsWith("__MACOSX") || !isImageFile(filePath)) {
-					entry.autodrain();
+	return new Promise<Uint8Array | null>((resolve) => {
+		unzip(
+			archiveData,
+			{
+				filter: (file) =>
+					!file.name.startsWith("__MACOSX/") && isImageFile(file.name),
+			},
+			(err, entries) => {
+				if (err) {
+					console.error("Error extracting cover from CBZ:", err);
+					resolve(null);
 					return;
 				}
 
-				// Collect the entry data
-				const buffers: Uint8Array[] = [];
-				entry.on("data", (chunk: Buffer) =>
-					buffers.push(new Uint8Array(chunk)),
+				const sortedPaths = Object.keys(entries).sort((a, b) =>
+					a.localeCompare(b),
 				);
-				entry.on("end", () => {
-					const totalLength = buffers.reduce((acc, buf) => acc + buf.length, 0);
-					const combined = new Uint8Array(totalLength);
-					let offset = 0;
-					for (const buf of buffers) {
-						combined.set(buf, offset);
-						offset += buf.length;
-					}
-					chunks.push({ path: filePath, buffer: combined });
-				});
-			});
-
-			stream.on("close", () => {
-				if (chunks.length === 0) {
+				if (sortedPaths.length === 0) {
 					console.error("No image files found in CBZ archive");
-					resolveOnce(null);
+					resolve(null);
 					return;
 				}
 
-				// Sort alphabetically to get cover (usually first)
-				chunks.sort((a, b) => a.path.localeCompare(b.path));
-				const cover = chunks[0];
-				console.info(`Extracted cover: ${cover.path}`);
-				resolveOnce(cover.buffer);
-			});
-
-			stream.on("error", (err) => {
-				console.error("Error parsing CBZ stream:", err);
-				resolveOnce(null);
-			});
-
-			// Feed the archive data to the stream
-			const readable = Readable.from(Buffer.from(archiveData));
-			readable.on("error", (err) => {
-				console.error("Error reading CBZ data stream:", err);
-				stream.destroy(err);
-				resolveOnce(null);
-			});
-			readable.pipe(stream);
-		});
-	} catch (error) {
-		console.error("Error extracting cover from CBZ:", error);
-		return null;
-	}
+				const coverPath = sortedPaths[0];
+				console.info(`Extracted cover: ${coverPath}`);
+				resolve(entries[coverPath]);
+			},
+		);
+	});
 }
 
 /**
