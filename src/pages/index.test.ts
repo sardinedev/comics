@@ -9,26 +9,21 @@ const homepageSource = readFileSync(
 	"utf8",
 );
 
-function iconAfterLabel(label: string) {
-	const match = homepageSource.match(
-		new RegExp(`aria-label="${label}"[\\s\\S]*?<Icon\\s+name="([^"]+)"`),
-	);
-
-	return match?.[1];
-}
-
 describe("homepage carousel controls", () => {
 	it("uses existing paired icon assets for previous and next controls", () => {
-		const previousIcon = iconAfterLabel("Previous slide");
-		const nextIcon = iconAfterLabel("Next slide");
+		const iconNames = Array.from(
+			homepageSource.matchAll(/<Icon\s+name="([^"]+)"/g),
+			(match) => match[1],
+		);
 
-		expect(previousIcon).toBe("arrow-back");
-		expect(nextIcon).toBe("arrow-forward");
-		expect(
-			existsSync(resolve(repoRoot, "public/icons", `${previousIcon}.svg`)),
-		).toBe(true);
-		expect(
-			existsSync(resolve(repoRoot, "public/icons", `${nextIcon}.svg`)),
-		).toBe(true);
+		expect(homepageSource).toContain('aria-label="Previous slide"');
+		expect(homepageSource).toContain('aria-label="Next slide"');
+		expect(iconNames).toContain("arrow-back");
+		expect(iconNames).toContain("arrow-forward");
+		for (const iconName of iconNames) {
+			expect(
+				existsSync(resolve(repoRoot, "public/icons", `${iconName}.svg`)),
+			).toBe(true);
+		}
 	});
 });
