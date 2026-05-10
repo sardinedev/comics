@@ -18,6 +18,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run lint
+        run: npm run lint
+
       - name: Get Playwright version
         id: playwright-version
         run: echo "version=$(node -p

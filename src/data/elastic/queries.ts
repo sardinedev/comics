@@ -3,45 +3,45 @@ import { elastic } from "./elastic";
 import { ISSUES_INDEX } from "./models/issue.model";
 
 type SeriesHitSource = Pick<
-  Issue,
-  | "series_id"
-  | "series_name"
-  | "series_year"
-  | "series_publisher"
-  | "series_total_issues"
+	Issue,
+	| "series_id"
+	| "series_name"
+	| "series_year"
+	| "series_publisher"
+	| "series_total_issues"
 >;
 type CoverHitSource = Pick<Issue, "issue_cover_url" | "issue_cover_thumb_hash">;
 type SeriesAggregations = { total_series: { value: number } };
 
 export type SeriesSummary = {
-  series_id: string;
-  series_name: string;
-  series_year: string;
-  series_cover_url?: string;
-  series_cover_thumb_hash?: string;
-  series_publisher?: string;
-  series_total_issues?: number;
+	series_id: string;
+	series_name: string;
+	series_year: string;
+	series_cover_url?: string;
+	series_cover_thumb_hash?: string;
+	series_publisher?: string;
+	series_total_issues?: number;
 };
 
 export type PaginatedResult<T> = {
-  items: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
+	items: T[];
+	total: number;
+	page: number;
+	pageSize: number;
+	totalPages: number;
 };
 
 export type SeriesSort = "title-asc" | "title-desc" | "date-asc" | "date-desc";
 
 export type SeriesFilters = {
-  publisher?: string;
-  year?: string;
-  readingState?: "unread" | "reading" | "read";
+	publisher?: string;
+	year?: string;
+	readingState?: "unread" | "reading" | "read";
 };
 
 export type SeriesFilterOptions = {
-  publishers: string[];
-  years: string[];
+	publishers: string[];
+	years: string[];
 };
 
 /**
@@ -51,38 +51,38 @@ export type SeriesFilterOptions = {
  * information to render cached issues without another metadata request.
  */
 export type DownloadableIssueForCache = Pick<
-  Issue,
-  | "issue_id"
-  | "series_id"
-  | "series_name"
-  | "series_year"
-  | "issue_number"
-  | "issue_name"
-  | "issue_date"
-  | "issue_cover_url"
-  | "issue_cover_thumb_hash"
+	Issue,
+	| "issue_id"
+	| "series_id"
+	| "series_name"
+	| "series_year"
+	| "issue_number"
+	| "issue_name"
+	| "issue_date"
+	| "issue_cover_url"
+	| "issue_cover_thumb_hash"
 >;
 
 type SortClause = Record<string, "asc" | "desc">;
 type HitWithSource<T> = { _source?: T };
 
 const SORT_CLAUSES: Record<SeriesSort, SortClause[]> = {
-  "title-asc": [{ "series_name.keyword": "asc" }, { series_year: "asc" }],
-  "title-desc": [{ "series_name.keyword": "desc" }, { series_year: "desc" }],
-  "date-asc": [{ series_year: "asc" }, { "series_name.keyword": "asc" }],
-  "date-desc": [{ series_year: "desc" }, { "series_name.keyword": "asc" }],
+	"title-asc": [{ "series_name.keyword": "asc" }, { series_year: "asc" }],
+	"title-desc": [{ "series_name.keyword": "desc" }, { series_year: "desc" }],
+	"date-asc": [{ series_year: "asc" }, { "series_name.keyword": "asc" }],
+	"date-desc": [{ series_year: "desc" }, { "series_name.keyword": "asc" }],
 };
 
 const CACHE_ISSUE_SOURCE_FIELDS = [
-  "issue_id",
-  "series_id",
-  "series_name",
-  "series_year",
-  "issue_number",
-  "issue_name",
-  "issue_date",
-  "issue_cover_url",
-  "issue_cover_thumb_hash",
+	"issue_id",
+	"series_id",
+	"series_name",
+	"series_year",
+	"issue_number",
+	"issue_name",
+	"issue_date",
+	"issue_cover_url",
+	"issue_cover_thumb_hash",
 ];
 
 /**
@@ -92,49 +92,49 @@ const CACHE_ISSUE_SOURCE_FIELDS = [
  * so this returns only usable typed documents while preserving hit order.
  */
 function hitSources<T>(hits: HitWithSource<T>[]): T[] {
-  return hits.flatMap((hit) => (hit._source ? [hit._source] : []));
+	return hits.flatMap((hit) => (hit._source ? [hit._source] : []));
 }
 
 /**
  * Fetches paginated issues for a series, sorted by issue number ascending.
  */
 export async function getSeriesIssues(
-  seriesId: string,
-  page = 1,
-  pageSize = 24,
+	seriesId: string,
+	page = 1,
+	pageSize = 24,
 ): Promise<{ series: SeriesSummary | null } & PaginatedResult<Issue>> {
-  const from = (Math.max(1, page) - 1) * pageSize;
+	const from = (Math.max(1, page) - 1) * pageSize;
 
-  const response = await elastic.search<Issue>({
-    index: ISSUES_INDEX,
-    size: pageSize,
-    from,
-    query: { term: { series_id: seriesId } },
-    sort: [{ issue_number: "asc" }],
-    track_total_hits: true,
-  });
+	const response = await elastic.search<Issue>({
+		index: ISSUES_INDEX,
+		size: pageSize,
+		from,
+		query: { term: { series_id: seriesId } },
+		sort: [{ issue_number: "asc" }],
+		track_total_hits: true,
+	});
 
-  const issues = hitSources(response.hits.hits);
-  const total =
-    typeof response.hits.total === "number"
-      ? response.hits.total
-      : (response.hits.total?.value ?? 0);
-  const totalPages = Math.ceil(total / pageSize);
-  const safePage = Math.max(1, Math.min(page, totalPages || 1));
+	const issues = hitSources(response.hits.hits);
+	const total =
+		typeof response.hits.total === "number"
+			? response.hits.total
+			: (response.hits.total?.value ?? 0);
+	const totalPages = Math.ceil(total / pageSize);
+	const safePage = Math.max(1, Math.min(page, totalPages || 1));
 
-  const first = issues[0];
-  const series: SeriesSummary | null = first
-    ? {
-      series_id: first.series_id,
-      series_name: first.series_name ?? "",
-      series_year: first.series_year ?? "",
-      series_cover_url: first.series_cover_url,
-      series_publisher: first.series_publisher,
-      series_total_issues: first.series_total_issues,
-    }
-    : null;
+	const first = issues[0];
+	const series: SeriesSummary | null = first
+		? {
+				series_id: first.series_id,
+				series_name: first.series_name ?? "",
+				series_year: first.series_year ?? "",
+				series_cover_url: first.series_cover_url,
+				series_publisher: first.series_publisher,
+				series_total_issues: first.series_total_issues,
+			}
+		: null;
 
-  return { series, items: issues, total, page: safePage, pageSize, totalPages };
+	return { series, items: issues, total, page: safePage, pageSize, totalPages };
 }
 
 /**
@@ -144,24 +144,24 @@ export async function getSeriesIssues(
  * @returns Downloaded issues with only the fields needed for cache metadata.
  */
 export async function getDownloadedSeriesIssues(
-  seriesId: string,
+	seriesId: string,
 ): Promise<DownloadableIssueForCache[]> {
-  const response = await elastic.search<DownloadableIssueForCache>({
-    index: ISSUES_INDEX,
-    size: 1000,
-    query: {
-      bool: {
-        filter: [
-          { term: { series_id: seriesId } },
-          { term: { download_status: "Downloaded" } },
-        ],
-      },
-    },
-    sort: [{ issue_number: "asc" }],
-    _source: CACHE_ISSUE_SOURCE_FIELDS,
-  });
+	const response = await elastic.search<DownloadableIssueForCache>({
+		index: ISSUES_INDEX,
+		size: 1000,
+		query: {
+			bool: {
+				filter: [
+					{ term: { series_id: seriesId } },
+					{ term: { download_status: "Downloaded" } },
+				],
+			},
+		},
+		sort: [{ issue_number: "asc" }],
+		_source: CACHE_ISSUE_SOURCE_FIELDS,
+	});
 
-  return hitSources(response.hits.hits);
+	return hitSources(response.hits.hits);
 }
 
 /**
@@ -174,87 +174,87 @@ export async function getDownloadedSeriesIssues(
  * @returns Unread downloaded issues with only the fields needed for cache metadata.
  */
 export async function getUnreadDownloadedSeriesIssues(
-  seriesId: string,
+	seriesId: string,
 ): Promise<DownloadableIssueForCache[]> {
-  const response = await elastic.search<DownloadableIssueForCache>({
-    index: ISSUES_INDEX,
-    size: 1000,
-    query: {
-      bool: {
-        filter: [
-          { term: { series_id: seriesId } },
-          { term: { download_status: "Downloaded" } },
-          {
-            bool: {
-              should: [
-                { term: { reading_state: "unread" } },
-                {
-                  bool: { must_not: [{ exists: { field: "reading_state" } }] },
-                },
-              ],
-              minimum_should_match: 1,
-            },
-          },
-        ],
-      },
-    },
-    sort: [{ issue_number: "asc" }],
-    _source: CACHE_ISSUE_SOURCE_FIELDS,
-  });
+	const response = await elastic.search<DownloadableIssueForCache>({
+		index: ISSUES_INDEX,
+		size: 1000,
+		query: {
+			bool: {
+				filter: [
+					{ term: { series_id: seriesId } },
+					{ term: { download_status: "Downloaded" } },
+					{
+						bool: {
+							should: [
+								{ term: { reading_state: "unread" } },
+								{
+									bool: { must_not: [{ exists: { field: "reading_state" } }] },
+								},
+							],
+							minimum_should_match: 1,
+						},
+					},
+				],
+			},
+		},
+		sort: [{ issue_number: "asc" }],
+		_source: CACHE_ISSUE_SOURCE_FIELDS,
+	});
 
-  return hitSources(response.hits.hits);
+	return hitSources(response.hits.hits);
 }
 
 /**
  * The 12 most recently added issues, sorted by added_to_library_at desc.
  */
 export async function getNewlyAddedIssues(): Promise<Issue[]> {
-  const response = await elastic.search<Issue>({
-    index: ISSUES_INDEX,
-    size: 12,
-    sort: [{ added_to_library_at: "desc" }],
-  });
+	const response = await elastic.search<Issue>({
+		index: ISSUES_INDEX,
+		size: 12,
+		sort: [{ added_to_library_at: "desc" }],
+	});
 
-  return hitSources(response.hits.hits);
+	return hitSources(response.hits.hits);
 }
 
 /**
  * Fetches a single issue by its ID.
  */
 export async function getIssue(issueId: string): Promise<Issue | null> {
-  try {
-    const response = await elastic.get<Issue>({
-      index: ISSUES_INDEX,
-      id: issueId,
-    });
-    return response._source ?? null;
-  } catch {
-    return null;
-  }
+	try {
+		const response = await elastic.get<Issue>({
+			index: ISSUES_INDEX,
+			id: issueId,
+		});
+		return response._source ?? null;
+	} catch {
+		return null;
+	}
 }
 
 /**
  * Fetches the next downloaded issue in the same series by issue number.
  */
 export async function getNextDownloadedIssue(
-  currentIssue: Issue,
+	currentIssue: Issue,
 ): Promise<Issue | null> {
-  const response = await elastic.search<Issue>({
-    index: ISSUES_INDEX,
-    size: 1,
-    query: {
-      bool: {
-        filter: [
-          { term: { series_id: currentIssue.series_id } },
-          { term: { download_status: "Downloaded" } },
-          { range: { issue_number: { gt: currentIssue.issue_number } } },
-        ],
-      },
-    },
-    sort: [{ issue_number: "asc" }, { issue_date: "asc" }],
-  });
+	const response = await elastic.search<Issue>({
+		index: ISSUES_INDEX,
+		size: 1,
+		query: {
+			bool: {
+				filter: [
+					{ term: { series_id: currentIssue.series_id } },
+					{ term: { download_status: "Downloaded" } },
+					{ range: { issue_number: { gt: currentIssue.issue_number } } },
+				],
+			},
+		},
+		sort: [{ issue_number: "asc" }, { issue_date: "asc" }],
+	});
 
-  return response.hits.hits[0]?._source ?? null;
+	return response.hits.hits[0]?._source ?? null;
 }
 
 /**
@@ -262,14 +262,14 @@ export async function getNextDownloadedIssue(
  * Used for the homepage hero.
  */
 export async function getNowReading(): Promise<Issue | null> {
-  const response = await elastic.search<Issue>({
-    index: ISSUES_INDEX,
-    size: 1,
-    query: { term: { reading_state: "reading" } },
-    sort: [{ last_opened_at: "desc" }],
-  });
+	const response = await elastic.search<Issue>({
+		index: ISSUES_INDEX,
+		size: 1,
+		query: { term: { reading_state: "reading" } },
+		sort: [{ last_opened_at: "desc" }],
+	});
 
-  return response.hits.hits[0]?._source ?? null;
+	return response.hits.hits[0]?._source ?? null;
 }
 
 /**
@@ -277,14 +277,14 @@ export async function getNowReading(): Promise<Issue | null> {
  * Used for the "Continue Reading" strip on the homepage.
  */
 export async function getContinueReading(limit = 5): Promise<Issue[]> {
-  const response = await elastic.search<Issue>({
-    index: ISSUES_INDEX,
-    size: limit,
-    query: { term: { reading_state: "reading" } },
-    sort: [{ last_opened_at: "desc" }],
-  });
+	const response = await elastic.search<Issue>({
+		index: ISSUES_INDEX,
+		size: limit,
+		query: { term: { reading_state: "reading" } },
+		sort: [{ last_opened_at: "desc" }],
+	});
 
-  return hitSources(response.hits.hits);
+	return hitSources(response.hits.hits);
 }
 
 /**
@@ -292,73 +292,73 @@ export async function getContinueReading(limit = 5): Promise<Issue[]> {
  * Sorted by the most recent `added_to_library_at` across all issues in the series.
  */
 export async function getRecentlyAdded(limit = 6): Promise<SeriesSummary[]> {
-  const response = await elastic.search<SeriesHitSource>({
-    index: ISSUES_INDEX,
-    size: limit,
-    collapse: {
-      field: "series_id",
-      inner_hits: {
-        name: "latest_cover",
-        size: 1,
-        sort: [{ issue_date: "desc" }],
-        _source: ["issue_cover_url", "issue_cover_thumb_hash"],
-      },
-    },
-    sort: [{ added_to_library_at: "desc" }],
-    _source: [
-      "series_id",
-      "series_name",
-      "series_year",
-      "series_publisher",
-      "series_total_issues",
-    ],
-  });
+	const response = await elastic.search<SeriesHitSource>({
+		index: ISSUES_INDEX,
+		size: limit,
+		collapse: {
+			field: "series_id",
+			inner_hits: {
+				name: "latest_cover",
+				size: 1,
+				sort: [{ issue_date: "desc" }],
+				_source: ["issue_cover_url", "issue_cover_thumb_hash"],
+			},
+		},
+		sort: [{ added_to_library_at: "desc" }],
+		_source: [
+			"series_id",
+			"series_name",
+			"series_year",
+			"series_publisher",
+			"series_total_issues",
+		],
+	});
 
-  return response.hits.hits.flatMap((hit) => {
-    const src = hit._source;
-    if (!src) return [];
-    const cover = hit.inner_hits?.latest_cover?.hits?.hits?.[0]?._source as
-      | CoverHitSource
-      | undefined;
-    return [
-      {
-        series_id: src.series_id,
-        series_name: src.series_name ?? "",
-        series_year: src.series_year ?? "",
-        series_cover_url: cover?.issue_cover_url,
-        series_cover_thumb_hash: cover?.issue_cover_thumb_hash,
-        series_publisher: src.series_publisher,
-        series_total_issues: src.series_total_issues,
-      },
-    ];
-  });
+	return response.hits.hits.flatMap((hit) => {
+		const src = hit._source;
+		if (!src) return [];
+		const cover = hit.inner_hits?.latest_cover?.hits?.hits?.[0]?._source as
+			| CoverHitSource
+			| undefined;
+		return [
+			{
+				series_id: src.series_id,
+				series_name: src.series_name ?? "",
+				series_year: src.series_year ?? "",
+				series_cover_url: cover?.issue_cover_url,
+				series_cover_thumb_hash: cover?.issue_cover_thumb_hash,
+				series_publisher: src.series_publisher,
+				series_total_issues: src.series_total_issues,
+			},
+		];
+	});
 }
 
 /**
  * Returns distinct publishers and years for filter UI.
  */
 export async function getSeriesFilterOptions(): Promise<SeriesFilterOptions> {
-  const response = await elastic.search({
-    index: ISSUES_INDEX,
-    size: 0,
-    aggs: {
-      publishers: {
-        terms: { field: "series_publisher", size: 200, order: { _key: "asc" } },
-      },
-      years: {
-        terms: { field: "series_year", size: 200, order: { _key: "desc" } },
-      },
-    },
-  });
+	const response = await elastic.search({
+		index: ISSUES_INDEX,
+		size: 0,
+		aggs: {
+			publishers: {
+				terms: { field: "series_publisher", size: 200, order: { _key: "asc" } },
+			},
+			years: {
+				terms: { field: "series_year", size: 200, order: { _key: "desc" } },
+			},
+		},
+	});
 
-  const aggs = response.aggregations as Record<
-    string,
-    { buckets: { key: string }[] }
-  >;
-  return {
-    publishers: aggs.publishers.buckets.map((b) => b.key).filter(Boolean),
-    years: aggs.years.buckets.map((b) => b.key).filter(Boolean),
-  };
+	const aggs = response.aggregations as Record<
+		string,
+		{ buckets: { key: string }[] }
+	>;
+	return {
+		publishers: aggs.publishers.buckets.map((b) => b.key).filter(Boolean),
+		years: aggs.years.buckets.map((b) => b.key).filter(Boolean),
+	};
 }
 
 /**
@@ -371,76 +371,76 @@ export async function getSeriesFilterOptions(): Promise<SeriesFilterOptions> {
  * for pagination controls.
  */
 export async function getAllSeries(
-  page = 1,
-  pageSize = 18,
-  sort: SeriesSort = "title-asc",
-  filters: SeriesFilters = {},
+	page = 1,
+	pageSize = 18,
+	sort: SeriesSort = "title-asc",
+	filters: SeriesFilters = {},
 ): Promise<PaginatedResult<SeriesSummary>> {
-  const from = (Math.max(1, page) - 1) * pageSize;
+	const from = (Math.max(1, page) - 1) * pageSize;
 
-  const filterClauses: object[] = [];
-  if (filters.publisher)
-    filterClauses.push({ term: { series_publisher: filters.publisher } });
-  if (filters.year) filterClauses.push({ term: { series_year: filters.year } });
-  if (filters.readingState)
-    filterClauses.push({ term: { reading_state: filters.readingState } });
+	const filterClauses: object[] = [];
+	if (filters.publisher)
+		filterClauses.push({ term: { series_publisher: filters.publisher } });
+	if (filters.year) filterClauses.push({ term: { series_year: filters.year } });
+	if (filters.readingState)
+		filterClauses.push({ term: { reading_state: filters.readingState } });
 
-  const response = await elastic.search<SeriesHitSource>({
-    index: ISSUES_INDEX,
-    size: pageSize,
-    from,
-    ...(filterClauses.length > 0 && {
-      query: { bool: { filter: filterClauses } },
-    }),
-    collapse: {
-      field: "series_id",
-      inner_hits: {
-        name: "first_issue",
-        size: 1,
-        sort: [{ issue_date: "asc" }],
-        _source: ["issue_cover_url", "issue_cover_thumb_hash"],
-      },
-    },
-    sort: SORT_CLAUSES[sort],
-    _source: [
-      "series_id",
-      "series_name",
-      "series_year",
-      "series_publisher",
-      "series_total_issues",
-    ],
-    aggs: {
-      total_series: {
-        cardinality: { field: "series_id" },
-      },
-    },
-  });
+	const response = await elastic.search<SeriesHitSource>({
+		index: ISSUES_INDEX,
+		size: pageSize,
+		from,
+		...(filterClauses.length > 0 && {
+			query: { bool: { filter: filterClauses } },
+		}),
+		collapse: {
+			field: "series_id",
+			inner_hits: {
+				name: "first_issue",
+				size: 1,
+				sort: [{ issue_date: "asc" }],
+				_source: ["issue_cover_url", "issue_cover_thumb_hash"],
+			},
+		},
+		sort: SORT_CLAUSES[sort],
+		_source: [
+			"series_id",
+			"series_name",
+			"series_year",
+			"series_publisher",
+			"series_total_issues",
+		],
+		aggs: {
+			total_series: {
+				cardinality: { field: "series_id" },
+			},
+		},
+	});
 
-  const aggs = response.aggregations as SeriesAggregations | undefined;
-  const total = aggs?.total_series.value ?? 0;
-  const totalPages = Math.ceil(total / pageSize);
-  const safePage = Math.max(1, Math.min(page, totalPages || 1));
+	const aggs = response.aggregations as SeriesAggregations | undefined;
+	const total = aggs?.total_series.value ?? 0;
+	const totalPages = Math.ceil(total / pageSize);
+	const safePage = Math.max(1, Math.min(page, totalPages || 1));
 
-  const items: SeriesSummary[] = response.hits.hits.flatMap((hit) => {
-    const src = hit._source;
-    if (!src) return [];
-    const innerHit = hit.inner_hits?.first_issue?.hits?.hits?.[0]?._source as
-      | CoverHitSource
-      | undefined;
-    return [
-      {
-        series_id: src.series_id,
-        series_name: src.series_name ?? "",
-        series_year: src.series_year ?? "",
-        series_cover_url: innerHit?.issue_cover_url,
-        series_cover_thumb_hash: innerHit?.issue_cover_thumb_hash,
-        series_publisher: src.series_publisher,
-        series_total_issues: src.series_total_issues,
-      },
-    ];
-  });
+	const items: SeriesSummary[] = response.hits.hits.flatMap((hit) => {
+		const src = hit._source;
+		if (!src) return [];
+		const innerHit = hit.inner_hits?.first_issue?.hits?.hits?.[0]?._source as
+			| CoverHitSource
+			| undefined;
+		return [
+			{
+				series_id: src.series_id,
+				series_name: src.series_name ?? "",
+				series_year: src.series_year ?? "",
+				series_cover_url: innerHit?.issue_cover_url,
+				series_cover_thumb_hash: innerHit?.issue_cover_thumb_hash,
+				series_publisher: src.series_publisher,
+				series_total_issues: src.series_total_issues,
+			},
+		];
+	});
 
-  return { items, total, page: safePage, pageSize, totalPages };
+	return { items, total, page: safePage, pageSize, totalPages };
 }
 
 /**
@@ -449,96 +449,96 @@ export async function getAllSeries(
  * Uses a cardinality aggregation on series_id for accurate paginated totals.
  */
 export async function searchLibrarySeries(
-  q: string,
-  page = 1,
-  pageSize = 24,
-  sort?: SeriesSort,
-  filters: SeriesFilters = {},
+	q: string,
+	page = 1,
+	pageSize = 24,
+	sort?: SeriesSort,
+	filters: SeriesFilters = {},
 ): Promise<PaginatedResult<SeriesSummary>> {
-  const from = (Math.max(1, page) - 1) * pageSize;
+	const from = (Math.max(1, page) - 1) * pageSize;
 
-  const filterClauses: object[] = [];
-  if (filters.publisher)
-    filterClauses.push({ term: { series_publisher: filters.publisher } });
-  if (filters.year) filterClauses.push({ term: { series_year: filters.year } });
-  if (filters.readingState)
-    filterClauses.push({ term: { reading_state: filters.readingState } });
+	const filterClauses: object[] = [];
+	if (filters.publisher)
+		filterClauses.push({ term: { series_publisher: filters.publisher } });
+	if (filters.year) filterClauses.push({ term: { series_year: filters.year } });
+	if (filters.readingState)
+		filterClauses.push({ term: { reading_state: filters.readingState } });
 
-  const response = await elastic.search<SeriesHitSource>({
-    index: ISSUES_INDEX,
-    size: pageSize,
-    from,
-    query: {
-      bool: {
-        // must keeps the search required when filter clauses are present.
-        // A plain should+filter would set minimum_should_match to 0,
-        // returning all documents matching the filter regardless of the query.
-        must: [
-          {
-            bool: {
-              should: [
-                {
-                  multi_match: {
-                    query: q,
-                    fields: ["series_name^3", "series_publisher"],
-                    type: "best_fields",
-                    fuzziness: "AUTO",
-                  },
-                },
-                {
-                  prefix: {
-                    "series_name.keyword": { value: q, boost: 2 },
-                  },
-                },
-              ],
-            },
-          },
-        ],
-        ...(filterClauses.length > 0 && { filter: filterClauses }),
-      },
-    },
-    ...(sort && { sort: SORT_CLAUSES[sort] }),
-    // collapse deduplicates hits by series, inner_hits fetches the cover.
-    // cardinality aggregation gives the true total unique-series count for pagination.
-    collapse: {
-      field: "series_id",
-      inner_hits: {
-        name: "first_issue",
-        size: 1,
-        sort: [{ issue_date: "asc" }],
-        _source: ["issue_cover_url", "issue_cover_thumb_hash"],
-      },
-    },
-    _source: ["series_id", "series_name", "series_year", "series_publisher"],
-    aggs: {
-      total_series: { cardinality: { field: "series_id" } },
-    },
-  });
+	const response = await elastic.search<SeriesHitSource>({
+		index: ISSUES_INDEX,
+		size: pageSize,
+		from,
+		query: {
+			bool: {
+				// must keeps the search required when filter clauses are present.
+				// A plain should+filter would set minimum_should_match to 0,
+				// returning all documents matching the filter regardless of the query.
+				must: [
+					{
+						bool: {
+							should: [
+								{
+									multi_match: {
+										query: q,
+										fields: ["series_name^3", "series_publisher"],
+										type: "best_fields",
+										fuzziness: "AUTO",
+									},
+								},
+								{
+									prefix: {
+										"series_name.keyword": { value: q, boost: 2 },
+									},
+								},
+							],
+						},
+					},
+				],
+				...(filterClauses.length > 0 && { filter: filterClauses }),
+			},
+		},
+		...(sort && { sort: SORT_CLAUSES[sort] }),
+		// collapse deduplicates hits by series, inner_hits fetches the cover.
+		// cardinality aggregation gives the true total unique-series count for pagination.
+		collapse: {
+			field: "series_id",
+			inner_hits: {
+				name: "first_issue",
+				size: 1,
+				sort: [{ issue_date: "asc" }],
+				_source: ["issue_cover_url", "issue_cover_thumb_hash"],
+			},
+		},
+		_source: ["series_id", "series_name", "series_year", "series_publisher"],
+		aggs: {
+			total_series: { cardinality: { field: "series_id" } },
+		},
+	});
 
-  const aggs = response.aggregations as SeriesAggregations | undefined;
-  const total = aggs?.total_series.value ?? 0;
-  const totalPages = Math.ceil(total / pageSize);
-  const safePage = Math.max(1, Math.min(page, totalPages || 1));
+	const aggs = response.aggregations as SeriesAggregations | undefined;
+	const total = aggs?.total_series.value ?? 0;
+	const totalPages = Math.ceil(total / pageSize);
+	const safePage = Math.max(1, Math.min(page, totalPages || 1));
 
-  const items: SeriesSummary[] = response.hits.hits.flatMap((hit) => {
-    const src = hit._source;
-    if (!src) return [];
-    const innerHit = hit.inner_hits?.first_issue?.hits?.hits?.[0]?._source as
-      | CoverHitSource
-      | undefined;
-    return [
-      {
-        series_id: src.series_id,
-        series_name: src.series_name ?? "",
-        series_year: src.series_year ?? "",
-        series_cover_url: innerHit?.issue_cover_url,
-        series_cover_thumb_hash: innerHit?.issue_cover_thumb_hash,
-        series_publisher: src.series_publisher,
-      },
-    ];
-  });
+	const items: SeriesSummary[] = response.hits.hits.flatMap((hit) => {
+		const src = hit._source;
+		if (!src) return [];
+		const innerHit = hit.inner_hits?.first_issue?.hits?.hits?.[0]?._source as
+			| CoverHitSource
+			| undefined;
+		return [
+			{
+				series_id: src.series_id,
+				series_name: src.series_name ?? "",
+				series_year: src.series_year ?? "",
+				series_cover_url: innerHit?.issue_cover_url,
+				series_cover_thumb_hash: innerHit?.issue_cover_thumb_hash,
+				series_publisher: src.series_publisher,
+			},
+		];
+	});
 
-  return { items, total, page: safePage, pageSize, totalPages };
+	return { items, total, page: safePage, pageSize, totalPages };
 }
 
 /**
@@ -546,15 +546,15 @@ export async function searchLibrarySeries(
  * Handles state transitions: unread → reading → read, and sets timestamps.
  */
 export async function updateReadingProgress(
-  issueId: string,
-  currentPage: number,
-  totalPages: number,
+	issueId: string,
+	currentPage: number,
+	totalPages: number,
 ): Promise<void> {
-  await elastic.update({
-    index: ISSUES_INDEX,
-    id: issueId,
-    script: {
-      source: `
+	await elastic.update({
+		index: ISSUES_INDEX,
+		id: issueId,
+		script: {
+			source: `
         ctx._source.current_page = params.current_page;
         ctx._source.last_opened_at = params.now;
         if (params.total_pages > 0 && params.current_page >= params.total_pages) {
@@ -568,11 +568,11 @@ export async function updateReadingProgress(
           ctx._source.started_reading_at = params.now;
         }
       `,
-      params: {
-        current_page: currentPage,
-        total_pages: totalPages,
-        now: new Date().toISOString(),
-      },
-    },
-  });
+			params: {
+				current_page: currentPage,
+				total_pages: totalPages,
+				now: new Date().toISOString(),
+			},
+		},
+	});
 }

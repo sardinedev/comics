@@ -5,65 +5,64 @@ import Icon from "@components/Icon/Icon.astro";
 import { thumbHashToBase64 } from "@util/thumbHashToBase64";
 
 type IssueCoverLeaf = {
-  type: "Issue";
-  cover?: string | null;
-  id: string;
-  number: number | string;
-  seriesName?: string;
-  seriesId?: string;
-  issueName?: string;
-  issueDate?: string;
-  badge?: "read" | "reading" | "new" | "wanted";
-  progress?: number | null;
-  thumbHash?: string;
+	type: "Issue";
+	cover?: string | null;
+	id: string;
+	number: number | string;
+	seriesName?: string;
+	seriesId?: string;
+	issueName?: string;
+	issueDate?: string;
+	badge?: "read" | "reading" | "new" | "wanted";
+	progress?: number | null;
+	thumbHash?: string;
 };
 
 type SeriesCoverLeaf = {
-  type: "series";
-  cover?: string | null;
-  id: string;
-  name: string;
-  year?: string;
-  badge?: "new" | "wanted";
-  thumbHash?: string;
+	type: "series";
+	cover?: string | null;
+	id: string;
+	name: string;
+	year?: string;
+	badge?: "new" | "wanted";
+	thumbHash?: string;
 };
 
 const { cover, id, thumbHash, ...props } = Astro.props as
-  | IssueCoverLeaf
-  | SeriesCoverLeaf;
+	| IssueCoverLeaf
+	| SeriesCoverLeaf;
 const coverSrc = cover || null;
 const optimizableCoverSrc = coverSrc?.startsWith("/covers/")
-  ? new URL(coverSrc, Astro.url).toString()
-  : coverSrc;
+	? new URL(coverSrc, Astro.url).toString()
+	: coverSrc;
 const href = props.type === "Issue" ? `/comic/${id}` : `/series/${id}`;
 const badge = props.badge;
 const progress = props.type === "Issue" ? props.progress : undefined;
 
 let placeholderUrl: string | undefined;
 if (thumbHash) {
-  placeholderUrl = await thumbHashToBase64(thumbHash);
+	placeholderUrl = await thumbHashToBase64(thumbHash);
 }
 
 let alt: string;
 if (props.type === "Issue") {
-  alt = props.seriesName
-    ? `${props.seriesName} #${props.number}`
-    : `Issue #${props.number}`;
+	alt = props.seriesName
+		? `${props.seriesName} #${props.number}`
+		: `Issue #${props.number}`;
 } else {
-  alt = `Cover for ${props.name}${props.year ? ` (${props.year})` : ""}`;
+	alt = `Cover for ${props.name}${props.year ? ` (${props.year})` : ""}`;
 }
 ---
 
 <li data-coverid={id} class="group flex flex-col gap-2">
-  <a
-    href={href}
-    class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all duration-200 hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10"
-    style={placeholderUrl
+	<a
+		href={href}
+		class="relative block overflow-hidden rounded-sm ring-1 ring-white/5 transition-all duration-200 hover:ring-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10"
+		style={placeholderUrl
       ? `background-image: url(${placeholderUrl}); background-size: cover; background-position: center;`
       : undefined}
-  >
-    {
-      optimizableCoverSrc ? (
+	>
+		{optimizableCoverSrc ? (
         <Image
           class="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           src={optimizableCoverSrc}
@@ -80,21 +79,17 @@ if (props.type === "Issue") {
         <div class="aspect-[2/3] flex items-center justify-center bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900">
           <Icon name="image-placeholder" class="h-8 w-8" color="currentColor" />
         </div>
-      )
-    }
-    {badge && <CoverBadge variant={badge} />}
-    {
-      progress != null && (
+      )}
+		{badge && <CoverBadge variant={badge} />}
+		{progress != null && (
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800">
           <div class="h-full bg-amber-500" style={`width: ${progress}%`} />
         </div>
-      )
-    }
-  </a>
+      )}
+	</a>
 
-  <div class="flex flex-col gap-0.5 px-0.5">
-    {
-      props.type === "Issue" ? (
+	<div class="flex flex-col gap-0.5 px-0.5">
+		{props.type === "Issue" ? (
         props.seriesName ? (
           <>
             {props.seriesId ? (
@@ -138,7 +133,6 @@ if (props.type === "Issue") {
             </a>
           )}
         </>
-      )
-    }
-  </div>
+      )}
+	</div>
 </li>
