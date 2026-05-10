@@ -31,4 +31,4 @@ For issues with `status: "Wanted"` or `"Skipped"`:
 
 ### Dependencies
 
-- `unzipper`: Used for CBZ extraction (CBZ files are ZIP archives)
+- `fflate`: Used for CBZ extraction (CBZ files are ZIP archives)
