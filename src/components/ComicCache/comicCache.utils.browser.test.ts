@@ -182,7 +182,7 @@ describe("comic cache utilities", () => {
 
 		const output = await downloadIssueToCache(
 			issueId,
-			() => {},
+			() => { },
 			circularMetadata,
 		);
 

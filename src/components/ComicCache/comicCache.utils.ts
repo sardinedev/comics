@@ -385,7 +385,7 @@ export async function downloadIssueToCache(
 		const body = await response.json().catch(() => ({}));
 		throw new Error(
 			(body as { error?: string }).error ??
-				`Download failed (${response.status})`,
+			`Download failed (${response.status})`,
 		);
 	}
 
