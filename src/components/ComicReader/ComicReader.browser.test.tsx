@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-preact";
 import { DOUBLE_TAP_MAX_DELAY_MS } from "./comicReader.gestures";
+import {
+	READER_PROGRESS_STORAGE_KEY,
+	readReaderProgress,
+	saveReaderProgress,
+} from "./readerProgress";
 
 // Mock the utils module so component tests don't depend on real network or
 // zip decoding. Each test installs its own implementations below.
@@ -18,7 +23,7 @@ const mockedDownloadCbz = vi.mocked(downloadCbz);
 const mockedExtractPages = vi.mocked(extractPages);
 
 const ISSUE_ID = "abc";
-const PROGRESS_URL = `/api/comic/${ISSUE_ID}/progress`;
+const PROGRESS_URL = `/api/comic/${encodeURIComponent(ISSUE_ID)}/progress`;
 
 // A 1×1 transparent PNG — big enough that the browser will happily set it as
 // an <img> src without complaining.
@@ -170,6 +175,7 @@ beforeEach(() => {
 afterEach(() => {
 	// resetAllMocks clears both vi.fn()s from vi.mock() and restores spies.
 	vi.resetAllMocks();
+	localStorage.removeItem(READER_PROGRESS_STORAGE_KEY);
 	for (const url of createdBlobUrls) URL.revokeObjectURL(url);
 	createdBlobUrls.length = 0;
 });
@@ -196,6 +202,18 @@ describe("ComicReader", () => {
 			await expect.element(page.getByRole("alert")).toBeInTheDocument();
 			await expect
 				.element(page.getByText("Download failed (500)"))
+				.toBeInTheDocument();
+		});
+
+		test("renders a clearer offline cache-miss error", async () => {
+			vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+			mockedDownloadCbz.mockRejectedValueOnce(new Error("Failed to fetch"));
+
+			render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
+
+			await expect.element(page.getByRole("alert")).toBeInTheDocument();
+			await expect
+				.element(page.getByText("This issue is not cached on this device yet."))
 				.toBeInTheDocument();
 		});
 	});
@@ -435,6 +453,28 @@ describe("ComicReader", () => {
 				.element(page.getByRole("button", { name: "Close reader" }))
 				.toBeInTheDocument();
 		});
+
+		test("uses a custom close destination when provided", async () => {
+			setupHappyPath(2);
+			const onNavigate = vi.fn();
+
+			render(
+				<ComicReader
+					issueId={ISSUE_ID}
+					initialPage={1}
+					backHref="/comic/abc"
+					onNavigate={onNavigate}
+				/>,
+			);
+			await expect
+				.element(page.getByRole("img", { name: "Page 1" }))
+				.toBeInTheDocument();
+
+			await mouseTapReaderAt(window.innerWidth / 2, 100);
+			await page.getByRole("button", { name: "Close reader" }).click();
+
+			expect(onNavigate).toHaveBeenCalledWith("/comic/abc");
+		});
 	});
 
 	describe("next issue CTA", () => {
@@ -487,6 +527,40 @@ describe("ComicReader", () => {
 	});
 
 	describe("progress saving", () => {
+		test("starts from unsynced local progress", async () => {
+			saveReaderProgress(ISSUE_ID, 3, 3, {
+				updatedAt: "2026-06-22T10:00:00.000Z",
+			});
+			setupHappyPath(3);
+
+			render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
+
+			await expect
+				.element(page.getByRole("img", { name: "Page 3" }))
+				.toBeInTheDocument();
+		});
+
+		test("writes local progress after page navigation", async () => {
+			setupHappyPath(3);
+
+			render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
+			await expect
+				.element(page.getByRole("img", { name: "Page 1" }))
+				.toBeInTheDocument();
+
+			await userEvent.keyboard("{ArrowRight}");
+			await expect
+				.element(page.getByRole("img", { name: "Page 2" }))
+				.toBeInTheDocument();
+
+			await vi.waitFor(() => {
+				expect(readReaderProgress(ISSUE_ID)).toMatchObject({
+					currentPage: 2,
+					totalPages: 3,
+				});
+			});
+		});
+
 		test("flushes progress via sendBeacon when the tab is hidden", async () => {
 			setupHappyPath(3);
 			const beacon = vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
@@ -512,6 +586,32 @@ describe("ComicReader", () => {
 			if (!(blob instanceof Blob)) throw new Error("Expected beacon Blob body");
 			const body = JSON.parse(await blob.text());
 			expect(body).toEqual({ current_page: 2, total_pages: 3 });
+			expect(readReaderProgress(ISSUE_ID)?.syncedAt).toEqual(
+				expect.any(String),
+			);
+		});
+
+		test("encodes reserved characters in the sendBeacon progress URL", async () => {
+			const issueId = "issue/1";
+			setupHappyPath(3);
+			const beacon = vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
+
+			render(<ComicReader issueId={issueId} initialPage={1} />);
+			await expect
+				.element(page.getByRole("img", { name: "Page 1" }))
+				.toBeInTheDocument();
+
+			await userEvent.keyboard("{ArrowRight}");
+			await expect
+				.element(page.getByRole("img", { name: "Page 2" }))
+				.toBeInTheDocument();
+
+			triggerTabHidden();
+
+			expect(beacon).toHaveBeenCalledWith(
+				"/api/comic/issue%2F1/progress",
+				expect.any(Blob),
+			);
 		});
 
 		test("does not re-send progress for an unchanged page", async () => {

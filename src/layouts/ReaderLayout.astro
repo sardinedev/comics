@@ -26,5 +26,14 @@ const { title } = Astro.props;
 	</head>
 	<body class="bg-black overflow-hidden h-dvh w-dvw">
 		<slot />
+		<script>
+		if ("serviceWorker" in navigator) {
+			window.addEventListener("load", () => {
+				navigator.serviceWorker.register("/service-worker.js").catch((err) => {
+					console.warn("Failed to register service worker", err);
+				});
+			});
+		}
+		</script>
 	</body>
 </html>

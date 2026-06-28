@@ -1,5 +1,5 @@
 import { Icon } from "@components/Icon/Icon";
-import { useComputed, useSignal } from "@preact/signals";
+import { useComputed, useSignal, useSignalEffect } from "@preact/signals";
 import type { TargetedMouseEvent, TargetedPointerEvent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import {
@@ -23,6 +23,12 @@ import type {
 	ReaderZoomState,
 } from "./comicReader.types";
 import { downloadCbz, extractPages } from "./comicReader.utils";
+import {
+	markReaderProgressSynced,
+	resolveInitialReaderPage,
+	saveReaderProgress,
+	syncPendingReaderProgress,
+} from "./readerProgress";
 
 function defaultZoomState(): ReaderZoomState {
 	return { region: null, scale: 1, translateX: 0, translateY: 0 };
@@ -33,6 +39,9 @@ export function ComicReader({
 	initialPage,
 	nextIssue,
 	cacheMetadata,
+	backHref,
+	onNavigate,
+	preferStoredProgress = false,
 }: ComicReaderProps) {
 	const currentPage = useSignal(0);
 	const downloadProgress = useSignal(0);
@@ -63,6 +72,11 @@ export function ComicReader({
 	const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
 
 	const lastSavedPageRef = useRef<number | null>(null);
+	const lastStoredProgressRef = useRef<{
+		issueId: string;
+		currentPage: number;
+		totalPages: number;
+	} | null>(null);
 	const activeGestureRef = useRef<ActiveGesture | null>(null);
 	const lastTapRef = useRef<GesturePoint | null>(null);
 	const pendingTapTimeoutRef = useRef<number | null>(null);
@@ -85,11 +99,15 @@ export function ComicReader({
 	function flushProgress() {
 		if (pages.value.length === 0) return;
 		if (lastSavedPageRef.current === currentPage.value) return;
+		saveReaderProgress(issueId, currentPage.value + 1, pages.value.length);
 		const ok = navigator.sendBeacon(
-			`/api/comic/${issueId}/progress`,
+			`/api/comic/${encodeURIComponent(issueId)}/progress`,
 			new Blob([buildProgressBody()], { type: "application/json" }),
 		);
-		if (ok) lastSavedPageRef.current = currentPage.value;
+		if (ok) {
+			markReaderProgressSynced(issueId);
+			lastSavedPageRef.current = currentPage.value;
+		}
 	}
 
 	function clearPendingTap() {
@@ -318,9 +336,14 @@ export function ComicReader({
 					urls.length,
 				).fill(null);
 				pages.value = urls;
+				const resolvedInitialPage = resolveInitialReaderPage(
+					issueId,
+					initialPage || 1,
+					{ preferStored: preferStoredProgress },
+				);
 				const startPage = Math.max(
 					0,
-					Math.min((initialPage || 1) - 1, urls.length - 1),
+					Math.min(resolvedInitialPage - 1, urls.length - 1),
 				);
 				currentPage.value = startPage;
 				phase.value = "ready";
@@ -328,8 +351,15 @@ export function ComicReader({
 				showUI.value = false;
 			} catch (err) {
 				if (cancelled) return;
-				error.value =
-					err instanceof Error ? err.message : "Failed to load comic";
+				const isOfflineCacheMiss =
+					phase.value === "downloading" &&
+					typeof navigator !== "undefined" &&
+					navigator.onLine === false;
+				error.value = isOfflineCacheMiss
+					? "This issue is not cached on this device yet."
+					: err instanceof Error
+						? err.message
+						: "Failed to load comic";
 				isLoading.value = false;
 			}
 		})();
@@ -338,7 +368,41 @@ export function ComicReader({
 			cancelled = true;
 			for (const url of createdUrls) URL.revokeObjectURL(url);
 		};
-	}, [issueId, initialPage, cacheMetadata]);
+	}, [issueId, initialPage, cacheMetadata, preferStoredProgress]);
+
+	useSignalEffect(() => {
+		const totalPages = pages.value.length;
+		if (totalPages === 0) return;
+
+		const nextProgress = {
+			issueId,
+			currentPage: currentPage.value + 1,
+			totalPages,
+		};
+		const lastProgress = lastStoredProgressRef.current;
+		if (
+			lastProgress?.issueId === nextProgress.issueId &&
+			lastProgress.currentPage === nextProgress.currentPage &&
+			lastProgress.totalPages === nextProgress.totalPages
+		)
+			return;
+
+		lastStoredProgressRef.current = nextProgress;
+		saveReaderProgress(
+			nextProgress.issueId,
+			nextProgress.currentPage,
+			nextProgress.totalPages,
+		);
+	});
+
+	useEffect(() => {
+		void syncPendingReaderProgress();
+		const onOnline = () => {
+			void syncPendingReaderProgress();
+		};
+		window.addEventListener("online", onOnline);
+		return () => window.removeEventListener("online", onOnline);
+	}, []);
 
 	useEffect(() => {
 		if (isLoading.value || pages.value.length === 0) return;
@@ -439,7 +503,9 @@ export function ComicReader({
 
 	function navigateBack() {
 		flushProgress();
-		window.location.href = `/comic/${issueId}`;
+		const href = backHref ?? `/comic/${issueId}`;
+		if (onNavigate) onNavigate(href);
+		else window.location.href = href;
 	}
 
 	function toggleUI() {

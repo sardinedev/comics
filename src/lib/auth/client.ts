@@ -1,4 +1,4 @@
-import { JoseKey } from "@atproto/jwk-jose";
+import { JoseKey, type Jwk } from "@atproto/jwk-jose";
 import { NodeOAuthClient } from "@atproto/oauth-client-node";
 import { env } from "@lib/env";
 import { ElasticKeyedStore } from "./store";
@@ -90,9 +90,9 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 		throw new Error("ATPROTO_PRIVATE_KEY_JWK not configured");
 	}
 
-	let parsedKey: Record<string, unknown>;
+	let parsedKey: Jwk;
 	try {
-		parsedKey = JSON.parse(rawKey) as Record<string, unknown>;
+		parsedKey = JSON.parse(rawKey) as Jwk;
 	} catch {
 		throw new Error("ATPROTO_PRIVATE_KEY_JWK is not valid JSON");
 	}
@@ -101,7 +101,8 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 	if (!parsedKey.kid) parsedKey.kid = "key-1";
 	const privateKey = await JoseKey.fromImportable(parsedKey);
 	// Strip the private scalar `d` to derive the public JWK for the JWKS endpoint.
-	const { d: _d, ...publicJwk } = parsedKey;
+	const publicJwk = { ...parsedKey } as Jwk & { d?: unknown };
+	delete publicJwk.d;
 
 	_client = new NodeOAuthClient({
 		clientMetadata: {

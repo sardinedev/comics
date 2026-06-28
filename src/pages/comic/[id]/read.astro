@@ -20,11 +20,22 @@ const cacheMetadata: ComicCacheMetadataInput = {
 	seriesId: issue.series_id,
 	seriesName: issue.series_name,
 	seriesYear: issue.series_year,
+	seriesPublisher: issue.series_publisher,
 	issueNumber: issue.issue_number,
 	issueName: issue.issue_name ?? undefined,
+	issueDescription: issue.issue_description,
 	issueDate: issue.issue_date,
 	coverUrl: issue.issue_cover_url,
 	coverThumbHash: issue.issue_cover_thumb_hash,
+	issuePageCount: issue.issue_page_count,
+	currentPage: issue.current_page,
+	readingState: issue.reading_state,
+	writers: issue.writers,
+	artists: issue.artists,
+	colorists: issue.colorists,
+	letterers: issue.letterers,
+	coverArtists: issue.cover_artists,
+	editors: issue.editors,
 };
 ---
 
