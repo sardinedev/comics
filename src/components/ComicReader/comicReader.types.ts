@@ -52,6 +52,12 @@ export type ComicReaderProps = {
 	initialPage: number;
 	nextIssue?: NextIssueSummary;
 	cacheMetadata?: ComicCacheMetadataInput;
+	/** Destination for the close button. Defaults to the online issue page. */
+	backHref?: string;
+	/** Optional navigation override used by tests or shell integrations. */
+	onNavigate?: (href: string) => void;
+	/** Prefer browser-local progress even when server progress is present. */
+	preferStoredProgress?: boolean;
 };
 
 export type ReaderZoomState = {

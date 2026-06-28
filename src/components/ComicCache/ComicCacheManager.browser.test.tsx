@@ -4,6 +4,8 @@ import { render } from "vitest-browser-preact";
 
 vi.mock("./comicCache.utils", () => ({
 	deleteCachedIssue: vi.fn(),
+	getOfflineComicUrl: (issueId: string) => `/offline/comic/${issueId}`,
+	getOfflineReaderUrl: (issueId: string) => `/offline/read/${issueId}`,
 	listCachedComics: vi.fn(),
 }));
 
@@ -48,6 +50,10 @@ describe("ComicCacheManager", () => {
 		await expect
 			.element(page.getByRole("link", { name: "Saga #1" }))
 			.toBeInTheDocument();
+		expect(
+			document.querySelector('a[href="/offline/comic/i1"]'),
+		).not.toBeNull();
+		expect(document.querySelector('a[href="/offline/read/i1"]')).not.toBeNull();
 		await expect
 			.element(page.getByText(/Cached 2026-05-03/))
 			.toBeInTheDocument();

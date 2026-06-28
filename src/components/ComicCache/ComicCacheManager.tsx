@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import {
 	type CachedComic,
 	deleteCachedIssue,
+	getOfflineComicUrl,
+	getOfflineReaderUrl,
 	listCachedComics,
 } from "./comicCache.utils";
 
@@ -323,7 +325,7 @@ export function ComicCacheManager() {
 
 							<div class="min-w-0">
 								<a
-									href={`/comic/${comic.issueId}`}
+									href={getOfflineComicUrl(comic.issueId)}
 									class="block truncate text-sm font-bold text-white transition-colors hover:text-amber-400"
 								>
 									{formatIssueTitle(comic)}
@@ -339,14 +341,22 @@ export function ComicCacheManager() {
 								</p>
 							</div>
 
-							<button
-								type="button"
-								aria-label={`${confirmingIssueId === comic.issueId ? "Confirm delete" : "Delete"} ${formatIssueTitle(comic)}`}
-								class="inline-flex h-12 items-center justify-center border border-slate-700 bg-slate-800 px-4 text-xs font-bold uppercase tracking-widest text-slate-300 transition-colors hover:border-red-400 hover:text-red-300"
-								onClick={() => void onDeleteIssue(comic.issueId)}
-							>
-								{confirmingIssueId === comic.issueId ? "Confirm" : "Delete"}
-							</button>
+							<div class="flex flex-wrap gap-2 sm:justify-end">
+								<a
+									href={getOfflineReaderUrl(comic.issueId)}
+									class="inline-flex h-12 items-center justify-center border border-amber-500 bg-amber-500 px-4 text-xs font-bold uppercase tracking-widest text-slate-950 transition-colors hover:bg-amber-400"
+								>
+									Read
+								</a>
+								<button
+									type="button"
+									aria-label={`${confirmingIssueId === comic.issueId ? "Confirm delete" : "Delete"} ${formatIssueTitle(comic)}`}
+									class="inline-flex h-12 items-center justify-center border border-slate-700 bg-slate-800 px-4 text-xs font-bold uppercase tracking-widest text-slate-300 transition-colors hover:border-red-400 hover:text-red-300"
+									onClick={() => void onDeleteIssue(comic.issueId)}
+								>
+									{confirmingIssueId === comic.issueId ? "Confirm" : "Delete"}
+								</button>
+							</div>
 						</li>
 					))}
 				</ol>

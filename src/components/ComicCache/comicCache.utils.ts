@@ -4,6 +4,9 @@ export const COMIC_CACHE_NAME = "comic-reader-v1";
 /** Schema version for cached comic metadata sidecar responses. */
 export const CACHED_COMIC_METADATA_VERSION = 1;
 
+/** Cached reading state copied from the issue document when available. */
+export type CachedComicReadingState = "unread" | "reading" | "read";
+
 /**
  * Metadata passed in when caching a comic issue.
  *
@@ -19,16 +22,38 @@ export type ComicCacheMetadataInput = {
 	seriesName?: string;
 	/** Series start year displayed as secondary issue metadata. */
 	seriesYear?: string;
+	/** Series publisher displayed on offline issue details when available. */
+	seriesPublisher?: string;
 	/** Publisher issue number; may be numeric or a formatted string. */
 	issueNumber?: number | string;
 	/** Optional issue title displayed alongside the series and issue number. */
 	issueName?: string;
+	/** Optional issue description shown on the lightweight offline detail page. */
+	issueDescription?: string;
 	/** Issue publication date as stored in Elasticsearch. */
 	issueDate?: string;
 	/** Cover image URL used by the cache manager preview. */
 	coverUrl?: string;
 	/** ThumbHash placeholder for the issue cover, when available. */
 	coverThumbHash?: string;
+	/** Total issue page count from Elasticsearch or the reader progress API. */
+	issuePageCount?: number;
+	/** Current one-based page number for offline resume labels. */
+	currentPage?: number;
+	/** Reading state copied from Elasticsearch when the archive is cached. */
+	readingState?: CachedComicReadingState;
+	/** Creators copied from Elasticsearch for lightweight offline details. */
+	writers?: string[];
+	/** Artists copied from Elasticsearch for lightweight offline details. */
+	artists?: string[];
+	/** Colorists copied from Elasticsearch for lightweight offline details. */
+	colorists?: string[];
+	/** Letterers copied from Elasticsearch for lightweight offline details. */
+	letterers?: string[];
+	/** Cover artists copied from Elasticsearch for lightweight offline details. */
+	coverArtists?: string[];
+	/** Editors copied from Elasticsearch for lightweight offline details. */
+	editors?: string[];
 };
 
 /** Metadata sidecar stored next to a cached CBZ archive. */
@@ -81,6 +106,26 @@ export function getComicDownloadUrl(issueId: string): string {
  */
 export function getComicMetadataUrl(issueId: string): string {
 	return `/api/comic/${encodeURIComponent(issueId)}/cache-metadata`;
+}
+
+/**
+ * Builds the offline issue-detail URL for a cached issue.
+ *
+ * @param issueId - Issue id to encode into the offline detail URL.
+ * @returns The relative offline issue-detail URL.
+ */
+export function getOfflineComicUrl(issueId: string): string {
+	return `/offline/comic/${encodeURIComponent(issueId)}`;
+}
+
+/**
+ * Builds the offline reader URL for a cached issue.
+ *
+ * @param issueId - Issue id to encode into the offline reader URL.
+ * @returns The relative offline reader URL.
+ */
+export function getOfflineReaderUrl(issueId: string): string {
+	return `/offline/read/${encodeURIComponent(issueId)}`;
 }
 
 /**

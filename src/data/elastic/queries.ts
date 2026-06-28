@@ -56,11 +56,22 @@ export type DownloadableIssueForCache = Pick<
 	| "series_id"
 	| "series_name"
 	| "series_year"
+	| "series_publisher"
 	| "issue_number"
 	| "issue_name"
+	| "issue_description"
 	| "issue_date"
 	| "issue_cover_url"
 	| "issue_cover_thumb_hash"
+	| "issue_page_count"
+	| "current_page"
+	| "reading_state"
+	| "writers"
+	| "artists"
+	| "colorists"
+	| "letterers"
+	| "cover_artists"
+	| "editors"
 >;
 
 type SortClause = Record<string, "asc" | "desc">;
@@ -78,11 +89,22 @@ const CACHE_ISSUE_SOURCE_FIELDS = [
 	"series_id",
 	"series_name",
 	"series_year",
+	"series_publisher",
 	"issue_number",
 	"issue_name",
+	"issue_description",
 	"issue_date",
 	"issue_cover_url",
 	"issue_cover_thumb_hash",
+	"issue_page_count",
+	"current_page",
+	"reading_state",
+	"writers",
+	"artists",
+	"colorists",
+	"letterers",
+	"cover_artists",
+	"editors",
 ];
 
 /**

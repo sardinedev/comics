@@ -6,6 +6,8 @@ import {
 	downloadIssueToCache,
 	getComicDownloadUrl,
 	getComicMetadataUrl,
+	getOfflineComicUrl,
+	getOfflineReaderUrl,
 	isIssueCached,
 	listCachedComics,
 	parseIssueIdFromDownloadUrl,
@@ -58,6 +60,11 @@ describe("comic cache utilities", () => {
 		expect(parseIssueIdFromDownloadUrl("/api/search?q=abc")).toBeNull();
 	});
 
+	test("builds offline comic and reader URLs", () => {
+		expect(getOfflineComicUrl("abc/123")).toBe("/offline/comic/abc%2F123");
+		expect(getOfflineReaderUrl("abc/123")).toBe("/offline/read/abc%2F123");
+	});
+
 	test("writes, reads, lists, and deletes metadata sidecars", async () => {
 		const issueId = trackIssueId(`sidecar-${crypto.randomUUID()}`);
 		const archiveBytes = await putArchive(
@@ -70,9 +77,16 @@ describe("comic cache utilities", () => {
 				issueId,
 				seriesId: "series-1",
 				seriesName: "Saga",
+				seriesPublisher: "Image",
 				issueNumber: 1,
 				issueName: "One",
+				issueDescription: "Hazel tells a story.",
 				coverUrl: "/covers/issue.jpg",
+				issuePageCount: 24,
+				currentPage: 3,
+				readingState: "reading",
+				writers: ["Brian K. Vaughan"],
+				artists: ["Fiona Staples"],
 			},
 			archiveBytes.byteLength,
 		);
@@ -82,6 +96,15 @@ describe("comic cache utilities", () => {
 
 		const read = await readCachedComicMetadata(issueId);
 		expect(read?.seriesName).toBe("Saga");
+		expect(read).toMatchObject({
+			seriesPublisher: "Image",
+			issueDescription: "Hazel tells a story.",
+			issuePageCount: 24,
+			currentPage: 3,
+			readingState: "reading",
+			writers: ["Brian K. Vaughan"],
+			artists: ["Fiona Staples"],
+		});
 
 		const comics = await listCachedComics();
 		const comic = comics.find((entry) => entry.issueId === issueId);
