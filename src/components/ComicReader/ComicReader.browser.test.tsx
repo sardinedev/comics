@@ -462,7 +462,7 @@ describe("ComicReader", () => {
 				<ComicReader
 					issueId={ISSUE_ID}
 					initialPage={1}
-					backHref="/offline/comic/abc"
+					backHref="/comic/abc"
 					onNavigate={onNavigate}
 				/>,
 			);
@@ -473,7 +473,7 @@ describe("ComicReader", () => {
 			await mouseTapReaderAt(window.innerWidth / 2, 100);
 			await page.getByRole("button", { name: "Close reader" }).click();
 
-			expect(onNavigate).toHaveBeenCalledWith("/offline/comic/abc");
+			expect(onNavigate).toHaveBeenCalledWith("/comic/abc");
 		});
 	});
 

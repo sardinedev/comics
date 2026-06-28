@@ -6,8 +6,8 @@ import {
 	downloadIssueToCache,
 	getComicDownloadUrl,
 	getComicMetadataUrl,
-	getOfflineComicUrl,
-	getOfflineReaderUrl,
+	getComicReaderUrl,
+	getComicUrl,
 	isIssueCached,
 	listCachedComics,
 	parseIssueIdFromDownloadUrl,
@@ -60,9 +60,9 @@ describe("comic cache utilities", () => {
 		expect(parseIssueIdFromDownloadUrl("/api/search?q=abc")).toBeNull();
 	});
 
-	test("builds offline comic and reader URLs", () => {
-		expect(getOfflineComicUrl("abc/123")).toBe("/offline/comic/abc%2F123");
-		expect(getOfflineReaderUrl("abc/123")).toBe("/offline/read/abc%2F123");
+	test("builds comic detail and reader URLs", () => {
+		expect(getComicUrl("abc/123")).toBe("/comic/abc%2F123");
+		expect(getComicReaderUrl("abc/123")).toBe("/comic/abc%2F123/read");
 	});
 
 	test("writes, reads, lists, and deletes metadata sidecars", async () => {

@@ -109,23 +109,23 @@ export function getComicMetadataUrl(issueId: string): string {
 }
 
 /**
- * Builds the offline issue-detail URL for a cached issue.
+ * Builds the issue-detail URL for a cached issue.
  *
- * @param issueId - Issue id to encode into the offline detail URL.
- * @returns The relative offline issue-detail URL.
+ * @param issueId - Issue id to encode into the detail URL.
+ * @returns The relative issue-detail URL.
  */
-export function getOfflineComicUrl(issueId: string): string {
-	return `/offline/comic/${encodeURIComponent(issueId)}`;
+export function getComicUrl(issueId: string): string {
+	return `/comic/${encodeURIComponent(issueId)}`;
 }
 
 /**
- * Builds the offline reader URL for a cached issue.
+ * Builds the reader URL for a cached issue.
  *
- * @param issueId - Issue id to encode into the offline reader URL.
- * @returns The relative offline reader URL.
+ * @param issueId - Issue id to encode into the reader URL.
+ * @returns The relative reader URL.
  */
-export function getOfflineReaderUrl(issueId: string): string {
-	return `/offline/read/${encodeURIComponent(issueId)}`;
+export function getComicReaderUrl(issueId: string): string {
+	return `/comic/${encodeURIComponent(issueId)}/read`;
 }
 
 /**

@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import {
 	type CachedComic,
 	deleteCachedIssue,
-	getOfflineComicUrl,
-	getOfflineReaderUrl,
+	getComicReaderUrl,
+	getComicUrl,
 	listCachedComics,
 } from "./comicCache.utils";
 
@@ -325,7 +325,7 @@ export function ComicCacheManager() {
 
 							<div class="min-w-0">
 								<a
-									href={getOfflineComicUrl(comic.issueId)}
+									href={getComicUrl(comic.issueId)}
 									class="block truncate text-sm font-bold text-white transition-colors hover:text-amber-400"
 								>
 									{formatIssueTitle(comic)}
@@ -343,7 +343,7 @@ export function ComicCacheManager() {
 
 							<div class="flex flex-wrap gap-2 sm:justify-end">
 								<a
-									href={getOfflineReaderUrl(comic.issueId)}
+									href={getComicReaderUrl(comic.issueId)}
 									class="inline-flex h-12 items-center justify-center border border-amber-500 bg-amber-500 px-4 text-xs font-bold uppercase tracking-widest text-slate-950 transition-colors hover:bg-amber-400"
 								>
 									Read

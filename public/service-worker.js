@@ -1,14 +1,14 @@
-const APP_SHELL_CACHE = "comic-offline-shell-v1";
+const PAGE_CACHE_NAME = "comic-page-v1";
+const STATIC_CACHE_NAME = "comic-static-v1";
 const COMIC_CACHE_NAME = "comic-reader-v1";
-const OFFLINE_SHELL_URL = "/offline";
 const STATIC_ASSET_PREFIXES = ["/_astro/", "/icons/"];
 const STATIC_ASSET_PATHS = ["/favicon.svg", "/logo.svg"];
 
 self.addEventListener("install", (event) => {
 	event.waitUntil(
 		caches
-			.open(APP_SHELL_CACHE)
-			.then((cache) => cache.addAll([OFFLINE_SHELL_URL, ...STATIC_ASSET_PATHS]))
+			.open(STATIC_CACHE_NAME)
+			.then((cache) => cache.addAll(STATIC_ASSET_PATHS))
 			.catch(() => undefined),
 	);
 	self.skipWaiting();
@@ -23,8 +23,10 @@ self.addEventListener("activate", (event) => {
 					names
 						.filter(
 							(name) =>
-								name.startsWith("comic-offline-shell-") &&
-								name !== APP_SHELL_CACHE,
+								name.startsWith("comic-offline-shell-") ||
+								(name.startsWith("comic-page-") && name !== PAGE_CACHE_NAME) ||
+								(name.startsWith("comic-static-") &&
+									name !== STATIC_CACHE_NAME),
 						)
 						.map((name) => caches.delete(name)),
 				),
@@ -33,11 +35,8 @@ self.addEventListener("activate", (event) => {
 	self.clients.claim();
 });
 
-function isOfflineNavigation(url, request) {
-	return (
-		request.mode === "navigate" &&
-		(url.pathname === "/offline" || url.pathname.startsWith("/offline/"))
-	);
+function isAppNavigation(request) {
+	return request.mode === "navigate";
 }
 
 function isStaticAsset(url) {
@@ -51,37 +50,56 @@ function isComicCacheRequest(url) {
 	return /^\/api\/comic\/[^/]+\/(download|cache-metadata)$/.test(url.pathname);
 }
 
-async function respondWithOfflineShell() {
-	const shellCache = await caches.open(APP_SHELL_CACHE);
+function isCacheablePageResponse(response) {
+	if (!response.ok || response.redirected) return false;
+	if (response.headers.get("Cache-Control")?.includes("no-store")) return false;
+	return response.headers.get("Content-Type")?.includes("text/html") ?? false;
+}
 
-	try {
-		const response = await fetch(OFFLINE_SHELL_URL);
-		if (response.ok) await shellCache.put(OFFLINE_SHELL_URL, response.clone());
-		if (response.ok) return response;
-	} catch {
-		/* Fall back to the cached shell below. */
+function getHtmlAssetUrls(html) {
+	const urls = new Set(STATIC_ASSET_PATHS);
+	const attributePattern = /\b(?:href|src)="([^"]+)"/g;
+
+	for (const match of html.matchAll(attributePattern)) {
+		try {
+			const assetUrl = new URL(match[1], self.location.origin);
+			if (assetUrl.origin === self.location.origin && isStaticAsset(assetUrl)) {
+				urls.add(`${assetUrl.pathname}${assetUrl.search}`);
+			}
+		} catch {
+			/* Ignore malformed asset URLs in the shell HTML. */
+		}
 	}
 
-	try {
-		const cached = await shellCache.match(OFFLINE_SHELL_URL);
-		if (cached) return cached;
-	} catch {
-		/* Return the explicit offline miss response below. */
-	}
+	return [...urls];
+}
 
-	return new Response("Offline shell is not cached on this device yet.", {
-		status: 503,
-		headers: { "Content-Type": "text/plain; charset=utf-8" },
-	});
+async function cacheStaticAsset(assetUrl) {
+	const staticCache = await caches.open(STATIC_CACHE_NAME);
+	const cached = await staticCache.match(assetUrl);
+	if (cached) return cached;
+
+	const response = await fetch(assetUrl);
+	if (response.ok) await staticCache.put(assetUrl, response.clone());
+	return response;
+}
+
+async function cacheStaticAssetsFromHtml(response) {
+	const html = await response.text();
+	await Promise.all(
+		getHtmlAssetUrls(html).map((assetUrl) =>
+			cacheStaticAsset(assetUrl).catch(() => undefined),
+		),
+	);
 }
 
 async function respondWithStaticAsset(request) {
-	const shellCache = await caches.open(APP_SHELL_CACHE);
-	const cached = await shellCache.match(request);
+	const staticCache = await caches.open(STATIC_CACHE_NAME);
+	const cached = await staticCache.match(request);
 	if (cached) return cached;
 
 	const response = await fetch(request);
-	if (response.ok) await shellCache.put(request, response.clone());
+	if (response.ok) await staticCache.put(request, response.clone());
 	return response;
 }
 
@@ -95,14 +113,43 @@ async function respondWithComicCache(request) {
 	return response;
 }
 
+async function cachePageAndAssets(pageCache, request, response) {
+	await pageCache.put(request, response.clone());
+	await cacheStaticAssetsFromHtml(response).catch(() => undefined);
+}
+
+async function respondWithAppNavigation(request, event) {
+	const pageCache = await caches.open(PAGE_CACHE_NAME);
+
+	try {
+		const response = await fetch(request);
+		if (isCacheablePageResponse(response)) {
+			event.waitUntil(
+				cachePageAndAssets(pageCache, request, response.clone()).catch(
+					() => undefined,
+				),
+			);
+		}
+		return response;
+	} catch {
+		const cached = await pageCache.match(request);
+		if (cached) return cached;
+
+		return new Response("This page is not cached on this device yet.", {
+			status: 503,
+			headers: { "Content-Type": "text/plain; charset=utf-8" },
+		});
+	}
+}
+
 self.addEventListener("fetch", (event) => {
 	if (event.request.method !== "GET") return;
 
 	const url = new URL(event.request.url);
 	if (url.origin !== self.location.origin) return;
 
-	if (isOfflineNavigation(url, event.request)) {
-		event.respondWith(respondWithOfflineShell());
+	if (isAppNavigation(event.request)) {
+		event.respondWith(respondWithAppNavigation(event.request, event));
 		return;
 	}
 
