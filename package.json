@@ -19,7 +19,7 @@
 		"lint": "biome check"
 	},
 	"dependencies": {
-		"@astrojs/node": "10.1.4",
+		"@astrojs/node": "11.0.2",
 		"@astrojs/preact": "6.0.2",
 		"@atproto/jwk-jose": "^0.2.0",
 		"@atproto/oauth-client-node": "^0.4.0",
