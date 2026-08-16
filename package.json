@@ -40,7 +40,7 @@
 		"@astrojs/check": "0.9.10",
 		"@biomejs/biome": "2.4.15",
 		"@vitest/browser-playwright": "4.1.10",
-		"esbuild": "0.28.1",
+		"esbuild": "0.28.2",
 		"playwright": "1.62.1",
 		"tsx": "4.22.4",
 		"typescript": "6.0.3",
