@@ -43,7 +43,7 @@
 		"esbuild": "0.28.2",
 		"playwright": "1.62.1",
 		"tsx": "4.22.4",
-		"typescript": "6.0.3",
+		"typescript": "7.0.2",
 		"vitest": "4.1.10",
 		"vitest-browser-preact": "1.0.0"
 	}
