@@ -37,7 +37,7 @@
 		"thumbhash": "^0.1.1"
 	},
 	"devDependencies": {
-		"@astrojs/check": "0.9.9",
+		"@astrojs/check": "0.9.10",
 		"@biomejs/biome": "2.4.15",
 		"@vitest/browser-playwright": "4.1.10",
 		"esbuild": "0.28.1",
