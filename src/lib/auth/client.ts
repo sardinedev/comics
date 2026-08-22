@@ -1,4 +1,4 @@
-import { JoseKey } from "@atproto/jwk-jose";
+import { JoseKey, type Jwk } from "@atproto/jwk-jose";
 import { NodeOAuthClient } from "@atproto/oauth-client-node";
 import { env } from "@lib/env";
 import { ElasticKeyedStore } from "./store";
@@ -99,7 +99,7 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 	// `kid` (key ID) is required by the private_key_jwt auth method so the PDS
 	// can match the assertion to the correct key in our JWKS.
 	if (!parsedKey.kid) parsedKey.kid = "key-1";
-	const privateKey = await JoseKey.fromImportable(parsedKey);
+	const privateKey = await JoseKey.fromImportable(parsedKey as Jwk);
 	// Strip the private scalar `d` to derive the public JWK for the JWKS endpoint.
 	const { d: _d, ...publicJwk } = parsedKey;
 
