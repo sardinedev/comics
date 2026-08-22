@@ -40,6 +40,71 @@ const nextIssue: Issue = {
 	synced_at: "2026-01-01T00:00:00.000Z",
 };
 
+describe("getSeriesCacheManifest", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	test("uses server order and preserves gaps around downloaded issues", async () => {
+		elasticState.search.mockResolvedValueOnce({
+			hits: {
+				hits: [
+					{
+						_source: {
+							...currentIssue,
+							issue_id: "issue-1",
+							issue_number: 1,
+							series_name: "Saga",
+							series_year: "2012",
+							reading_state: "unread",
+						},
+					},
+					{
+						_source: {
+							...currentIssue,
+							issue_id: "issue-gap",
+							issue_number: 1.5,
+							download_status: "Wanted",
+						},
+					},
+					{
+						_source: {
+							...currentIssue,
+							issue_id: "issue-2",
+							issue_number: 2,
+							series_name: "Saga",
+							series_year: "2012",
+							reading_state: "read",
+						},
+					},
+				],
+			},
+		});
+
+		const result = await queries.getSeriesCacheManifest("series-1");
+
+		expect(result.downloadedIssues).toEqual([
+			expect.objectContaining({
+				issue_id: "issue-1",
+				previousIssue: null,
+				nextIssue: expect.objectContaining({ issue_id: "issue-gap" }),
+			}),
+			expect.objectContaining({
+				issue_id: "issue-2",
+				previousIssue: expect.objectContaining({ issue_id: "issue-gap" }),
+				nextIssue: null,
+			}),
+		]);
+		expect([...result.unreadDownloadedIssueIds]).toEqual(["issue-1"]);
+		expect(elasticState.search).toHaveBeenCalledWith(
+			expect.objectContaining({
+				query: { term: { series_id: "series-1" } },
+				sort: [{ issue_number: "asc" }, { issue_date: "asc" }],
+			}),
+		);
+	});
+});
+
 describe("getDownloadedSeriesIssues", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -212,5 +277,110 @@ describe("getNextDownloadedIssue", () => {
 		await expect(
 			queries.getNextDownloadedIssue(currentIssue),
 		).resolves.toBeNull();
+	});
+});
+
+describe("getAdjacentSeriesIssueReferences", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	test("returns neighbours from server ordering without download filtering", async () => {
+		elasticState.search.mockResolvedValueOnce({
+			hits: {
+				hits: [
+					{
+						_source: { ...currentIssue, issue_id: "issue-1", issue_number: 1 },
+					},
+					{ _source: currentIssue },
+					{
+						_source: {
+							...nextIssue,
+							download_status: "Wanted",
+						},
+					},
+				],
+			},
+		});
+
+		await expect(
+			queries.getAdjacentSeriesIssueReferences(currentIssue),
+		).resolves.toEqual({
+			previousIssue: {
+				issue_id: "issue-1",
+				issue_number: 1,
+				issue_name: undefined,
+			},
+			nextIssue: {
+				issue_id: "issue-3",
+				issue_number: 3,
+				issue_name: undefined,
+			},
+		});
+		expect(elasticState.search).toHaveBeenCalledWith(
+			expect.objectContaining({
+				query: { term: { series_id: "series-1" } },
+				sort: [{ issue_number: "asc" }, { issue_date: "asc" }],
+			}),
+		);
+	});
+});
+
+describe("updateReadingProgress", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	test("applies a strictly newer timestamp and stores its mutation id", async () => {
+		elasticState.update.mockResolvedValue({ result: "updated" });
+
+		await expect(
+			queries.updateReadingProgress("issue-2", {
+				currentPage: 12,
+				totalPages: 24,
+				updatedAt: "2026-08-16T12:34:56.000Z",
+				mutationId: "mutation-1",
+			}),
+		).resolves.toEqual({
+			applied: true,
+			updatedAt: "2026-08-16T12:34:56.000Z",
+		});
+
+		expect(elasticState.update).toHaveBeenCalledWith({
+			index: "issues",
+			id: "issue-2",
+			script: {
+				source: expect.stringMatching(
+					/progress_updated_at.*compareTo\(ctx\._source\.progress_updated_at\) <= 0/s,
+				),
+				params: {
+					current_page: 12,
+					total_pages: 24,
+					updated_at: "2026-08-16T12:34:56.000Z",
+					mutation_id: "mutation-1",
+				},
+			},
+		});
+	});
+
+	test("reports equal or older timestamps as stale when Elasticsearch no-ops", async () => {
+		elasticState.update.mockResolvedValue({ result: "noop" });
+
+		await expect(
+			queries.updateReadingProgress("issue-2", {
+				currentPage: 8,
+				totalPages: 24,
+				updatedAt: "2026-08-16T12:34:56.000Z",
+				mutationId: "mutation-replay",
+			}),
+		).resolves.toEqual({
+			applied: false,
+			updatedAt: "2026-08-16T12:34:56.000Z",
+		});
+
+		const source = elasticState.update.mock.calls[0][0].script.source as string;
+		expect(source).toContain("ctx.op = 'noop'");
+		expect(source).toContain("ctx._source.progress_mutation_id");
+		expect(source).toContain("ctx._source.last_opened_at = params.updated_at");
 	});
 });
