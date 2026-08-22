@@ -1,0 +1,8 @@
+---
+import { OfflineReaderShell } from "@components/ComicReader/OfflineReaderShell";
+import ReaderLayout from "@layouts/ReaderLayout.astro";
+---
+
+<ReaderLayout title="Read saved comic">
+	<OfflineReaderShell client:only="preact" />
+</ReaderLayout>

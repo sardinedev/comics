@@ -10,12 +10,24 @@ vi.mock("./comicReader.utils", () => ({
 	extractPages: vi.fn(),
 }));
 
+vi.mock("./offlineReader", () => ({
+	resolveReaderStartPage: vi.fn(),
+}));
+
+vi.mock("@lib/offline/progress-sync", () => ({
+	saveReadingProgress: vi.fn(),
+}));
+
 // Re-import after vi.mock so we get the mocked versions.
 const { downloadCbz, extractPages } = await import("./comicReader.utils");
+const { resolveReaderStartPage } = await import("./offlineReader");
+const { saveReadingProgress } = await import("@lib/offline/progress-sync");
 const { ComicReader } = await import("./ComicReader");
 
 const mockedDownloadCbz = vi.mocked(downloadCbz);
 const mockedExtractPages = vi.mocked(extractPages);
+const mockedResolveReaderStartPage = vi.mocked(resolveReaderStartPage);
+const mockedSaveReadingProgress = vi.mocked(saveReadingProgress);
 
 const ISSUE_ID = "abc";
 const PROGRESS_URL = `/api/comic/${ISSUE_ID}/progress`;
@@ -165,6 +177,39 @@ function triggerTabHidden() {
 beforeEach(() => {
 	// Default: sendBeacon succeeds. Individual tests can replace this spy.
 	vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
+	mockedResolveReaderStartPage.mockImplementation(
+		async (_issueId, pageNumber) => Math.max(1, pageNumber),
+	);
+	mockedSaveReadingProgress.mockImplementation(async (input) => {
+		const updatedAt = "2026-08-16T10:00:00.000Z";
+		const mutationId = `progress-${input.currentPage}`;
+		return {
+			queued: true,
+			progress: {
+				issueId: input.issueId,
+				currentPage: input.currentPage,
+				totalPages: input.totalPages,
+				updatedAt,
+				syncStatus: "pending",
+			},
+			mutation: {
+				id: mutationId,
+				dedupeKey: `progress:${input.issueId}`,
+				kind: "progress",
+				payload: {
+					issueId: input.issueId,
+					currentPage: input.currentPage,
+					totalPages: input.totalPages,
+					updatedAt,
+					mutationId,
+				},
+				createdAt: updatedAt,
+				updatedAt,
+				attempts: 0,
+				status: "pending",
+			},
+		};
+	});
 });
 
 afterEach(() => {
@@ -198,9 +243,36 @@ describe("ComicReader", () => {
 				.element(page.getByText("Download failed (500)"))
 				.toBeInTheDocument();
 		});
+
+		test("routes a corrupt offline archive back to saved comics", async () => {
+			mockedDownloadCbz.mockResolvedValue(new Uint8Array());
+			mockedExtractPages.mockRejectedValue(
+				new Error("Comic archive is corrupted or unreadable"),
+			);
+
+			render(
+				<ComicReader issueId={ISSUE_ID} initialPage={1} offlineMode={true} />,
+			);
+
+			await expect.element(page.getByRole("alert")).toBeInTheDocument();
+			await expect
+				.element(page.getByRole("link", { name: "Back to saved comics" }))
+				.toHaveAttribute("href", "/cache");
+		});
 	});
 
 	describe("rendering", () => {
+		test("restores locally saved progress when it is available", async () => {
+			setupHappyPath(3);
+			mockedResolveReaderStartPage.mockResolvedValue(2);
+
+			render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
+
+			await expect
+				.element(page.getByRole("img", { name: "Page 2" }))
+				.toBeInTheDocument();
+		});
+
 		test("renders the first page once the comic is ready", async () => {
 			setupHappyPath(3);
 
@@ -484,9 +556,43 @@ describe("ComicReader", () => {
 
 			expect(document.querySelector('a[href$="/read"]')).toBeNull();
 		});
+
+		test("shows the canonical gap message on the final page", async () => {
+			setupHappyPath(1);
+
+			render(
+				<ComicReader
+					issueId={ISSUE_ID}
+					initialPage={1}
+					hasUndownloadedNextIssue={true}
+				/>,
+			);
+
+			await expect
+				.element(page.getByText("Next issue isn’t downloaded"))
+				.toBeInTheDocument();
+		});
 	});
 
 	describe("progress saving", () => {
+		test("persists one-based local progress after page navigation", async () => {
+			setupHappyPath(3);
+
+			render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
+			await expect
+				.element(page.getByRole("img", { name: "Page 1" }))
+				.toBeInTheDocument();
+			await userEvent.keyboard("{ArrowRight}");
+
+			await vi.waitFor(() => {
+				expect(mockedSaveReadingProgress).toHaveBeenCalledWith({
+					issueId: ISSUE_ID,
+					currentPage: 2,
+					totalPages: 3,
+				});
+			});
+		});
+
 		test("flushes progress via sendBeacon when the tab is hidden", async () => {
 			setupHappyPath(3);
 			const beacon = vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
@@ -504,14 +610,21 @@ describe("ComicReader", () => {
 
 			triggerTabHidden();
 
-			expect(beacon).toHaveBeenCalledWith(PROGRESS_URL, expect.any(Blob));
+			await vi.waitFor(() => {
+				expect(beacon).toHaveBeenCalledWith(PROGRESS_URL, expect.any(Blob));
+			});
 			// Decode the body and assert the API contract.
 			const lastBeaconCall = beacon.mock.calls.at(-1);
 			if (!lastBeaconCall) throw new Error("Expected progress beacon call");
 			const [, blob] = lastBeaconCall;
 			if (!(blob instanceof Blob)) throw new Error("Expected beacon Blob body");
 			const body = JSON.parse(await blob.text());
-			expect(body).toEqual({ current_page: 2, total_pages: 3 });
+			expect(body).toEqual({
+				current_page: 2,
+				total_pages: 3,
+				updated_at: "2026-08-16T10:00:00.000Z",
+				mutation_id: "progress-2",
+			});
 		});
 
 		test("does not re-send progress for an unchanged page", async () => {
@@ -529,6 +642,7 @@ describe("ComicReader", () => {
 				.toBeInTheDocument();
 
 			triggerTabHidden();
+			await vi.waitFor(() => expect(beacon).toHaveBeenCalled());
 			const callsAfterFirstFlush = beacon.mock.calls.length;
 			expect(callsAfterFirstFlush).toBeGreaterThanOrEqual(1);
 

@@ -1,4 +1,6 @@
 import { Icon } from "@components/Icon/Icon";
+import { saveReadingProgress } from "@lib/offline/progress-sync";
+import type { ProgressOutboxRecord } from "@lib/offline/types";
 import { useComputed, useSignal } from "@preact/signals";
 import type { TargetedMouseEvent, TargetedPointerEvent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
@@ -23,6 +25,7 @@ import type {
 	ReaderZoomState,
 } from "./comicReader.types";
 import { downloadCbz, extractPages } from "./comicReader.utils";
+import { resolveReaderStartPage } from "./offlineReader";
 
 function defaultZoomState(): ReaderZoomState {
 	return { region: null, scale: 1, translateX: 0, translateY: 0 };
@@ -31,7 +34,10 @@ function defaultZoomState(): ReaderZoomState {
 export function ComicReader({
 	issueId,
 	initialPage,
+	initialProgressUpdatedAt,
 	nextIssue,
+	hasUndownloadedNextIssue = false,
+	offlineMode = false,
 	cacheMetadata,
 }: ComicReaderProps) {
 	const currentPage = useSignal(0);
@@ -63,6 +69,11 @@ export function ComicReader({
 	const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
 
 	const lastSavedPageRef = useRef<number | null>(null);
+	const lastLocallySavedPageRef = useRef<number | null>(null);
+	const latestProgressMutationRef = useRef<ProgressOutboxRecord | null>(null);
+	const localSavePromiseRef = useRef<
+		Promise<ProgressOutboxRecord | undefined> | undefined
+	>();
 	const activeGestureRef = useRef<ActiveGesture | null>(null);
 	const lastTapRef = useRef<GesturePoint | null>(null);
 	const pendingTapTimeoutRef = useRef<number | null>(null);
@@ -70,10 +81,12 @@ export function ComicReader({
 	const suppressClickRef = useRef(false);
 	const suppressClickTimeoutRef = useRef<number | null>(null);
 
-	function buildProgressBody(): string {
+	function buildProgressBody(mutation: ProgressOutboxRecord): string {
 		return JSON.stringify({
-			current_page: currentPage.value + 1,
-			total_pages: pages.value.length,
+			current_page: mutation.payload.currentPage,
+			total_pages: mutation.payload.totalPages,
+			updated_at: mutation.payload.updatedAt,
+			mutation_id: mutation.payload.mutationId,
 		});
 	}
 
@@ -84,12 +97,52 @@ export function ComicReader({
 	 */
 	function flushProgress() {
 		if (pages.value.length === 0) return;
-		if (lastSavedPageRef.current === currentPage.value) return;
-		const ok = navigator.sendBeacon(
-			`/api/comic/${issueId}/progress`,
-			new Blob([buildProgressBody()], { type: "application/json" }),
-		);
-		if (ok) lastSavedPageRef.current = currentPage.value;
+		void persistLocalProgress().then((mutation) => {
+			if (!mutation || mutation.payload.currentPage !== currentPage.value + 1)
+				return;
+			if (lastSavedPageRef.current === currentPage.value) return;
+			if (!navigator.onLine) return;
+			const ok = navigator.sendBeacon(
+				`/api/comic/${issueId}/progress`,
+				new Blob([buildProgressBody(mutation)], { type: "application/json" }),
+			);
+			if (ok) lastSavedPageRef.current = currentPage.value;
+		});
+	}
+
+	function persistLocalProgress(): Promise<ProgressOutboxRecord | undefined> {
+		if (pages.value.length === 0) return Promise.resolve(undefined);
+		if (lastLocallySavedPageRef.current === currentPage.value) {
+			if (
+				latestProgressMutationRef.current?.payload.currentPage ===
+				currentPage.value + 1
+			) {
+				return Promise.resolve(latestProgressMutationRef.current);
+			}
+			return localSavePromiseRef.current ?? Promise.resolve(undefined);
+		}
+		const savingPage = currentPage.value;
+		lastLocallySavedPageRef.current = savingPage;
+		const saving = saveReadingProgress({
+			issueId,
+			currentPage: savingPage + 1,
+			totalPages: pages.value.length,
+		})
+			.then(({ mutation }) => {
+				if (mutation && currentPage.value === savingPage) {
+					latestProgressMutationRef.current = mutation;
+				}
+				return mutation;
+			})
+			.catch(() => {
+				// Reading remains usable when best-effort storage is unavailable.
+				if (lastLocallySavedPageRef.current === savingPage) {
+					lastLocallySavedPageRef.current = null;
+				}
+				return undefined;
+			});
+		localSavePromiseRef.current = saving;
+		return saving;
 	}
 
 	function clearPendingTap() {
@@ -288,19 +341,29 @@ export function ComicReader({
 	useEffect(() => {
 		supportsFullscreen.value = "requestFullscreen" in document.documentElement;
 		lastSavedPageRef.current = null;
+		lastLocallySavedPageRef.current = null;
+		latestProgressMutationRef.current = null;
+		localSavePromiseRef.current = undefined;
 
 		let cancelled = false;
 		let createdUrls: string[] = [];
 
 		(async () => {
 			try {
-				const cbz = await downloadCbz(
-					issueId,
-					(ratio) => {
-						downloadProgress.value = ratio;
-					},
-					cacheMetadata,
-				);
+				const [cbz, savedStartPage] = await Promise.all([
+					downloadCbz(
+						issueId,
+						(ratio) => {
+							downloadProgress.value = ratio;
+						},
+						cacheMetadata,
+					),
+					resolveReaderStartPage(
+						issueId,
+						initialPage,
+						initialProgressUpdatedAt,
+					),
+				]);
 				if (cancelled) return;
 
 				phase.value = "extracting";
@@ -320,7 +383,7 @@ export function ComicReader({
 				pages.value = urls;
 				const startPage = Math.max(
 					0,
-					Math.min((initialPage || 1) - 1, urls.length - 1),
+					Math.min(savedStartPage - 1, urls.length - 1),
 				);
 				currentPage.value = startPage;
 				phase.value = "ready";
@@ -338,7 +401,7 @@ export function ComicReader({
 			cancelled = true;
 			for (const url of createdUrls) URL.revokeObjectURL(url);
 		};
-	}, [issueId, initialPage, cacheMetadata]);
+	}, [issueId, initialPage, initialProgressUpdatedAt, cacheMetadata]);
 
 	useEffect(() => {
 		if (isLoading.value || pages.value.length === 0) return;
@@ -347,6 +410,10 @@ export function ComicReader({
 			measureImage();
 		});
 	}, [isLoading.value, pages.value.length]);
+
+	useEffect(() => {
+		if (!isLoading.value && pages.value.length > 0) persistLocalProgress();
+	}, [currentPage.value, isLoading.value, pages.value.length]);
 
 	useEffect(() => {
 		window.requestAnimationFrame(measureImage);
@@ -439,7 +506,7 @@ export function ComicReader({
 
 	function navigateBack() {
 		flushProgress();
-		window.location.href = `/comic/${issueId}`;
+		window.location.href = offlineMode ? "/cache" : `/comic/${issueId}`;
 	}
 
 	function toggleUI() {
@@ -592,10 +659,10 @@ export function ComicReader({
 			>
 				<p class="text-sm text-red-400">{error.value}</p>
 				<a
-					href={`/comic/${issueId}`}
+					href={offlineMode ? "/cache" : `/comic/${issueId}`}
 					class="text-sm font-semibold text-amber-500 hover:underline"
 				>
-					Back to issue
+					{offlineMode ? "Back to saved comics" : "Back to issue"}
 				</a>
 			</div>
 		);
@@ -796,6 +863,15 @@ export function ComicReader({
 						>
 							Read next
 						</a>
+					</div>
+				</div>
+			)}
+			{hasUndownloadedNextIssue && isLastPage.value && (
+				<div class="pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-4 pb-5 pt-16">
+					<div class="mx-auto max-w-xl border-t border-slate-700 bg-black/80 px-4 py-4 text-center backdrop-blur-sm">
+						<p class="text-sm font-semibold text-white">
+							Next issue isn’t downloaded
+						</p>
 					</div>
 				</div>
 			)}
