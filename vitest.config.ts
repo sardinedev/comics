@@ -3,6 +3,12 @@ import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
 const srcRoot = fileURLToPath(new URL("src/", import.meta.url));
+const runWebKit = process.env.PWA_WEBKIT === "1";
+
+const browserInstances: Array<{ browser: "chromium" | "webkit" }> = [
+	{ browser: "chromium" },
+];
+if (runWebKit) browserInstances.push({ browser: "webkit" });
 
 const aliases = [
 	{ find: /^@components\/(.*)/, replacement: `${srcRoot}components/$1` },
@@ -21,7 +27,7 @@ export default defineConfig({
 				test: {
 					name: "node",
 					environment: "node",
-					include: ["src/**/*.test.ts"],
+					include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
 					exclude: ["src/**/*.browser.test.{ts,tsx}"],
 				},
 			},
@@ -44,10 +50,11 @@ export default defineConfig({
 					name: "browser",
 					include: ["src/**/*.browser.test.{ts,tsx}"],
 					browser: {
+						api: { host: "127.0.0.1" },
 						enabled: true,
 						provider: playwright(),
 						headless: true,
-						instances: [{ browser: "chromium" }],
+						instances: browserInstances,
 					},
 				},
 			},
