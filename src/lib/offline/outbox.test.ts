@@ -1,0 +1,306 @@
+import { describe, expect, test, vi } from "vitest";
+import {
+	createOutboxReplayEngine,
+	getOutboxCounts,
+	type OutboxReplayEvent,
+	type OutboxRepository,
+} from "./outbox";
+import type {
+	AddToLibraryOutboxRecord,
+	OfflineOutboxRecord,
+	ProgressOutboxRecord,
+} from "./types";
+
+const progressRecord: ProgressOutboxRecord = {
+	id: "progress-1",
+	dedupeKey: "progress:issue-1",
+	kind: "progress",
+	payload: {
+		issueId: "issue-1",
+		currentPage: 10,
+		totalPages: 24,
+		updatedAt: "2026-08-16T10:01:00.000Z",
+		mutationId: "progress-1",
+	},
+	createdAt: "2026-08-16T10:01:00.000Z",
+	updatedAt: "2026-08-16T10:01:00.000Z",
+	attempts: 0,
+	status: "pending",
+};
+
+const libraryRecord: AddToLibraryOutboxRecord = {
+	id: "library-1",
+	dedupeKey: "library:series-1",
+	kind: "add-to-library",
+	payload: { seriesId: "series-1" },
+	createdAt: "2026-08-16T10:00:00.000Z",
+	updatedAt: "2026-08-16T10:00:00.000Z",
+	attempts: 0,
+	status: "pending",
+};
+
+class MemoryOutboxRepository implements OutboxRepository {
+	readonly records = new Map<string, OfflineOutboxRecord>();
+
+	constructor(records: OfflineOutboxRecord[] = []) {
+		for (const record of records) this.records.set(record.id, record);
+	}
+
+	async getAll(): Promise<OfflineOutboxRecord[]> {
+		return [...this.records.values()];
+	}
+
+	async getByDedupeKey(
+		dedupeKey: string,
+	): Promise<OfflineOutboxRecord | undefined> {
+		return [...this.records.values()].find(
+			(record) => record.dedupeKey === dedupeKey,
+		);
+	}
+
+	async put(record: OfflineOutboxRecord): Promise<void> {
+		const existing = await this.getByDedupeKey(record.dedupeKey);
+		if (existing && existing.id !== record.id) this.records.delete(existing.id);
+		this.records.set(record.id, record);
+	}
+
+	async delete(id: string): Promise<void> {
+		this.records.delete(id);
+	}
+}
+
+function deferred<T>(): {
+	promise: Promise<T>;
+	resolve: (value: T) => void;
+} {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((resolvePromise) => {
+		resolve = resolvePromise;
+	});
+	return { promise, resolve };
+}
+
+function createHandlers() {
+	return {
+		progress: vi.fn(
+			async (): Promise<{ status: number; statusText?: string }> => ({
+				status: 204,
+			}),
+		),
+		"add-to-library": vi.fn(
+			async (): Promise<{ status: number; statusText?: string }> => ({
+				status: 200,
+			}),
+		),
+	};
+}
+
+describe("OutboxReplayEngine", () => {
+	test("replays pending records in creation order and deletes 2xx successes", async () => {
+		const repository = new MemoryOutboxRepository([
+			progressRecord,
+			libraryRecord,
+			{
+				...progressRecord,
+				id: "failed",
+				dedupeKey: "progress:failed",
+				status: "failed",
+			},
+		]);
+		const order: string[] = [];
+		const events: OutboxReplayEvent[] = [];
+		const engine = createOutboxReplayEngine({
+			repository,
+			handlers: {
+				progress: async (record) => {
+					order.push(record.id);
+					return { status: 204 };
+				},
+				"add-to-library": async (record) => {
+					order.push(record.id);
+					return { status: 201 };
+				},
+			},
+			onAuthInvalid: vi.fn(),
+		});
+		engine.subscribe((event) => events.push(event));
+
+		await expect(engine.replay()).resolves.toEqual({
+			attempted: 2,
+			succeeded: 2,
+			retryScheduled: 0,
+			failed: 0,
+			superseded: 0,
+			skippedNotDue: 0,
+			authInvalid: false,
+		});
+
+		expect(order).toEqual(["library-1", "progress-1"]);
+		expect([...repository.records.keys()]).toEqual(["failed"]);
+		expect(engine.state).toEqual({
+			isReplaying: false,
+			counts: { pending: 0, failed: 1, total: 1 },
+		});
+		expect(
+			events
+				.filter((event) => event.type === "record")
+				.map((event) => [event.record.id, event.outcome]),
+		).toEqual([
+			["library-1", "succeeded"],
+			["progress-1", "succeeded"],
+		]);
+		expect(events.at(-1)).toMatchObject({
+			type: "state",
+			state: { isReplaying: false },
+		});
+	});
+
+	test("retains network and 5xx failures with retry metadata", async () => {
+		const repository = new MemoryOutboxRepository([
+			libraryRecord,
+			progressRecord,
+		]);
+		const engine = createOutboxReplayEngine({
+			repository,
+			handlers: {
+				progress: async () => ({ status: 503, statusText: "Unavailable" }),
+				"add-to-library": async () => {
+					throw new TypeError("Failed to fetch");
+				},
+			},
+			onAuthInvalid: vi.fn(),
+			now: () => new Date("2026-08-16T12:00:00.000Z"),
+			retryDelayMs: (attempts) => attempts * 5_000,
+		});
+
+		const summary = await engine.replay();
+
+		expect(summary.retryScheduled).toBe(2);
+		expect(repository.records.get(libraryRecord.id)).toMatchObject({
+			attempts: 1,
+			status: "pending",
+			lastError: "Failed to fetch",
+			nextAttemptAt: "2026-08-16T12:00:05.000Z",
+		});
+		expect(repository.records.get(progressRecord.id)).toMatchObject({
+			attempts: 1,
+			status: "pending",
+			lastError: "HTTP 503: Unavailable",
+			nextAttemptAt: "2026-08-16T12:00:05.000Z",
+		});
+
+		const second = await engine.replay();
+		expect(second).toMatchObject({ attempted: 0, skippedNotDue: 2 });
+	});
+
+	test("marks a permanent non-auth 4xx response as failed", async () => {
+		const repository = new MemoryOutboxRepository([progressRecord]);
+		const handlers = createHandlers();
+		handlers.progress.mockResolvedValue({
+			status: 422,
+			statusText: "Invalid page",
+		});
+		const engine = createOutboxReplayEngine({
+			repository,
+			handlers,
+			onAuthInvalid: vi.fn(),
+			now: () => new Date("2026-08-16T12:00:00.000Z"),
+		});
+
+		const summary = await engine.replay();
+
+		expect(summary.failed).toBe(1);
+		expect(repository.records.get(progressRecord.id)).toMatchObject({
+			attempts: 1,
+			status: "failed",
+			lastError: "HTTP 422: Invalid page",
+			nextAttemptAt: undefined,
+		});
+		expect(await getOutboxCounts(repository)).toEqual({
+			pending: 0,
+			failed: 1,
+			total: 1,
+		});
+	});
+
+	test.each([
+		401, 403,
+	] as const)("invokes auth invalidation and stops replay on %s", async (status) => {
+		const repository = new MemoryOutboxRepository([
+			libraryRecord,
+			progressRecord,
+		]);
+		const onAuthInvalid = vi.fn();
+		const progressHandler = vi.fn(async () => ({ status: 204 }));
+		const engine = createOutboxReplayEngine({
+			repository,
+			handlers: {
+				progress: progressHandler,
+				"add-to-library": async () => ({ status }),
+			},
+			onAuthInvalid,
+		});
+
+		const summary = await engine.replay();
+
+		expect(summary).toMatchObject({ attempted: 1, authInvalid: true });
+		expect(onAuthInvalid).toHaveBeenCalledWith(libraryRecord, status);
+		expect(progressHandler).not.toHaveBeenCalled();
+		expect(repository.records.size).toBe(2);
+	});
+
+	test("does not overwrite a newer deduplicated mutation during replay", async () => {
+		const repository = new MemoryOutboxRepository([progressRecord]);
+		const response = deferred<{ status: number }>();
+		const engine = createOutboxReplayEngine({
+			repository,
+			handlers: {
+				progress: () => response.promise,
+				"add-to-library": async () => ({ status: 204 }),
+			},
+			onAuthInvalid: vi.fn(),
+		});
+
+		const replay = engine.replay();
+		await vi.waitFor(() => expect(engine.state.isReplaying).toBe(true));
+		const newerRecord: ProgressOutboxRecord = {
+			...progressRecord,
+			id: "progress-2",
+			updatedAt: "2026-08-16T11:00:00.000Z",
+			payload: {
+				...progressRecord.payload,
+				currentPage: 20,
+				updatedAt: "2026-08-16T11:00:00.000Z",
+			},
+		};
+		await repository.put(newerRecord);
+		response.resolve({ status: 503 });
+
+		const summary = await replay;
+
+		expect(summary).toMatchObject({ superseded: 1, retryScheduled: 0 });
+		expect([...repository.records.values()]).toEqual([newerRecord]);
+	});
+
+	test("coalesces concurrent replay calls", async () => {
+		const repository = new MemoryOutboxRepository([progressRecord]);
+		const response = deferred<{ status: number }>();
+		const handler = vi.fn(() => response.promise);
+		const engine = createOutboxReplayEngine({
+			repository,
+			handlers: {
+				progress: handler,
+				"add-to-library": async () => ({ status: 204 }),
+			},
+			onAuthInvalid: vi.fn(),
+		});
+
+		const firstReplay = engine.replay();
+		const secondReplay = engine.replay();
+		expect(secondReplay).toBe(firstReplay);
+		response.resolve({ status: 204 });
+
+		await expect(firstReplay).resolves.toMatchObject({ succeeded: 1 });
+		expect(handler).toHaveBeenCalledTimes(1);
+	});
+});
