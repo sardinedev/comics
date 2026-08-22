@@ -1,5 +1,19 @@
+import {
+	COMIC_CACHE_NAME,
+	getComicMetadataUrl,
+	LEGACY_COMIC_CACHE_NAME,
+} from "@components/ComicCache/comicCache.utils";
 import { zipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+
+vi.mock("@lib/offline/database", () => ({
+	offlineComics: {
+		get: vi.fn(async () => undefined),
+		put: vi.fn(async () => undefined),
+		delete: vi.fn(async () => undefined),
+	},
+}));
+
 import {
 	downloadCbz,
 	extractPages,
@@ -93,12 +107,20 @@ describe("extractPages", () => {
 
 describe("downloadCbz", () => {
 	// Scope cache writes to a unique URL per test so they don't bleed across
-	// runs in the shared "comic-reader-v1" Cache Storage bucket.
+	// runs in the shared comic bundle Cache Storage buckets.
 	const issueId = `test-${crypto.randomUUID()}`;
 	const url = `/api/comic/${issueId}/download`;
 	const cbz = buildCbz({ "001.png": PNG_BYTES });
 
 	let fetchSpy: ReturnType<typeof vi.spyOn>;
+	const metadataFor = (id: string) => ({
+		issueId: id,
+		seriesId: "series-test",
+		seriesName: "Test Series",
+		issueNumber: 1,
+		previousIssue: null,
+		nextIssue: null,
+	});
 
 	beforeEach(() => {
 		fetchSpy = vi.spyOn(globalThis, "fetch");
@@ -108,10 +130,13 @@ describe("downloadCbz", () => {
 		fetchSpy.mockRestore();
 		// Clear any cache entries we wrote across all variants of this test's URL.
 		if (typeof caches !== "undefined") {
-			const cache = await caches.open("comic-reader-v1");
-			await cache.delete(url);
-			await cache.delete(`/api/comic/${issueId}-err/download`);
-			await cache.delete(`/api/comic/${issueId}-no-len/download`);
+			for (const cacheName of [COMIC_CACHE_NAME, LEGACY_COMIC_CACHE_NAME]) {
+				const cache = await caches.open(cacheName);
+				for (const id of [issueId, `${issueId}-err`, `${issueId}-no-len`]) {
+					await cache.delete(`/api/comic/${id}/download`);
+					await cache.delete(getComicMetadataUrl(id));
+				}
+			}
 		}
 	});
 
@@ -125,7 +150,11 @@ describe("downloadCbz", () => {
 		);
 
 		const progress: number[] = [];
-		const out = await downloadCbz(issueId, (r) => progress.push(r));
+		const out = await downloadCbz(
+			issueId,
+			(r) => progress.push(r),
+			metadataFor(issueId),
+		);
 
 		expect(out).toEqual(cbz);
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -139,7 +168,7 @@ describe("downloadCbz", () => {
 
 	test("returns the cached archive without calling fetch on hit", async () => {
 		// Pre-populate the cache directly so we can prove fetch is bypassed.
-		const cache = await caches.open("comic-reader-v1");
+		const cache = await caches.open(COMIC_CACHE_NAME);
 		await cache.put(
 			url,
 			new Response(cbz.buffer as ArrayBuffer, {
@@ -168,7 +197,12 @@ describe("downloadCbz", () => {
 		fetchSpy.mockResolvedValueOnce(new Response(stream, { status: 200 }));
 
 		const progress: number[] = [];
-		const out = await downloadCbz(`${issueId}-no-len`, (r) => progress.push(r));
+		const noLengthId = `${issueId}-no-len`;
+		const out = await downloadCbz(
+			noLengthId,
+			(r) => progress.push(r),
+			metadataFor(noLengthId),
+		);
 
 		expect(out).toEqual(cbz);
 		expect(progress).toEqual([]);
@@ -182,8 +216,9 @@ describe("downloadCbz", () => {
 			}),
 		);
 
-		await expect(downloadCbz(`${issueId}-err`, () => {})).rejects.toThrow(
-			"boom",
-		);
+		const errorId = `${issueId}-err`;
+		await expect(
+			downloadCbz(errorId, () => {}, metadataFor(errorId)),
+		).rejects.toThrow("boom");
 	});
 });
