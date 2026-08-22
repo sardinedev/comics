@@ -63,6 +63,31 @@ export type DownloadableIssueForCache = Pick<
 	| "issue_cover_thumb_hash"
 >;
 
+export type DownloadableIssueBundleMetadata = DownloadableIssueForCache & {
+	previousIssue: CacheIssueReference | null;
+	nextIssue: CacheIssueReference | null;
+};
+
+export type CacheIssueReference = Pick<
+	Issue,
+	"issue_id" | "issue_number" | "issue_name"
+>;
+
+type SeriesIssueForCache = Pick<
+	Issue,
+	| "issue_id"
+	| "series_id"
+	| "series_name"
+	| "series_year"
+	| "issue_number"
+	| "issue_name"
+	| "issue_date"
+	| "issue_cover_url"
+	| "issue_cover_thumb_hash"
+	| "download_status"
+	| "reading_state"
+>;
+
 type SortClause = Record<string, "asc" | "desc">;
 type HitWithSource<T> = { _source?: T };
 
@@ -84,6 +109,75 @@ const CACHE_ISSUE_SOURCE_FIELDS = [
 	"issue_cover_url",
 	"issue_cover_thumb_hash",
 ];
+
+const CACHE_MANIFEST_SOURCE_FIELDS = [
+	...CACHE_ISSUE_SOURCE_FIELDS,
+	"download_status",
+	"reading_state",
+];
+
+function toCacheIssueReference(
+	issue: SeriesIssueForCache,
+): CacheIssueReference {
+	return {
+		issue_id: issue.issue_id,
+		issue_number: issue.issue_number,
+		issue_name: issue.issue_name,
+	};
+}
+
+/**
+ * Builds complete metadata for downloaded issues using Elasticsearch's series
+ * order. Adjacent references include unavailable issues so offline navigation
+ * can distinguish a real series gap from the end of a series.
+ */
+export async function getSeriesCacheManifest(seriesId: string): Promise<{
+	downloadedIssues: DownloadableIssueBundleMetadata[];
+	unreadDownloadedIssueIds: Set<string>;
+}> {
+	const response = await elastic.search<SeriesIssueForCache>({
+		index: ISSUES_INDEX,
+		size: 1000,
+		query: { term: { series_id: seriesId } },
+		sort: [{ issue_number: "asc" }, { issue_date: "asc" }],
+		_source: CACHE_MANIFEST_SOURCE_FIELDS,
+	});
+
+	const ordered = hitSources(response.hits.hits);
+	const downloadedIssues = ordered.flatMap((issue, index) => {
+		if (issue.download_status !== "Downloaded") return [];
+		return [
+			{
+				issue_id: issue.issue_id,
+				series_id: issue.series_id,
+				series_name: issue.series_name,
+				series_year: issue.series_year,
+				issue_number: issue.issue_number,
+				issue_name: issue.issue_name,
+				issue_date: issue.issue_date,
+				issue_cover_url: issue.issue_cover_url,
+				issue_cover_thumb_hash: issue.issue_cover_thumb_hash,
+				previousIssue: ordered[index - 1]
+					? toCacheIssueReference(ordered[index - 1])
+					: null,
+				nextIssue: ordered[index + 1]
+					? toCacheIssueReference(ordered[index + 1])
+					: null,
+			},
+		];
+	});
+	const unreadDownloadedIssueIds = new Set(
+		ordered
+			.filter(
+				(issue) =>
+					issue.download_status === "Downloaded" &&
+					(issue.reading_state == null || issue.reading_state === "unread"),
+			)
+			.map((issue) => issue.issue_id),
+	);
+
+	return { downloadedIssues, unreadDownloadedIssueIds };
+}
 
 /**
  * Extracts present `_source` documents from Elasticsearch search hits.
@@ -231,6 +325,38 @@ export async function getIssue(issueId: string): Promise<Issue | null> {
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * Returns the true neighbours around an issue in Elasticsearch's canonical
+ * series order, regardless of whether either neighbour is downloaded.
+ */
+export async function getAdjacentSeriesIssueReferences(
+	currentIssue: Pick<Issue, "issue_id" | "series_id">,
+): Promise<{
+	previousIssue: CacheIssueReference | null;
+	nextIssue: CacheIssueReference | null;
+}> {
+	const response = await elastic.search<SeriesIssueForCache>({
+		index: ISSUES_INDEX,
+		size: 1000,
+		query: { term: { series_id: currentIssue.series_id } },
+		sort: [{ issue_number: "asc" }, { issue_date: "asc" }],
+		_source: CACHE_MANIFEST_SOURCE_FIELDS,
+	});
+	const ordered = hitSources(response.hits.hits);
+	const currentIndex = ordered.findIndex(
+		(issue) => issue.issue_id === currentIssue.issue_id,
+	);
+	if (currentIndex < 0) return { previousIssue: null, nextIssue: null };
+	return {
+		previousIssue: ordered[currentIndex - 1]
+			? toCacheIssueReference(ordered[currentIndex - 1])
+			: null,
+		nextIssue: ordered[currentIndex + 1]
+			? toCacheIssueReference(ordered[currentIndex + 1])
+			: null,
+	};
 }
 
 /**
@@ -543,36 +669,56 @@ export async function searchLibrarySeries(
 
 /**
  * Updates reading progress for an issue.
- * Handles state transitions: unread → reading → read, and sets timestamps.
+ * Handles state transitions and ignores stale or duplicate client updates.
  */
+export type UpdateReadingProgressInput = {
+	currentPage: number;
+	totalPages: number;
+	updatedAt: string;
+	mutationId: string;
+};
+
+export type UpdateReadingProgressResult = {
+	applied: boolean;
+	updatedAt: string;
+};
+
 export async function updateReadingProgress(
 	issueId: string,
-	currentPage: number,
-	totalPages: number,
-): Promise<void> {
-	await elastic.update({
+	input: UpdateReadingProgressInput,
+): Promise<UpdateReadingProgressResult> {
+	const response = await elastic.update({
 		index: ISSUES_INDEX,
 		id: issueId,
 		script: {
 			source: `
+        if (ctx._source.progress_updated_at != null && params.updated_at.compareTo(ctx._source.progress_updated_at) <= 0) {
+          ctx.op = 'noop';
+          return;
+        }
         ctx._source.current_page = params.current_page;
-        ctx._source.last_opened_at = params.now;
+		ctx._source.progress_updated_at = params.updated_at;
+		ctx._source.progress_mutation_id = params.mutation_id;
+        ctx._source.last_opened_at = params.updated_at;
         if (params.total_pages > 0 && params.current_page >= params.total_pages) {
           ctx._source.reading_state = 'read';
-          ctx._source.completed_at = params.now;
+		  ctx._source.completed_at = params.updated_at;
         } else if (params.current_page > 0) {
           ctx._source.reading_state = 'reading';
           ctx._source.completed_at = null;
         }
         if (ctx._source.started_reading_at == null && params.current_page > 0) {
-          ctx._source.started_reading_at = params.now;
+		  ctx._source.started_reading_at = params.updated_at;
         }
       `,
 			params: {
-				current_page: currentPage,
-				total_pages: totalPages,
-				now: new Date().toISOString(),
+				current_page: input.currentPage,
+				total_pages: input.totalPages,
+				updated_at: input.updatedAt,
+				mutation_id: input.mutationId,
 			},
 		},
 	});
+
+	return { applied: response.result !== "noop", updatedAt: input.updatedAt };
 }
