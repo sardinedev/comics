@@ -1,7 +1,11 @@
 ---
 import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
 import { ComicReader } from "@components/ComicReader/ComicReader";
-import { getIssue, getNextDownloadedIssue } from "@data/elastic/queries";
+import {
+	getAdjacentSeriesIssueReferences,
+	getIssue,
+	getNextDownloadedIssue,
+} from "@data/elastic/queries";
 import ReaderLayout from "@layouts/ReaderLayout.astro";
 
 const { id } = Astro.params;
@@ -14,7 +18,14 @@ if (!issue) return Astro.redirect("/series");
 if (issue.download_status !== "Downloaded")
 	return Astro.redirect(`/comic/${id}`);
 
-const nextIssue = await getNextDownloadedIssue(issue);
+const [nextIssue, adjacency] = await Promise.all([
+	getNextDownloadedIssue(issue),
+	getAdjacentSeriesIssueReferences(issue),
+]);
+// Never skip over an unavailable issue: the reader must preserve canonical
+// series order instead of presenting a later downloaded issue as "next".
+const exactNextIssue =
+	adjacency.nextIssue?.issue_id === nextIssue?.issue_id ? nextIssue : null;
 const cacheMetadata: ComicCacheMetadataInput = {
 	issueId: issue.issue_id,
 	seriesId: issue.series_id,
@@ -25,6 +36,20 @@ const cacheMetadata: ComicCacheMetadataInput = {
 	issueDate: issue.issue_date,
 	coverUrl: issue.issue_cover_url,
 	coverThumbHash: issue.issue_cover_thumb_hash,
+	previousIssue: adjacency.previousIssue
+		? {
+				issueId: adjacency.previousIssue.issue_id,
+				issueNumber: adjacency.previousIssue.issue_number,
+				issueName: adjacency.previousIssue.issue_name ?? undefined,
+			}
+		: null,
+	nextIssue: adjacency.nextIssue
+		? {
+				issueId: adjacency.nextIssue.issue_id,
+				issueNumber: adjacency.nextIssue.issue_number,
+				issueName: adjacency.nextIssue.issue_name ?? undefined,
+			}
+		: null,
 };
 ---
 
@@ -33,15 +58,17 @@ const cacheMetadata: ComicCacheMetadataInput = {
 		client:only="preact"
 		issueId={id}
 		initialPage={issue.current_page ?? 0}
-		nextIssue={nextIssue
+		initialProgressUpdatedAt={issue.progress_updated_at}
+		nextIssue={exactNextIssue
       ? {
-          id: nextIssue.issue_id,
+          id: exactNextIssue.issue_id,
           seriesName:
-            nextIssue.series_name ?? issue.series_name ?? "Next issue",
-          issueNumber: nextIssue.issue_number,
-          issueName: nextIssue.issue_name ?? undefined,
+            exactNextIssue.series_name ?? issue.series_name ?? "Next issue",
+          issueNumber: exactNextIssue.issue_number,
+          issueName: exactNextIssue.issue_name ?? undefined,
         }
       : undefined}
+		hasUndownloadedNextIssue={Boolean(adjacency.nextIssue && !exactNextIssue)}
 		cacheMetadata={cacheMetadata}
 	/>
 </ReaderLayout>
