@@ -91,6 +91,10 @@ export type Issue = {
 	completed_at?: string;
 	/** Current page number the user is on (for resuming reading) */
 	current_page?: number;
+	/** Client timestamp used to resolve reading-progress conflicts. */
+	progress_updated_at?: string;
+	/** Idempotency id of the most recently applied progress mutation. */
+	progress_mutation_id?: string;
 	/** Whether the user has marked this issue as a favorite */
 	is_favorite?: boolean;
 	/** User's rating for this issue (1-5 stars) */
