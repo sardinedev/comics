@@ -1,5 +1,6 @@
 ---
 import { Image } from "astro:assets";
+import { AddToLibrary } from "@components/AddToLibrary/AddToLibrary";
 import Breadcrumbs from "@components/Breadcrumbs.astro";
 import { BulkDownload } from "@components/ComicCache/BulkDownload";
 import type { ComicCacheMetadataInput } from "@components/ComicCache/comicCache.utils";
@@ -13,11 +14,7 @@ import {
 	getVolumeDetails,
 } from "@data/comicvine/comicvine";
 import type { ComicvineVolume } from "@data/comicvine/comicvine.types";
-import {
-	getDownloadedSeriesIssues,
-	getSeriesIssues,
-	getUnreadDownloadedSeriesIssues,
-} from "@data/elastic/queries";
+import { getSeriesCacheManifest, getSeriesIssues } from "@data/elastic/queries";
 import Layout from "@layouts/Layout.astro";
 
 const { id } = Astro.params;
@@ -58,7 +55,9 @@ if (!series) {
  * @returns Metadata shape consumed by the bulk cache island.
  */
 function toCacheMetadata(
-	issue: Awaited<ReturnType<typeof getDownloadedSeriesIssues>>[number],
+	issue: Awaited<
+		ReturnType<typeof getSeriesCacheManifest>
+	>["downloadedIssues"][number],
 ): ComicCacheMetadataInput {
 	return {
 		issueId: issue.issue_id,
@@ -70,18 +69,31 @@ function toCacheMetadata(
 		issueDate: issue.issue_date,
 		coverUrl: issue.issue_cover_url,
 		coverThumbHash: issue.issue_cover_thumb_hash,
+		previousIssue: issue.previousIssue
+			? {
+					issueId: issue.previousIssue.issue_id,
+					issueNumber: issue.previousIssue.issue_number,
+					issueName: issue.previousIssue.issue_name ?? undefined,
+				}
+			: null,
+		nextIssue: issue.nextIssue
+			? {
+					issueId: issue.nextIssue.issue_id,
+					issueNumber: issue.nextIssue.issue_number,
+					issueName: issue.nextIssue.issue_name ?? undefined,
+				}
+			: null,
 	};
 }
 
 let downloadedIssues: ComicCacheMetadataInput[] = [];
 let bulkDownloadIssues: ComicCacheMetadataInput[] = [];
 if (series) {
-	const [allDownloadedIssues, unreadDownloadedIssues] = await Promise.all([
-		getDownloadedSeriesIssues(id),
-		getUnreadDownloadedSeriesIssues(id),
-	]);
-	downloadedIssues = allDownloadedIssues.map(toCacheMetadata);
-	bulkDownloadIssues = unreadDownloadedIssues.map(toCacheMetadata);
+	const manifest = await getSeriesCacheManifest(id);
+	downloadedIssues = manifest.downloadedIssues.map(toCacheMetadata);
+	bulkDownloadIssues = downloadedIssues.filter((issue) =>
+		manifest.unreadDownloadedIssueIds.has(issue.issueId),
+	);
 }
 
 // Normalise to a common shape for the template
@@ -232,21 +244,7 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
 				</div>
 
 				{cvVolume && (
-            <div class="flex items-center gap-3">
-              <button
-                type="button"
-                id="add-to-library-btn"
-                data-series-id={id}
-                class="group flex items-center gap-2 bg-amber-500 px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-slate-900 transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Icon name="add" class="h-4 w-4" color="currentColor" />
-                Add to library
-              </button>
-              <span
-                id="add-to-library-status"
-                class="hidden text-xs font-bold uppercase tracking-widest"
-              />
-            </div>
+					<AddToLibrary client:only="preact" seriesId={id} />
           )}
 
 				<div class="h-1 mt-2 w-full overflow-hidden bg-slate-800">
@@ -311,44 +309,3 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
       <PageNavigator numberOfPages={cvTotalPages} currentPage={currentPage} />
     )}
 </Layout>
-
-<script>
-const btn = document.getElementById(
-	"add-to-library-btn",
-) as HTMLButtonElement | null;
-const status = document.getElementById("add-to-library-status");
-
-btn?.addEventListener("click", async () => {
-	const seriesId = btn.dataset.seriesId;
-	btn.disabled = true;
-	btn.textContent = "Adding…";
-
-	try {
-		const res = await fetch("/api/library/add", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ seriesId }),
-		});
-
-		if (res.ok) {
-			btn.classList.add("hidden");
-			if (status) {
-				status.textContent = "Added to library";
-				status.classList.remove("hidden");
-				status.classList.add("text-amber-500");
-			}
-		} else {
-			btn.disabled = false;
-			btn.innerHTML = `<img src="/icons/add.svg" class="h-4 w-4" style="display:inline;filter:invert(1)" alt=""> Add to library`;
-			if (status) {
-				status.textContent = "Failed — try again";
-				status.classList.remove("hidden");
-				status.classList.add("text-red-400");
-			}
-		}
-	} catch {
-		btn.disabled = false;
-		btn.innerHTML = `<img src="/icons/add.svg" class="h-4 w-4" style="display:inline;filter:invert(1)" alt=""> Add to library`;
-	}
-});
-</script>
