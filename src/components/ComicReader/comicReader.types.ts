@@ -43,14 +43,19 @@ export type PanBounds = {
 export type NextIssueSummary = {
 	id: string;
 	seriesName: string;
-	issueNumber: number;
+	issueNumber: number | string;
 	issueName?: string;
 };
 
 export type ComicReaderProps = {
 	issueId: string;
 	initialPage: number;
+	initialProgressUpdatedAt?: string;
 	nextIssue?: NextIssueSummary;
+	/** True when canonical adjacency exists but that exact issue is not saved. */
+	hasUndownloadedNextIssue?: boolean;
+	/** Uses saved-library recovery links for fallback-shell errors. */
+	offlineMode?: boolean;
 	cacheMetadata?: ComicCacheMetadataInput;
 };
 
