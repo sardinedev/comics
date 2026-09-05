@@ -21,6 +21,17 @@ const { offlineRecords } = vi.hoisted(() => ({
 	offlineRecords: new Map<string, Record<string, unknown>>(),
 }));
 
+vi.mock("@lib/offline/cache-names", async (importOriginal) => {
+	const names =
+		await importOriginal<typeof import("@lib/offline/cache-names")>();
+	const namespace = `migration-invalid-${crypto.randomUUID()}`;
+	return {
+		...names,
+		COMIC_ARCHIVE_CACHE_NAME: `${namespace}-v2`,
+		LEGACY_COMIC_ARCHIVE_CACHE_NAME: `${namespace}-v1`,
+	};
+});
+
 vi.mock("@lib/offline/database", () => ({
 	offlineComics: {
 		get: vi.fn(async (issueId: string) => offlineRecords.get(issueId)),
