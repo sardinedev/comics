@@ -62,21 +62,21 @@ export type OutboxRecordOutcome =
 
 export type OutboxReplayEvent =
 	| {
-		type: "state";
-		state: OutboxReplayState;
-	}
+			type: "state";
+			state: OutboxReplayState;
+	  }
 	| {
-		type: "record";
-		record: OfflineOutboxRecord;
-		outcome: OutboxRecordOutcome;
-		state: OutboxReplayState;
-	}
+			type: "record";
+			record: OfflineOutboxRecord;
+			outcome: OutboxRecordOutcome;
+			state: OutboxReplayState;
+	  }
 	| {
-		type: "auth-invalid";
-		record: OfflineOutboxRecord;
-		status: 401 | 403;
-		state: OutboxReplayState;
-	};
+			type: "auth-invalid";
+			record: OfflineOutboxRecord;
+			status: 401 | 403;
+			state: OutboxReplayState;
+	  };
 
 export type OutboxReplaySummary = {
 	attempted: number;
