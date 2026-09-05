@@ -3,11 +3,17 @@ import { runInNewContext } from "node:vm";
 import { describe, expect, test, vi } from "vitest";
 
 const origin = "https://comics.test";
-function worker() {
+
+/** Exercises the shipped worker without requiring a server or browser registration. */
+function createWorkerHarness() {
 	const buckets = new Map<string, Map<string, Response>>();
-	const key = (request: string | Request) =>
-		new URL(typeof request === "string" ? request : request.url, origin).href;
+	/** Makes relative warm-up URLs and absolute browser requests address the same entry. */
+	function getCacheKey(request: string | Request): string {
+		const requestUrl = typeof request === "string" ? request : request.url;
+		return new URL(requestUrl, origin).href;
+	}
 	const cacheStorage = {
+		/** Shares entries between worker operations as Cache Storage does. */
 		async open(name: string) {
 			let entries = buckets.get(name);
 			if (!entries) {
@@ -16,12 +22,15 @@ function worker() {
 			}
 			const records = entries;
 			return {
+				/** Returns an independent body so reads cannot consume the stored response. */
 				async match(request: string | Request) {
-					return records.get(key(request))?.clone();
+					return records.get(getCacheKey(request))?.clone();
 				},
+				/** Preserves stored bytes after the caller consumes its response. */
 				async put(request: string | Request, response: Response) {
-					records.set(key(request), response.clone());
+					records.set(getCacheKey(request), response.clone());
 				},
+				/** Exposes the requests needed to find a cover by its original URL. */
 				async keys() {
 					return [...records.keys()].map((url) => new Request(url));
 				},
@@ -58,7 +67,12 @@ function worker() {
 		Headers,
 		caches: cacheStorage,
 		fetch: fetcher,
-		self: { location: { origin }, addEventListener() {} },
+		self: {
+			location: { origin },
+			/** The harness calls handlers directly instead of registering browser events. */
+			addEventListener() {},
+		},
+		/** The policy is evaluated explicitly in this same context below. */
 		importScripts() {},
 	};
 	runInNewContext(
@@ -83,7 +97,7 @@ function worker() {
 
 describe("service worker integration", () => {
 	test("warms island entries and transitive chunks before reporting readiness", async () => {
-		const { api, buckets } = worker();
+		const { api, buckets } = createWorkerHarness();
 		await api.warmOfflineShell();
 		const assets = buckets.get("comics-offline-assets-v1");
 		if (!assets) throw new Error("Missing assets cache");
@@ -95,14 +109,15 @@ describe("service worker integration", () => {
 	});
 
 	test("does not report ready after an island dependency fails to download", async () => {
-		const { api, fetcher } = worker();
+		const { api, fetcher } = createWorkerHarness();
 		const fetchAsset = fetcher.getMockImplementation();
 		if (!fetchAsset) throw new Error("Missing fetch implementation");
-		fetcher.mockImplementation(async (request) =>
-			request.url.endsWith("dependency.js")
-				? new Response(null, { status: 503 })
-				: fetchAsset(request),
-		);
+		fetcher.mockImplementation(async (request) => {
+			if (request.url.endsWith("dependency.js")) {
+				return new Response(null, { status: 503 });
+			}
+			return fetchAsset(request);
+		});
 		await expect(api.warmOfflineShell()).rejects.toThrow(
 			"Could not cache asset",
 		);
@@ -110,7 +125,7 @@ describe("service worker integration", () => {
 	});
 
 	test("serves an original cover URL from the issue's downloaded response", async () => {
-		const { api, fetcher, cacheStorage } = worker();
+		const { api, fetcher, cacheStorage } = createWorkerHarness();
 		const cache = await cacheStorage.open("comics-offline-covers-v1");
 		await cache.put(
 			"/offline/comics/issue/cover",
