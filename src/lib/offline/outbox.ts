@@ -88,22 +88,26 @@ export type OutboxReplayOptions = {
 
 const EMPTY_COUNTS: OutboxCounts = { pending: 0, failed: 0, total: 0 };
 
+/** Spaces out repeated failures while bounding how long recovery is delayed. */
 function defaultRetryDelayMs(attempts: number): number {
 	return Math.min(1_000 * 2 ** Math.max(0, attempts - 1), 5 * 60_000);
 }
 
+/** Provides an actionable queue error even when the transport throws a non-Error value. */
 function describeError(error: unknown): string {
 	if (error instanceof Error && error.message) return error.message;
 	if (typeof error === "string" && error) return error;
 	return "Network request failed";
 }
 
+/** Preserves server failure details for pending and failed action displays. */
 function describeResponse(response: OutboxHandlerResult): string {
 	return response.statusText
 		? `HTTP ${response.status}: ${response.statusText}`
 		: `HTTP ${response.status}`;
 }
 
+/** Makes replay order predictable even when two mutations share a creation timestamp. */
 function sortRecords(records: OfflineOutboxRecord[]): OfflineOutboxRecord[] {
 	return [...records].sort(
 		(left, right) =>
@@ -112,6 +116,7 @@ function sortRecords(records: OfflineOutboxRecord[]): OfflineOutboxRecord[] {
 	);
 }
 
+/** Honors backoff without leaving records stuck on an invalid stored timestamp. */
 function isDue(record: OfflineOutboxRecord, now: Date): boolean {
 	if (!record.nextAttemptAt) return true;
 	const nextAttempt = Date.parse(record.nextAttemptAt);
@@ -156,6 +161,7 @@ export class OutboxReplayEngine {
 		this.#retryDelayMs = options.retryDelayMs ?? defaultRetryDelayMs;
 	}
 
+	/** Prevents presentation code from mutating replay state. */
 	get state(): OutboxReplayState {
 		return {
 			isReplaying: this.#state.isReplaying,
@@ -163,16 +169,19 @@ export class OutboxReplayEngine {
 		};
 	}
 
+	/** Lets consumers observe replay without coupling the engine to a UI. */
 	subscribe(listener: (event: OutboxReplayEvent) => void): () => void {
 		this.#listeners.add(listener);
 		return () => this.#listeners.delete(listener);
 	}
 
+	/** Reconciles status after another consumer changes the durable queue. */
 	async refreshCounts(): Promise<OutboxReplayState> {
 		await this.#updateState(this.#state.isReplaying);
 		return this.state;
 	}
 
+	/** Coalesces concurrent triggers so one engine cannot send the same batch twice. */
 	replay(): Promise<OutboxReplaySummary> {
 		if (this.#activeReplay) return this.#activeReplay;
 
@@ -183,6 +192,7 @@ export class OutboxReplayEngine {
 		return replay;
 	}
 
+	/** Settles queued work in order while preserving retries and authentication boundaries. */
 	async #run(): Promise<OutboxReplaySummary> {
 		const summary: OutboxReplaySummary = {
 			attempted: 0,
@@ -266,19 +276,21 @@ export class OutboxReplayEngine {
 		}
 	}
 
+	/** Keeps mutation-specific transports separate from shared replay policy. */
 	#handle(record: OfflineOutboxRecord): Promise<OutboxHandlerResult> {
 		if (record.kind === "progress") return this.#handlers.progress(record);
 		return this.#handlers["add-to-library"](record);
 	}
 
+	/** Prevents a completed request from removing a newer queued mutation. */
 	async #deleteIfCurrent(
 		record: OfflineOutboxRecord,
 	): Promise<"succeeded" | "superseded"> {
-		return (await this.#repository.updateIfCurrent(record, null))
-			? "succeeded"
-			: "superseded";
+		const deleted = await this.#repository.updateIfCurrent(record, null);
+		return deleted ? "succeeded" : "superseded";
 	}
 
+	/** Preserves failed work for a later attempt without replacing newer user activity. */
 	async #scheduleRetry(
 		record: OfflineOutboxRecord,
 		lastError: string,
@@ -298,6 +310,7 @@ export class OutboxReplayEngine {
 		return updated ? "retry-scheduled" : "superseded";
 	}
 
+	/** Keeps permanent failures visible for user action without overwriting newer work. */
 	async #markFailed(
 		record: OfflineOutboxRecord,
 		lastError: string,
@@ -313,6 +326,7 @@ export class OutboxReplayEngine {
 		return updated ? "failed" : "superseded";
 	}
 
+	/** Updates counts before consumers react to a completed replay attempt. */
 	async #emitRecord(
 		record: OfflineOutboxRecord,
 		outcome: OutboxRecordOutcome,
@@ -321,6 +335,7 @@ export class OutboxReplayEngine {
 		this.#emit({ type: "record", record, outcome, state: this.state });
 	}
 
+	/** Keeps reported queue counts tied to committed repository contents. */
 	async #updateState(isReplaying: boolean): Promise<void> {
 		this.#state = {
 			isReplaying,
@@ -329,6 +344,7 @@ export class OutboxReplayEngine {
 		this.#emit({ type: "state", state: this.state });
 	}
 
+	/** Isolates listener failures so presentation code cannot interrupt synchronization. */
 	#emit(event: OutboxReplayEvent): void {
 		for (const listener of this.#listeners) {
 			try {
@@ -340,6 +356,7 @@ export class OutboxReplayEngine {
 	}
 }
 
+/** Shares replay policy across mutation kinds while allowing their transports to differ. */
 export function createOutboxReplayEngine(
 	options: OutboxReplayOptions,
 ): OutboxReplayEngine {

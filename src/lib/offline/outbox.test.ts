@@ -1,10 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
-import {
-	createOutboxReplayEngine,
-	getOutboxCounts,
-	type OutboxReplayEvent,
-	type OutboxRepository,
-} from "./outbox";
+import type { OutboxReplayEvent, OutboxRepository } from "./outbox";
+import { createOutboxReplayEngine, getOutboxCounts } from "./outbox";
 import type {
 	AddToLibraryOutboxRecord,
 	OfflineOutboxRecord,
@@ -80,6 +76,7 @@ class MemoryOutboxRepository implements OutboxRepository {
 	}
 }
 
+/** Lets concurrency tests control exactly when a transport request completes. */
 function deferred<T>(): {
 	promise: Promise<T>;
 	resolve: (value: T) => void;
@@ -91,6 +88,7 @@ function deferred<T>(): {
 	return { promise, resolve };
 }
 
+/** Keeps replay tests focused on queue policy rather than transport implementation. */
 function createHandlers() {
 	return {
 		progress: vi.fn(
