@@ -129,7 +129,8 @@ function isIssueReference(value: unknown): value is CachedIssueReference {
 	const reference = value as Partial<CachedIssueReference>;
 	return (
 		isNonEmptyString(reference.issueId) &&
-		(typeof reference.issueNumber === "number" ||
+		((typeof reference.issueNumber === "number" &&
+			Number.isFinite(reference.issueNumber)) ||
 			isNonEmptyString(reference.issueNumber))
 	);
 }
@@ -149,7 +150,8 @@ export function isValidComicCacheMetadataInput(
 		isNonEmptyString(metadata.issueId) &&
 		isNonEmptyString(metadata.seriesId) &&
 		isNonEmptyString(metadata.seriesName) &&
-		(typeof metadata.issueNumber === "number" ||
+		((typeof metadata.issueNumber === "number" &&
+			Number.isFinite(metadata.issueNumber)) ||
 			isNonEmptyString(metadata.issueNumber)) &&
 		(metadata.previousIssue == null ||
 			isIssueReference(metadata.previousIssue)) &&
@@ -237,6 +239,7 @@ async function ensureOfflineComicRecord(
 	metadata: CachedComicMetadata,
 ): Promise<OfflineComicRecord> {
 	const existing = await offlineComics.get(metadata.issueId);
+	if (existing?.deletionPending) return existing;
 	if (
 		existing &&
 		existing.archiveCacheKey === metadata.downloadUrl &&
@@ -341,9 +344,10 @@ export async function isIssueCached(issueId: string): Promise<boolean> {
 	]);
 	return Boolean(
 		archive &&
-			metadata &&
-			record?.archiveCacheKey === metadata.downloadUrl &&
-			record.updatedAt === metadata.cachedAt,
+		metadata &&
+		!record?.deletionPending &&
+		record?.archiveCacheKey === metadata.downloadUrl &&
+		record.updatedAt === metadata.cachedAt,
 	);
 }
 
@@ -508,16 +512,60 @@ export async function deleteCachedIssue(
 		const cache = await openComicCache();
 		if (!cache) throw new Error("Comic cache unavailable");
 		const metadata = await readCachedComicMetadata(issueId, cache);
-		const coverCache = await caches.open(OFFLINE_COVER_CACHE_NAME);
-		const [archiveDeleted, metadataDeleted, coverDeleted] = await Promise.all([
+		const existingRecord = await offlineComics.get(issueId);
+		const timestamp = new Date().toISOString();
+		const cleanupRecord: OfflineComicRecord = {
+			...(existingRecord ??
+				(metadata
+					? toOfflineComicRecord(metadata)
+					: {
+						issueId,
+						seriesId: "",
+						seriesName: "Comic",
+						issueNumber: issueId,
+						archiveCacheKey: getComicDownloadUrl(issueId),
+						sizeBytes: 0,
+						cachedAt: timestamp,
+						updatedAt: timestamp,
+					})),
+			deletionPending: true,
+		};
+		await offlineComics.put(cleanupRecord);
+		const results = await Promise.allSettled([
 			cache.delete(getComicDownloadUrl(issueId)),
 			cache.delete(getComicMetadataUrl(issueId)),
-			coverCache.delete(
-				metadata?.coverCacheKey ?? getCachedComicCoverUrl(issueId),
-			),
+			caches
+				.open(OFFLINE_COVER_CACHE_NAME)
+				.then((coverCache) =>
+					coverCache.delete(
+						metadata?.coverCacheKey ??
+						cleanupRecord.coverCacheKey ??
+						getCachedComicCoverUrl(issueId),
+					),
+				),
 		]);
-		await offlineComics.delete(issueId);
-		return { archiveDeleted, metadataDeleted, coverDeleted };
+		const failures = results.flatMap((result) =>
+			result.status === "rejected" ? [result.reason] : [],
+		);
+		if (!failures.length) {
+			try {
+				await offlineComics.delete(issueId);
+			} catch (error) {
+				failures.push(error);
+			}
+		}
+		if (failures.length)
+			throw new AggregateError(
+				failures,
+				"Comic bundle could not be completely deleted",
+			);
+		const [archive, metadataResult, cover] = results;
+		return {
+			archiveDeleted: archive.status === "fulfilled" && archive.value,
+			metadataDeleted:
+				metadataResult.status === "fulfilled" && metadataResult.value,
+			coverDeleted: cover.status === "fulfilled" && cover.value,
+		};
 	});
 }
 
@@ -525,9 +573,30 @@ async function commitBundle(
 	cache: Cache,
 	cbz: Uint8Array,
 	input: ComicCacheMetadataInput,
-): Promise<void> {
-	await withComicBundleLock(input.issueId, async () => {
-		const metadata = buildCachedMetadata(input, cbz.byteLength);
+): Promise<Uint8Array> {
+	const committedBytes = await withComicBundleLock(input.issueId, async () => {
+		const [existingArchive, existingSidecar, existingRecord] =
+			await Promise.all([
+				cache.match(getComicDownloadUrl(input.issueId)),
+				cache.match(getComicMetadataUrl(input.issueId)),
+				offlineComics.get(input.issueId),
+			]);
+		if (existingRecord?.deletionPending) {
+			throw new Error(
+				"Comic deletion is pending. Retry deletion before downloading.",
+			);
+		}
+		const archiveBytes = existingArchive
+			? new Uint8Array(await existingArchive.arrayBuffer())
+			: cbz;
+		const existingMetadata = existingArchive
+			? await readCachedComicMetadata(input.issueId, cache)
+			: null;
+		if (existingMetadata) {
+			await ensureOfflineComicRecord(existingMetadata);
+			return archiveBytes;
+		}
+		const metadata = buildCachedMetadata(input, archiveBytes.byteLength);
 
 		let metadataWritten = false;
 		try {
@@ -539,34 +608,39 @@ async function commitBundle(
 			);
 			metadataWritten = true;
 			await offlineComics.put(toOfflineComicRecord(metadata));
-			await cache.put(
-				getComicDownloadUrl(input.issueId),
-				new Response(
-					cbz.buffer.slice(
-						cbz.byteOffset,
-						cbz.byteOffset + cbz.byteLength,
-					) as ArrayBuffer,
-					{
-						headers: { "Content-Type": "application/octet-stream" },
-					},
-				),
-			);
+			if (!existingArchive)
+				await cache.put(
+					getComicDownloadUrl(input.issueId),
+					new Response(
+						cbz.buffer.slice(
+							cbz.byteOffset,
+							cbz.byteOffset + cbz.byteLength,
+						) as ArrayBuffer,
+						{
+							headers: { "Content-Type": "application/octet-stream" },
+						},
+					),
+				);
 		} catch (error) {
-			const coverCache = await caches.open(OFFLINE_COVER_CACHE_NAME);
 			await Promise.allSettled([
-				cache.delete(getComicDownloadUrl(input.issueId)),
+				existingArchive
+					? Promise.resolve(false)
+					: cache.delete(getComicDownloadUrl(input.issueId)),
 				metadataWritten
-					? cache.delete(getComicMetadataUrl(input.issueId))
+					? existingSidecar
+						? cache.put(getComicMetadataUrl(input.issueId), existingSidecar)
+						: cache.delete(getComicMetadataUrl(input.issueId))
 					: Promise.resolve(false),
-				metadata.coverCacheKey
-					? coverCache.delete(metadata.coverCacheKey)
-					: Promise.resolve(false),
-				offlineComics.delete(input.issueId),
+				existingRecord
+					? offlineComics.put(existingRecord)
+					: offlineComics.delete(input.issueId),
 			]);
 			throw error;
 		}
+		return archiveBytes;
 	});
 	if (input.coverUrl) void retryCachedComicCover(input.issueId);
+	return committedBytes;
 }
 
 async function readDownloadResponse(
@@ -611,6 +685,11 @@ export async function downloadIssueToCache(
 ): Promise<Uint8Array> {
 	const url = getComicDownloadUrl(issueId);
 	const cache = await openComicCache();
+	if (cache && (await offlineComics.get(issueId))?.deletionPending) {
+		throw new Error(
+			"Comic deletion is pending. Retry deletion before downloading.",
+		);
+	}
 	const cached = cache ? await cache.match(url) : undefined;
 	if (cached) {
 		const cbz = new Uint8Array(await cached.arrayBuffer());
@@ -618,7 +697,9 @@ export async function downloadIssueToCache(
 			? await readCachedComicMetadata(issueId, cache)
 			: null;
 		if (!existingMetadata && metadata && cache) {
-			await commitBundle(cache, cbz, metadata);
+			const committedBytes = await commitBundle(cache, cbz, metadata);
+			onProgress(1);
+			return committedBytes;
 		} else if (existingMetadata) {
 			await ensureOfflineComicRecord(existingMetadata);
 			if (existingMetadata.coverState === "pending") {
@@ -640,11 +721,11 @@ export async function downloadIssueToCache(
 		const body = await response.json().catch(() => ({}));
 		throw new Error(
 			(body as { error?: string }).error ??
-				`Download failed (${response.status})`,
+			`Download failed (${response.status})`,
 		);
 	}
 
 	const cbz = await readDownloadResponse(response, onProgress);
-	if (cache) await commitBundle(cache, cbz, metadata);
+	if (cache) return commitBundle(cache, cbz, metadata);
 	return cbz;
 }

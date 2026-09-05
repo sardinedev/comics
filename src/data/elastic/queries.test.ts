@@ -8,6 +8,8 @@ const elasticState = {
 	get: vi.fn(),
 	search: vi.fn(),
 	update: vi.fn(),
+	openPointInTime: vi.fn(async () => ({ id: "snapshot-1" })),
+	closePointInTime: vi.fn(async () => ({ succeeded: true })),
 };
 
 vi.mock("@elastic/elasticsearch", () => {
@@ -16,6 +18,8 @@ vi.mock("@elastic/elasticsearch", () => {
 			get = (...args: unknown[]) => elasticState.get(...args);
 			search = (...args: unknown[]) => elasticState.search(...args);
 			update = (...args: unknown[]) => elasticState.update(...args);
+			openPointInTime = elasticState.openPointInTime;
+			closePointInTime = elasticState.closePointInTime;
 		},
 	};
 });
@@ -111,9 +115,172 @@ describe("getSeriesCacheManifest", () => {
 		expect(elasticState.search).toHaveBeenCalledWith(
 			expect.objectContaining({
 				query: { term: { series_id: "series-1" } },
-				sort: [{ issue_number: "asc" }, { issue_date: "asc" }],
+				sort: [
+					{ issue_number: "asc" },
+					{ issue_date: "asc" },
+					{ issue_id: "asc" },
+				],
 			}),
 		);
+	});
+});
+
+describe("canonical series pagination", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	function seriesHits(count: number) {
+		return Array.from({ length: count }, (_, index) => {
+			const issueNumber = index + 1;
+			const issueId = `issue-${String(issueNumber).padStart(4, "0")}`;
+			return {
+				_source: {
+					...currentIssue,
+					issue_id: issueId,
+					issue_number: issueNumber,
+					download_status: issueNumber === 1001 ? "Wanted" : "Downloaded",
+				},
+				sort: [issueNumber, Date.parse("2026-01-02"), issueId],
+			};
+		});
+	}
+
+	test("includes downloaded issues and preserves a gap beyond the first page", async () => {
+		const hits = seriesHits(1002);
+		elasticState.search
+			.mockResolvedValueOnce({ hits: { hits: hits.slice(0, 1000) } })
+			.mockResolvedValueOnce({ hits: { hits: hits.slice(1000) } });
+		const result = await queries.getSeriesCacheManifest("series-1");
+		expect(result.downloadedIssues).toHaveLength(1001);
+		expect(result.downloadedIssues.at(-2)).toMatchObject({
+			issue_id: "issue-1000",
+			nextIssue: { issue_id: "issue-1001" },
+		});
+		expect(result.downloadedIssues.at(-1)).toMatchObject({
+			issue_id: "issue-1002",
+			previousIssue: { issue_id: "issue-1001" },
+			nextIssue: null,
+		});
+		expect(result.unreadDownloadedIssueIds.has("issue-1002")).toBe(true);
+		expect(elasticState.search).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({
+				search_after: hits[999].sort,
+				sort: [
+					{ issue_number: "asc" },
+					{ issue_date: "asc" },
+					{ issue_id: "asc" },
+				],
+			}),
+		);
+	});
+
+	test.each([
+		1000, 1001,
+	])("finds neighbors across the page boundary for issue %i", async (issueNumber) => {
+		const hits = seriesHits(1002);
+		elasticState.search
+			.mockResolvedValueOnce({ hits: { hits: hits.slice(0, 1000) } })
+			.mockResolvedValueOnce({ hits: { hits: hits.slice(1000) } });
+		const result = await queries.getAdjacentSeriesIssueReferences({
+			issue_id: `issue-${issueNumber}`,
+			series_id: "series-1",
+		});
+		expect(result).toMatchObject({
+			previousIssue: {
+				issue_id: `issue-${String(issueNumber - 1).padStart(4, "0")}`,
+			},
+			nextIssue: { issue_id: `issue-${issueNumber + 1}` },
+		});
+	});
+
+	test("uses the complete sort tuple when issue number and date are tied", async () => {
+		const hits = seriesHits(1001).map((hit) => ({
+			...hit,
+			_source: { ...hit._source, issue_number: 1 },
+			sort: [1, 0, hit._source.issue_id],
+		}));
+		elasticState.search
+			.mockResolvedValueOnce({ hits: { hits: hits.slice(0, 1000) } })
+			.mockResolvedValueOnce({ hits: { hits: hits.slice(1000) } });
+		const result = await queries.getAdjacentSeriesIssueReferences({
+			issue_id: "issue-1000",
+			series_id: "series-1",
+		});
+		expect(result.nextIssue?.issue_id).toBe("issue-1001");
+		expect(elasticState.search).toHaveBeenLastCalledWith(
+			expect.objectContaining({ search_after: [1, 0, "issue-1000"] }),
+		);
+	});
+
+	test("rejects a repeated cursor even when its array is a different instance", async () => {
+		const hits = seriesHits(1000);
+		elasticState.search
+			.mockResolvedValueOnce({ hits: { hits } })
+			.mockResolvedValueOnce({
+				hits: { hits: hits.map((hit) => ({ ...hit, sort: [...hit.sort] })) },
+			});
+		await expect(queries.getSeriesCacheManifest("series-1")).rejects.toThrow(
+			"Canonical series pagination did not advance",
+		);
+		expect(elasticState.search).toHaveBeenCalledTimes(2);
+	});
+
+	test("keeps pagination on the same snapshot and closes the latest snapshot ID", async () => {
+		const hits = seriesHits(1002);
+		elasticState.search
+			.mockImplementationOnce(async (request) => {
+				expect(request.pit).toEqual({ id: "snapshot-1", keep_alive: "1m" });
+				expect(request).not.toHaveProperty("index");
+				return { pit_id: "snapshot-2", hits: { hits: hits.slice(0, 1000) } };
+			})
+			.mockImplementationOnce(async (request) => {
+				expect(request.pit).toEqual({ id: "snapshot-2", keep_alive: "1m" });
+				return { pit_id: "snapshot-3", hits: { hits: hits.slice(1000) } };
+			});
+		const result = await queries.getAdjacentSeriesIssueReferences({
+			issue_id: "issue-1000",
+			series_id: "series-1",
+		});
+		expect(result.nextIssue?.issue_id).toBe("issue-1001");
+		expect(elasticState.openPointInTime).toHaveBeenCalledWith({
+			index: "issues",
+			keep_alive: "1m",
+		});
+		expect(elasticState.closePointInTime).toHaveBeenCalledWith({
+			id: "snapshot-3",
+		});
+	});
+
+	test("closes the snapshot on search failure without masking the original error", async () => {
+		const failure = new Error("search failed");
+		elasticState.search.mockRejectedValueOnce(failure);
+		elasticState.closePointInTime.mockRejectedValueOnce(
+			new Error("close failed"),
+		);
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => { });
+		try {
+			await expect(queries.getSeriesCacheManifest("series-1")).rejects.toBe(
+				failure,
+			);
+			expect(elasticState.closePointInTime).toHaveBeenCalledWith({
+				id: "snapshot-1",
+			});
+			expect(errorSpy).toHaveBeenCalledOnce();
+		} finally {
+			errorSpy.mockRestore();
+		}
+	});
+
+	test("finishes on an empty page when the series is an exact page multiple", async () => {
+		elasticState.search
+			.mockResolvedValueOnce({ hits: { hits: seriesHits(1000) } })
+			.mockResolvedValueOnce({ hits: { hits: [] } });
+		const result = await queries.getSeriesCacheManifest("series-1");
+		expect(result.downloadedIssues).toHaveLength(1000);
+		expect(result.downloadedIssues.at(-1)?.nextIssue).toBeNull();
+		expect(elasticState.search).toHaveBeenCalledTimes(2);
 	});
 });
 
@@ -332,7 +499,11 @@ describe("getAdjacentSeriesIssueReferences", () => {
 		expect(elasticState.search).toHaveBeenCalledWith(
 			expect.objectContaining({
 				query: { term: { series_id: "series-1" } },
-				sort: [{ issue_number: "asc" }, { issue_date: "asc" }],
+				sort: [
+					{ issue_number: "asc" },
+					{ issue_date: "asc" },
+					{ issue_id: "asc" },
+				],
 			}),
 		);
 	});
@@ -343,7 +514,68 @@ describe("updateReadingProgress", () => {
 		vi.clearAllMocks();
 	});
 
-	test("applies a strictly newer timestamp and stores its mutation id", async () => {
+	// `elasticState.update` is mocked: these tests verify the request/params/script
+	// contract sent to Elasticsearch and how its result maps to `applied`, not the
+	// real Painless comparison/state-transition semantics (which require a live ES).
+	function updateRequest() {
+		return elasticState.update.mock.calls[0][0] as {
+			index: string;
+			id: string;
+			script: { source: string; params: Record<string, unknown> };
+		};
+	}
+
+	test("sends the full progress-update script contract and params", async () => {
+		elasticState.update.mockResolvedValue({ result: "updated" });
+
+		await queries.updateReadingProgress("issue-2", {
+			currentPage: 12,
+			totalPages: 24,
+			updatedAt: "2026-08-16T12:34:56.000Z",
+			mutationId: "mutation-1",
+		});
+
+		const { index, id, script } = updateRequest();
+		expect(index).toBe("issues");
+		expect(id).toBe("issue-2");
+		expect(script.params).toEqual({
+			current_page: 12,
+			total_pages: 24,
+			updated_at: "2026-08-16T12:34:56.000Z",
+			mutation_id: "mutation-1",
+		});
+		// Stale guard: a timestamp that is not strictly newer than the stored one is a no-op.
+		expect(script.source).toMatch(
+			/ctx\._source\.progress_updated_at != null && params\.updated_at\.compareTo\(ctx\._source\.progress_updated_at\) <= 0\) \{\s*\n\s*ctx\.op = 'noop';\s*\n\s*return;/,
+		);
+		// Required field writes.
+		expect(script.source).toMatch(
+			/ctx\._source\.current_page = params\.current_page;/,
+		);
+		expect(script.source).toMatch(
+			/ctx\._source\.progress_updated_at = params\.updated_at;/,
+		);
+		expect(script.source).toMatch(
+			/ctx\._source\.progress_mutation_id = params\.mutation_id;/,
+		);
+		expect(script.source).toMatch(
+			/ctx\._source\.last_opened_at = params\.updated_at;/,
+		);
+		// Completion transition.
+		expect(script.source).toMatch(
+			/params\.total_pages > 0 && params\.current_page >= params\.total_pages\) \{\s*\n\s*ctx\._source\.reading_state = 'read';\s*\n\s*ctx\._source\.completed_at = params\.updated_at;/,
+		);
+		// In-progress transition clears any prior completion.
+		expect(script.source).toMatch(
+			/else if \(params\.current_page > 0\) \{\s*\n\s*ctx\._source\.reading_state = 'reading';\s*\n\s*ctx\._source\.completed_at = null;/,
+		);
+		// Start timestamp is only ever set once.
+		expect(script.source).toMatch(
+			/ctx\._source\.started_reading_at == null && params\.current_page > 0\) \{\s*\n\s*ctx\._source\.started_reading_at = params\.updated_at;/,
+		);
+	});
+
+	test("maps an ES 'updated' result to applied: true with the request's timestamp", async () => {
 		elasticState.update.mockResolvedValue({ result: "updated" });
 
 		await expect(
@@ -357,25 +589,9 @@ describe("updateReadingProgress", () => {
 			applied: true,
 			updatedAt: "2026-08-16T12:34:56.000Z",
 		});
-
-		expect(elasticState.update).toHaveBeenCalledWith({
-			index: "issues",
-			id: "issue-2",
-			script: {
-				source: expect.stringMatching(
-					/progress_updated_at.*compareTo\(ctx\._source\.progress_updated_at\) <= 0/s,
-				),
-				params: {
-					current_page: 12,
-					total_pages: 24,
-					updated_at: "2026-08-16T12:34:56.000Z",
-					mutation_id: "mutation-1",
-				},
-			},
-		});
 	});
 
-	test("reports equal or older timestamps as stale when Elasticsearch no-ops", async () => {
+	test("maps an ES 'noop' result to applied: false, reflecting a stale/duplicate write", async () => {
 		elasticState.update.mockResolvedValue({ result: "noop" });
 
 		await expect(
@@ -389,10 +605,5 @@ describe("updateReadingProgress", () => {
 			applied: false,
 			updatedAt: "2026-08-16T12:34:56.000Z",
 		});
-
-		const source = elasticState.update.mock.calls[0][0].script.source as string;
-		expect(source).toContain("ctx.op = 'noop'");
-		expect(source).toContain("ctx._source.progress_mutation_id");
-		expect(source).toContain("ctx._source.last_opened_at = params.updated_at");
 	});
 });

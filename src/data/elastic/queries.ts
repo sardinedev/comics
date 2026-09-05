@@ -1,3 +1,4 @@
+import type { estypes } from "@elastic/elasticsearch";
 import type { Issue } from "../comics.types";
 import { elastic } from "./elastic";
 import { ISSUES_INDEX } from "./models/issue.model";
@@ -126,6 +127,54 @@ function toCacheIssueReference(
 	};
 }
 
+const CANONICAL_SERIES_PAGE_SIZE = 1000;
+
+async function getOrderedSeriesIssuesForCache(
+	seriesId: string,
+): Promise<SeriesIssueForCache[]> {
+	const ordered: SeriesIssueForCache[] = [];
+	let searchAfter: estypes.SortResults | undefined;
+	const snapshot = await elastic.openPointInTime({
+		index: ISSUES_INDEX,
+		keep_alive: "1m",
+	});
+	let snapshotId = snapshot.id;
+	try {
+		while (true) {
+			const response = await elastic.search<SeriesIssueForCache>({
+				pit: { id: snapshotId, keep_alive: "1m" },
+				size: CANONICAL_SERIES_PAGE_SIZE,
+				query: { term: { series_id: seriesId } },
+				sort: [
+					{ issue_number: "asc" },
+					{ issue_date: "asc" },
+					{ issue_id: "asc" },
+				],
+				_source: CACHE_MANIFEST_SOURCE_FIELDS,
+				...(searchAfter ? { search_after: searchAfter } : {}),
+			});
+			snapshotId = response.pit_id ?? snapshotId;
+			const hits = response.hits.hits;
+			ordered.push(...hitSources(hits));
+			if (hits.length < CANONICAL_SERIES_PAGE_SIZE) return ordered;
+			const nextCursor = hits.at(-1)?.sort;
+			const previousCursor = searchAfter;
+			if (
+				!nextCursor?.length ||
+				(nextCursor.length === previousCursor?.length &&
+					nextCursor.every((value, index) => value === previousCursor[index]))
+			) {
+				throw new Error("Canonical series pagination did not advance");
+			}
+			searchAfter = nextCursor;
+		}
+	} finally {
+		await elastic.closePointInTime({ id: snapshotId }).catch((error) => {
+			console.error("Failed to close canonical series snapshot:", error);
+		});
+	}
+}
+
 /**
  * Builds complete metadata for downloaded issues using Elasticsearch's series
  * order. Adjacent references include unavailable issues so offline navigation
@@ -135,15 +184,7 @@ export async function getSeriesCacheManifest(seriesId: string): Promise<{
 	downloadedIssues: DownloadableIssueBundleMetadata[];
 	unreadDownloadedIssueIds: Set<string>;
 }> {
-	const response = await elastic.search<SeriesIssueForCache>({
-		index: ISSUES_INDEX,
-		size: 1000,
-		query: { term: { series_id: seriesId } },
-		sort: [{ issue_number: "asc" }, { issue_date: "asc" }],
-		_source: CACHE_MANIFEST_SOURCE_FIELDS,
-	});
-
-	const ordered = hitSources(response.hits.hits);
+	const ordered = await getOrderedSeriesIssuesForCache(seriesId);
 	const downloadedIssues = ordered.flatMap((issue, index) => {
 		if (issue.download_status !== "Downloaded") return [];
 		return [
@@ -341,14 +382,7 @@ export async function getAdjacentSeriesIssueReferences(
 	previousIssue: CacheIssueReference | null;
 	nextIssue: CacheIssueReference | null;
 }> {
-	const response = await elastic.search<SeriesIssueForCache>({
-		index: ISSUES_INDEX,
-		size: 1000,
-		query: { term: { series_id: currentIssue.series_id } },
-		sort: [{ issue_number: "asc" }, { issue_date: "asc" }],
-		_source: CACHE_MANIFEST_SOURCE_FIELDS,
-	});
-	const ordered = hitSources(response.hits.hits);
+	const ordered = await getOrderedSeriesIssuesForCache(currentIssue.series_id);
 	const currentIndex = ordered.findIndex(
 		(issue) => issue.issue_id === currentIssue.issue_id,
 	);

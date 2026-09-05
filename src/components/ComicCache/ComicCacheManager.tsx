@@ -106,7 +106,9 @@ export function ComicCacheManager() {
 			const records = await offlineComics.getAll();
 			const validatedRecords = await Promise.all(
 				records.map(async (comic) =>
-					(await isIssueCached(comic.issueId)) ? comic : null,
+					comic.deletionPending || (await isIssueCached(comic.issueId))
+						? comic
+						: null,
 				),
 			);
 			const cachedComics = sortOfflineComics(
@@ -177,23 +179,34 @@ export function ComicCacheManager() {
 	 */
 	async function removeIssues(issueIds: string[]) {
 		setActionError(null);
-		try {
-			await Promise.all(issueIds.map((issueId) => deleteCachedIssue(issueId)));
-			setComics((current) =>
-				current.filter((comic) => !issueIds.includes(comic.issueId)),
-			);
-			setSelectedIds((current) => {
-				const next = new Set(current);
-				for (const issueId of issueIds) next.delete(issueId);
-				return next;
-			});
-			setConfirmBulkDelete(false);
-			setConfirmingIssueId(null);
-		} catch {
+		const results = await Promise.allSettled(
+			issueIds.map((issueId) => deleteCachedIssue(issueId)),
+		);
+		const deletedIds = new Set(
+			issueIds.filter((_, index) => results[index].status === "fulfilled"),
+		);
+		setComics((current) =>
+			current
+				.filter((comic) => !deletedIds.has(comic.issueId))
+				.map((comic) =>
+					issueIds.includes(comic.issueId)
+						? { ...comic, deletionPending: true }
+						: comic,
+				),
+		);
+		setSelectedIds((current) => {
+			const next = new Set(current);
+			for (const issueId of deletedIds) next.delete(issueId);
+			return next;
+		});
+		setConfirmBulkDelete(false);
+		setConfirmingIssueId(null);
+		const failedCount = issueIds.length - deletedIds.size;
+		if (failedCount > 0) {
 			setActionError(
 				issueIds.length === 1
 					? "The downloaded comic could not be deleted."
-					: "Some downloaded comics could not be deleted.",
+					: `${failedCount} downloaded comic${failedCount === 1 ? "" : "s"} could not be deleted.`,
 			);
 		}
 	}
@@ -354,7 +367,7 @@ export function ComicCacheManager() {
 							</div>
 
 							<div class="h-20 w-14 overflow-hidden bg-slate-800 ring-1 ring-white/5">
-								{comic.coverCacheKey ? (
+								{comic.coverCacheKey && !comic.deletionPending ? (
 									<img
 										src={comic.coverCacheKey}
 										alt={`${formatIssueTitle(comic)} cover`}
@@ -369,18 +382,27 @@ export function ComicCacheManager() {
 							</div>
 
 							<div class="min-w-0">
-								<a
-									href={`/comic/${encodeURIComponent(comic.issueId)}/read`}
-									class="block truncate text-sm font-bold text-white transition-colors hover:text-amber-400"
-								>
-									{formatIssueTitle(comic)}
-								</a>
+								{comic.deletionPending ? (
+									<p class="block truncate text-sm font-bold text-white">
+										{formatIssueTitle(comic)}
+									</p>
+								) : (
+									<a
+										href={`/comic/${encodeURIComponent(comic.issueId)}/read`}
+										class="block truncate text-sm font-bold text-white transition-colors hover:text-amber-400"
+									>
+										{formatIssueTitle(comic)}
+									</a>
+								)}
 								<p class="mt-1 truncate text-xs text-slate-500">
-									{formatIssueMeta(comic)}
+									{comic.deletionPending
+										? "Deletion pending"
+										: formatIssueMeta(comic)}
 								</p>
 								<p class="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-600">
 									{formatBytes(comic.sizeBytes)}
-									{` · Downloaded ${comic.cachedAt.slice(0, 10)}`}
+									{!comic.deletionPending &&
+										` · Downloaded ${comic.cachedAt.slice(0, 10)}`}
 								</p>
 							</div>
 
