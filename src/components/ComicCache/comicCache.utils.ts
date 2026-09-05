@@ -344,10 +344,10 @@ export async function isIssueCached(issueId: string): Promise<boolean> {
 	]);
 	return Boolean(
 		archive &&
-		metadata &&
-		!record?.deletionPending &&
-		record?.archiveCacheKey === metadata.downloadUrl &&
-		record.updatedAt === metadata.cachedAt,
+			metadata &&
+			!record?.deletionPending &&
+			record?.archiveCacheKey === metadata.downloadUrl &&
+			record.updatedAt === metadata.cachedAt,
 	);
 }
 
@@ -519,15 +519,15 @@ export async function deleteCachedIssue(
 				(metadata
 					? toOfflineComicRecord(metadata)
 					: {
-						issueId,
-						seriesId: "",
-						seriesName: "Comic",
-						issueNumber: issueId,
-						archiveCacheKey: getComicDownloadUrl(issueId),
-						sizeBytes: 0,
-						cachedAt: timestamp,
-						updatedAt: timestamp,
-					})),
+							issueId,
+							seriesId: "",
+							seriesName: "Comic",
+							issueNumber: issueId,
+							archiveCacheKey: getComicDownloadUrl(issueId),
+							sizeBytes: 0,
+							cachedAt: timestamp,
+							updatedAt: timestamp,
+						})),
 			deletionPending: true,
 		};
 		await offlineComics.put(cleanupRecord);
@@ -539,8 +539,8 @@ export async function deleteCachedIssue(
 				.then((coverCache) =>
 					coverCache.delete(
 						metadata?.coverCacheKey ??
-						cleanupRecord.coverCacheKey ??
-						getCachedComicCoverUrl(issueId),
+							cleanupRecord.coverCacheKey ??
+							getCachedComicCoverUrl(issueId),
 					),
 				),
 		]);
@@ -721,7 +721,7 @@ export async function downloadIssueToCache(
 		const body = await response.json().catch(() => ({}));
 		throw new Error(
 			(body as { error?: string }).error ??
-			`Download failed (${response.status})`,
+				`Download failed (${response.status})`,
 		);
 	}
 

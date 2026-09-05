@@ -259,7 +259,7 @@ describe("canonical series pagination", () => {
 		elasticState.closePointInTime.mockRejectedValueOnce(
 			new Error("close failed"),
 		);
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => { });
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 		try {
 			await expect(queries.getSeriesCacheManifest("series-1")).rejects.toBe(
 				failure,
