@@ -47,14 +47,21 @@ class MemoryOutboxRepository implements OutboxRepository {
 		for (const record of records) this.records.set(record.id, record);
 	}
 
-	/** Settles a matching id and timestamp, returning false when that version is absent. */
+	/** Settles by dedupe key only when id and timestamp match, without yielding between lookup and write. */
 	async updateIfCurrent(
 		expected: OfflineOutboxRecord,
 		replacement: OfflineOutboxRecord | null,
 	): Promise<boolean> {
-		const current = this.records.get(expected.id);
-		if (!current || current.updatedAt !== expected.updatedAt) return false;
-		if (replacement) this.records.set(expected.id, replacement);
+		const current = [...this.records.values()].find(
+			(record) => record.dedupeKey === expected.dedupeKey,
+		);
+		if (
+			current?.id !== expected.id ||
+			current.updatedAt !== expected.updatedAt
+		) {
+			return false;
+		}
+		if (replacement) this.records.set(replacement.id, replacement);
 		else this.records.delete(expected.id);
 		return true;
 	}
@@ -118,6 +125,28 @@ function createHandlers() {
 		),
 	};
 }
+
+describe("MemoryOutboxRepository", () => {
+	test.each([
+		{ dedupeKey: "progress:other-issue" },
+		{ id: "replacement-id" },
+		{ updatedAt: "2026-08-16T12:00:00.000Z" },
+	])("rejects settlement when the stored version differs by %j", async (change) => {
+		const stored = { ...progressRecord, ...change };
+		const repository = new MemoryOutboxRepository([stored]);
+
+		await expect(
+			repository.updateIfCurrent(progressRecord, null),
+		).resolves.toBe(false);
+		await expect(
+			repository.updateIfCurrent(progressRecord, {
+				...progressRecord,
+				status: "failed",
+			}),
+		).resolves.toBe(false);
+		expect(await repository.getAll()).toEqual([stored]);
+	});
+});
 
 describe("OutboxReplayEngine", () => {
 	test("replays pending records in creation order and deletes 2xx successes", async () => {
