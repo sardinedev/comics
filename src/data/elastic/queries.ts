@@ -219,13 +219,13 @@ export async function getSeriesIssues(
 	const first = issues[0];
 	const series: SeriesSummary | null = first
 		? {
-			series_id: first.series_id,
-			series_name: first.series_name ?? "",
-			series_year: first.series_year ?? "",
-			series_cover_url: first.series_cover_url,
-			series_publisher: first.series_publisher,
-			series_total_issues: first.series_total_issues,
-		}
+				series_id: first.series_id,
+				series_name: first.series_name ?? "",
+				series_year: first.series_year ?? "",
+				series_cover_url: first.series_cover_url,
+				series_publisher: first.series_publisher,
+				series_total_issues: first.series_total_issues,
+			}
 		: null;
 
 	return { series, items: issues, total, page: safePage, pageSize, totalPages };

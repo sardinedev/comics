@@ -137,7 +137,7 @@ describe("progress API writes", () => {
 		});
 		const consoleError = vi
 			.spyOn(console, "error")
-			.mockImplementation(() => { });
+			.mockImplementation(() => {});
 		try {
 			const response = await handleProgress("issue-1", request(validBody));
 			expect(response.status).toBe(500);
@@ -164,7 +164,7 @@ describe("progress API writes", () => {
 		});
 		const consoleError = vi
 			.spyOn(console, "error")
-			.mockImplementation(() => { });
+			.mockImplementation(() => {});
 		try {
 			const response = await handleProgress("issue-1", request(validBody));
 			expect(response.status).toBe(500);
@@ -189,7 +189,7 @@ describe("progress API writes", () => {
 		);
 		const consoleError = vi
 			.spyOn(console, "error")
-			.mockImplementation(() => { });
+			.mockImplementation(() => {});
 
 		const response = await handleProgress("issue-1", request(validBody));
 

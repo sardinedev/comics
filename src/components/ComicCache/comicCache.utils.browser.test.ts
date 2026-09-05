@@ -272,7 +272,7 @@ describe("comic cache utilities", () => {
 
 		await downloadIssueToCache(
 			issueId,
-			() => { },
+			() => {},
 			metadataFor(issueId, { coverUrl, coverThumbHash: "thumb" }),
 		);
 		await expect(retryCachedComicCover(issueId)).resolves.toBe(false);
@@ -302,7 +302,7 @@ describe("comic cache utilities", () => {
 		try {
 			await downloadIssueToCache(
 				issueId,
-				() => { },
+				() => {},
 				metadataFor(issueId, { coverUrl: "/covers/stalled.jpg" }),
 			);
 			await expect.poll(() => fetchSpy.mock.calls.length).toBe(2);
@@ -324,7 +324,7 @@ describe("comic cache utilities", () => {
 			.mockReturnValueOnce(cover.promise);
 		await downloadIssueToCache(
 			issueId,
-			() => { },
+			() => {},
 			metadataFor(issueId, { coverUrl: "/covers/deleted.jpg" }),
 		);
 		await expect.poll(() => fetchSpy.mock.calls.length).toBe(2);
@@ -365,7 +365,7 @@ describe("comic cache utilities", () => {
 		try {
 			await downloadIssueToCache(
 				issueId,
-				() => { },
+				() => {},
 				metadataFor(issueId, { coverUrl: "/covers/writing.jpg" }),
 			);
 			await coverWriteStarted.promise;
@@ -396,7 +396,7 @@ describe("comic cache utilities", () => {
 	test("rejects invalid required metadata before fetching or writing", async () => {
 		const issueId = trackIssueId(`invalid-${crypto.randomUUID()}`);
 		await expect(
-			downloadIssueToCache(issueId, () => { }, {
+			downloadIssueToCache(issueId, () => {}, {
 				issueId,
 				seriesName: "Saga",
 				issueNumber: 1,
@@ -416,7 +416,7 @@ describe("comic cache utilities", () => {
 		fetchSpy.mockResolvedValueOnce(new Response(new Uint8Array([1, 3, 5, 7])));
 
 		await expect(
-			downloadIssueToCache(issueId, () => { }, circularMetadata),
+			downloadIssueToCache(issueId, () => {}, circularMetadata),
 		).rejects.toThrow();
 		expect(await isIssueCached(issueId)).toBe(false);
 		expect(await readCachedComicMetadata(issueId)).toBeNull();
@@ -454,7 +454,7 @@ describe("comic cache utilities", () => {
 		await expect(
 			downloadIssueToCache(
 				issueId,
-				() => { },
+				() => {},
 				metadataFor(issueId, { coverUrl }),
 			),
 		).rejects.toThrow("quota exceeded");
@@ -481,7 +481,7 @@ describe("comic cache utilities", () => {
 		await expect(
 			downloadIssueToCache(
 				issueId,
-				() => { },
+				() => {},
 				metadataFor(issueId, { coverUrl }),
 			),
 		).rejects.toThrow("IndexedDB quota exceeded");
@@ -501,7 +501,7 @@ describe("comic cache utilities", () => {
 			issueId,
 			new Uint8Array([4, 3, 2, 1]),
 		);
-		const output = await downloadIssueToCache(issueId, () => { });
+		const output = await downloadIssueToCache(issueId, () => {});
 
 		expect(output).toEqual(archiveBytes);
 		expect(fetchSpy).not.toHaveBeenCalled();
@@ -518,7 +518,7 @@ describe("comic cache utilities", () => {
 					String(url).includes("covers") ? "cover bytes" : "archive bytes",
 				),
 		);
-		await downloadIssueToCache(issueId, () => { }, metadata);
+		await downloadIssueToCache(issueId, () => {}, metadata);
 		await expect(retryCachedComicCover(issueId)).resolves.toBe(true);
 		const cover = await (await caches.open(OFFLINE_COVER_CACHE_NAME)).match(
 			getCachedComicCoverUrl(issueId),
