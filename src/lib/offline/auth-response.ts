@@ -1,3 +1,4 @@
+/** Recognizes destinations that indicate a session must be re-established. */
 function isAuthPath(pathname: string): boolean {
 	return (
 		pathname === "/login" ||

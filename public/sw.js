@@ -101,6 +101,7 @@ self.addEventListener("message", (event) => {
 	}
 });
 
+/** Keeps online pages fresh while retaining a usable copy during network failures. */
 async function networkFirstDocument(request, url) {
 	try {
 		const response = await fetch(request);
@@ -129,6 +130,7 @@ async function networkFirstDocument(request, url) {
 	}
 }
 
+/** Avoids network dependence for shell assets already available on the device. */
 async function cacheFirstAsset(request) {
 	const cached = await caches.match(request, { cacheName: ASSET_CACHE });
 	if (cached) return cached;
@@ -141,19 +143,25 @@ async function cacheFirstAsset(request) {
 	return response;
 }
 
+/** Reuses an issue-owned cover when a cached page still references its source URL. */
 async function matchDownloadedCover(request) {
 	const cache = await caches.open(COVER_CACHE);
-	const exact = await cache.match(request);
-	if (exact) return exact;
+	const exactMatch = await cache.match(request);
+	if (exactMatch) {
+		return exactMatch;
+	}
 	// Cover bytes belong to an issue's synthetic key. Match the recorded source
 	// URL too, so cached server-rendered pages can reuse the same downloaded bytes.
 	for (const key of await cache.keys()) {
 		const response = await cache.match(key);
-		if (response?.headers.get("x-comics-cover-url") === request.url)
+		const originalCoverUrl = response?.headers.get("x-comics-cover-url");
+		if (originalCoverUrl === request.url) {
 			return response;
+		}
 	}
 }
 
+/** Allows downloaded covers to survive network failures without caching every viewed cover. */
 async function networkFirstCover(request) {
 	try {
 		const response = await fetch(request);
@@ -166,6 +174,7 @@ async function networkFirstCover(request) {
 	}
 }
 
+/** Prepares the pages and dependencies needed for an offline cold launch. */
 async function warmOfflineShell() {
 	const pageCache = await caches.open(PAGE_CACHE);
 	const assetUrls = new Set(
@@ -198,6 +207,7 @@ async function warmOfflineShell() {
 	await cacheShellAssets(assetUrls);
 }
 
+/** Avoids advertising offline readiness when a page or hydration dependency is missing. */
 async function isOfflineShellReady() {
 	const pageCache = await caches.open(PAGE_CACHE);
 	const assetCache = await caches.open(ASSET_CACHE);
@@ -211,33 +221,46 @@ async function isOfflineShellReady() {
 			assetCache.match(new URL(path, self.location.origin).href),
 		),
 	);
-	if (![...pageMatches, ...assetMatches].every(Boolean)) return false;
-	const queue = [];
-	for (let i = 0; i < pageMatches.length; i++) {
-		queue.push(
-			...extractStaticAssetUrls(
-				await pageMatches[i].text(),
-				new URL(SHELL_PAGES[i], self.location.origin),
-			),
-		);
+	const allRequiredEntriesExist = [...pageMatches, ...assetMatches].every(
+		Boolean,
+	);
+	if (!allRequiredEntriesExist) {
+		return false;
 	}
-	const visited = new Set();
-	while (queue.length) {
-		const url = queue.shift();
-		if (visited.has(url)) continue;
-		visited.add(url);
-		const response = await assetCache.match(url);
-		if (!response) return false;
+
+	const dependencyUrls = [];
+	for (const [pageIndex, pageResponse] of pageMatches.entries()) {
+		const pageSource = await pageResponse.text();
+		const pageUrl = new URL(SHELL_PAGES[pageIndex], self.location.origin);
+		dependencyUrls.push(...extractStaticAssetUrls(pageSource, pageUrl));
+	}
+	const visitedUrls = new Set();
+	while (dependencyUrls.length > 0) {
+		const dependencyUrl = dependencyUrls.shift();
+		if (visitedUrls.has(dependencyUrl)) {
+			continue;
+		}
+		visitedUrls.add(dependencyUrl);
+
+		const response = await assetCache.match(dependencyUrl);
+		if (!response) {
+			return false;
+		}
 		const contentType = response.headers.get("content-type") || "";
-		if (/javascript|text\/css|text\/html/.test(contentType)) {
-			queue.push(
-				...extractStaticAssetUrls(await response.text(), new URL(url)),
-			);
+		const mayContainDependencies =
+			contentType.includes("javascript") ||
+			contentType.includes("text/css") ||
+			contentType.includes("text/html");
+		if (mayContainDependencies) {
+			const source = await response.text();
+			const assetUrl = new URL(dependencyUrl);
+			dependencyUrls.push(...extractStaticAssetUrls(source, assetUrl));
 		}
 	}
 	return true;
 }
 
+/** Makes warm-up copies reusable by navigations with different Accept headers. */
 async function cacheDocument(cache, url, response) {
 	const headers = new Headers(response.headers);
 	// The offline copy is private to one signed-in user and keyed by its exact
@@ -254,6 +277,7 @@ async function cacheDocument(cache, url, response) {
 	);
 }
 
+/** Includes transitive dependencies so cached entry modules can run without the network. */
 async function cacheShellAssets(initialUrls) {
 	const assetCache = await caches.open(ASSET_CACHE);
 	const queue = [...initialUrls];
@@ -293,6 +317,7 @@ async function cacheShellAssets(initialUrls) {
 	}
 }
 
+/** Reclaims superseded shell storage while preserving downloaded comics. */
 async function deleteObsoletePwaCaches() {
 	const names = await caches.keys();
 	await Promise.all(
@@ -307,6 +332,7 @@ async function deleteObsoletePwaCaches() {
 	);
 }
 
+/** Erases private offline content when the user logs out or authentication expires. */
 async function purgeOfflineData() {
 	await Promise.all([
 		...KNOWN_OFFLINE_CACHES.map((name) => caches.delete(name)),
@@ -314,6 +340,7 @@ async function purgeOfflineData() {
 	]);
 }
 
+/** Lets invalidation continue even when another context temporarily blocks deletion. */
 function deleteDatabase(name) {
 	return new Promise((resolve) => {
 		const request = indexedDB.deleteDatabase(name);
@@ -323,6 +350,7 @@ function deleteDatabase(name) {
 	});
 }
 
+/** Keeps other open windows informed when private offline data has been invalidated. */
 async function broadcast(message) {
 	const windows = await self.clients.matchAll({
 		type: "window",
@@ -331,6 +359,7 @@ async function broadcast(message) {
 	for (const client of windows) client.postMessage(message);
 }
 
+/** Returns lifecycle results to the client that requested them. */
 function reply(event, message) {
 	if (event.ports?.[0]) {
 		event.ports[0].postMessage(message);

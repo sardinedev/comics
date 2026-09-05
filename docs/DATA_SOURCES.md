@@ -14,7 +14,7 @@ Each data source has a dedicated module in `src/data/` that exposes multiple fun
 
 Shared shapes live next to the clients:
 
-- `src/util/comics.types.ts`: normalized `Issue` shape used throughout the app
+- `src/data/comics.types.ts`: normalized `Issue` shape used throughout the app
 - `src/data/mylar/mylar.types.ts`, `src/data/comicvine/comicvine.types.ts`: upstream response typings
 
 ## Upstream sources
@@ -88,9 +88,34 @@ Shared shapes live next to the clients:
 
 - `src/data/elastic/elastic.ts`
 
+### Offline bundle metadata
+
+The series page asks Elasticsearch for the complete server-sorted issue list
+when it prepares downloadable browser bundles. Downloaded issues receive
+references to their immediate previous and next entries in that result—even if
+an adjacent issue has not been downloaded. This preserves canonical series
+ordering and lets the offline reader report a real download gap instead of
+silently skipping it.
+
+The browser metadata sidecar contains stable issue and series identifiers,
+display names, issue number/date, cover information, adjacency references,
+archive size, and cache timestamp. The matching IndexedDB record is the
+searchable projection used by offline library and search views. Both are local
+projections of Elasticsearch data, not additional server-side sources of truth.
+
+### Reading progress conflict resolution
+
+Elasticsearch stores `current_page`, `progress_updated_at`, and the last applied
+`progress_mutation_id` on each issue. The progress API requires the client to
+send `current_page`, `total_pages`, an ISO `updated_at`, and a mutation id. Its
+scripted update applies only timestamps strictly newer than the stored value;
+equal or older timestamps return a successful stale result without changing the
+document. Reading-state transition timestamps use that same client timestamp so
+the page and its derived `reading`/`read` state remain one atomic update.
+
 > Note: `src/env.d.ts` declares `ELASTIC_URL` and `ELASTIC_INDEX`, but the current implementation uses hard-coded values. The `ELASTIC_URL` is hard-coded in `src/data/elastic/elastic.ts` and the index name is defined in `src/data/elastic/models/issue.model.ts`. If you want these to be runtime-configurable, wire them through `import.meta.env`.
 
 
 ## Keeping this doc accurate over time
 
-When code moves, the most reliable way to re-ground this document is to start from `src/data/` (clients) and `src/util/` (utilities) and follow imports.
+When code moves, the most reliable way to re-ground this document is to start from `src/data/` and follow imports.

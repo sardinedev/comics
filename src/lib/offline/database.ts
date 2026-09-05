@@ -46,6 +46,7 @@ export function isOfflineStorageSupported(): boolean {
 	return typeof indexedDB !== "undefined";
 }
 
+/** Preserves the original schema needed by fresh installs and later migrations. */
 function createV1Stores(database: IDBDatabase): void {
 	if (!database.objectStoreNames.contains(OFFLINE_STORE_NAMES.comics)) {
 		const comics = database.createObjectStore(OFFLINE_STORE_NAMES.comics, {
@@ -63,6 +64,7 @@ function createV1Stores(database: IDBDatabase): void {
 	}
 }
 
+/** Adds replay and coordination storage without replacing existing user records. */
 function createV2Stores(database: IDBDatabase): void {
 	if (!database.objectStoreNames.contains(OFFLINE_STORE_NAMES.outbox)) {
 		const outbox = database.createObjectStore(OFFLINE_STORE_NAMES.outbox, {
@@ -78,6 +80,7 @@ function createV2Stores(database: IDBDatabase): void {
 	}
 }
 
+/** Applies schema additions in order so older offline data survives upgrades. */
 function migrateDatabase(database: IDBDatabase, oldVersion: number): void {
 	if (oldVersion < 1) createV1Stores(database);
 	if (oldVersion < 2) createV2Stores(database);
@@ -130,6 +133,7 @@ export async function closeOfflineDatabase(): Promise<void> {
 	}
 }
 
+/** Makes individual request failures visible to repository callers. */
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
 	return new Promise((resolve, reject) => {
 		request.onsuccess = () => resolve(request.result);
@@ -137,6 +141,7 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T> {
 	});
 }
 
+/** Waits for commitment so callers cannot mistake a queued write for durable data. */
 function transactionComplete(transaction: IDBTransaction): Promise<void> {
 	return new Promise((resolve, reject) => {
 		transaction.oncomplete = () => resolve();
@@ -146,6 +151,7 @@ function transactionComplete(transaction: IDBTransaction): Promise<void> {
 	});
 }
 
+/** Provides a consistent missing-record contract across offline repositories. */
 async function readRecord<T>(
 	storeName: OfflineStoreName,
 	key: IDBValidKey,
@@ -159,6 +165,7 @@ async function readRecord<T>(
 	return result;
 }
 
+/** Gives library and replay consumers a transactionally consistent store snapshot. */
 async function readAllRecords<T>(storeName: OfflineStoreName): Promise<T[]> {
 	const database = await openOfflineDatabase();
 	const transaction = database.transaction(storeName, "readonly");
@@ -169,6 +176,7 @@ async function readAllRecords<T>(storeName: OfflineStoreName): Promise<T[]> {
 	return result;
 }
 
+/** Waits for durability before exposing a successful repository write. */
 async function putRecord<T>(
 	storeName: OfflineStoreName,
 	record: T,
@@ -180,6 +188,7 @@ async function putRecord<T>(
 	await completed;
 }
 
+/** Waits for deletion to commit before callers update their visible state. */
 async function deleteRecord(
 	storeName: OfflineStoreName,
 	key: IDBValidKey,
@@ -191,6 +200,7 @@ async function deleteRecord(
 	await completed;
 }
 
+/** Supports resetting one category of offline data without dropping the schema. */
 async function clearStore(storeName: OfflineStoreName): Promise<void> {
 	const database = await openOfflineDatabase();
 	const transaction = database.transaction(storeName, "readwrite");
@@ -199,6 +209,7 @@ async function clearStore(storeName: OfflineStoreName): Promise<void> {
 	await completed;
 }
 
+/** Allows status consumers to count records without loading their payloads. */
 async function countRecords(storeName: OfflineStoreName): Promise<number> {
 	const database = await openOfflineDatabase();
 	const transaction = database.transaction(storeName, "readonly");
@@ -209,6 +220,7 @@ async function countRecords(storeName: OfflineStoreName): Promise<number> {
 	return result;
 }
 
+/** Keeps scoped library and queue queries independent of storage implementation details. */
 async function readAllFromIndex<T>(
 	storeName: OfflineStoreName,
 	indexName: string,
@@ -225,6 +237,7 @@ async function readAllFromIndex<T>(
 	return result;
 }
 
+/** Coalesces mutations for one resource so offline activity cannot grow its queue indefinitely. */
 async function putOutboxRecord(record: OfflineOutboxRecord): Promise<void> {
 	const database = await openOfflineDatabase();
 	const transaction = database.transaction(
@@ -259,8 +272,11 @@ async function updateOutboxIfCurrent(
 	const matches =
 		current?.id === expected.id && current.updatedAt === expected.updatedAt;
 	if (matches) {
-		if (replacement) store.put(replacement);
-		else store.delete(expected.id);
+		if (replacement) {
+			store.put(replacement);
+		} else {
+			store.delete(expected.id);
+		}
 	}
 	await completed;
 	return matches;

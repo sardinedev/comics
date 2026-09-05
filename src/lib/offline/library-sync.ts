@@ -1,12 +1,12 @@
 import { isConfirmedAuthInvalidResponse } from "./auth-response";
 import { clearOfflineData } from "./clear";
 import { offlineOutbox } from "./database";
-import {
-	getOutboxCounts,
-	type OutboxCounts,
-	type OutboxHandlerResult,
-	type OutboxReplayEngine,
+import type {
+	OutboxCounts,
+	OutboxHandlerResult,
+	OutboxReplayEngine,
 } from "./outbox";
+import { getOutboxCounts } from "./outbox";
 import type { AddToLibraryOutboxRecord } from "./types";
 
 export const OUTBOX_STATUS_EVENT = "comics:outbox-status";
@@ -16,20 +16,24 @@ export type AddToLibraryRequestResult = {
 	message?: string;
 };
 
+/** Ensures equivalent series identifiers share one queued action. */
 function normaliseSeriesId(seriesId: string): string {
 	const normalised = seriesId.trim();
 	if (!normalised) throw new Error("Series id is required");
 	return normalised;
 }
 
+/** Keeps repeated requests for one series from creating duplicate queued actions. */
 export function getLibraryDedupeKey(seriesId: string): string {
 	return `library:${normaliseSeriesId(seriesId)}`;
 }
 
+/** Gives retries a stable identity without conflating separate user requests. */
 function createMutationId(seriesId: string): string {
 	return `library:${seriesId}:${crypto.randomUUID()}`;
 }
 
+/** Restores the visible pending state when a series page is revisited. */
 export async function getQueuedAddToLibrary(
 	seriesId: string,
 ): Promise<AddToLibraryOutboxRecord | undefined> {
@@ -103,12 +107,14 @@ export async function replayAddToLibrary(
 	return { status: response.status, statusText: response.statusText };
 }
 
+/** Settles a successful request without deleting a newer action for the same series. */
 async function deleteQueuedMutation(
 	record: AddToLibraryOutboxRecord,
 ): Promise<void> {
 	await offlineOutbox.updateIfCurrent(record, null);
 }
 
+/** Records an outcome only while it still belongs to the queued action. */
 async function updateQueuedMutation(
 	record: AddToLibraryOutboxRecord,
 	update: Partial<AddToLibraryOutboxRecord>,
@@ -162,6 +168,7 @@ export async function requestAddToLibrary(
 	}
 }
 
+/** Keeps pending and failed work visible to users across header replacements. */
 export function renderPendingActionCountElements(
 	counts: OutboxCounts,
 	root: ParentNode = document,
@@ -181,6 +188,7 @@ export function renderPendingActionCountElements(
 	}
 }
 
+/** Keeps library controls and the header consistent with the durable queue. */
 export async function publishOutboxStatus(): Promise<OutboxCounts> {
 	const counts = await getOutboxCounts();
 	if (typeof window !== "undefined") {

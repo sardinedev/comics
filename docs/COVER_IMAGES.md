@@ -1,10 +1,11 @@
 # Cover images
 
-Cover images use a hybrid approach based on whether an issue has been downloaded:
+Cover images use a hybrid approach based on whether an issue has been downloaded.
 
-### Downloaded issues (extracted from CBZ)
+## Downloaded issues (extracted from CBZ)
 
 For issues with `status: "Downloaded"`:
+
 1. The first image file in the CBZ archive (alphabetically sorted by filename) is treated as the cover.
 2. That image is extracted from the CBZ via Mylar's `downloadIssue` API and cached under `COVERS_DIR` using a stable filename (e.g. `{issueId}.jpg`).
 3. Elasticsearch stores this cover filename (relative path like `{issueId}.jpg`) in the normalized `Issue` document (not the original CBZ location).
@@ -12,23 +13,39 @@ For issues with `status: "Downloaded"`:
 5. UI components build cover `src` URLs pointing at `/covers/...` when an issue is marked as downloaded.
 6. Astro's `<Image>` component handles resizing and format conversion on-demand.
 
-### Non-downloaded issues (ComicVine direct)
+## Browser offline bundles
+
+Downloading an issue into the browser also makes a best-effort request for its
+cover and stores the response bytes in the `comic-reader-v2` Cache Storage
+bundle's companion `comics-offline-covers-v1` bucket. Bundle metadata retains the
+original cover URL as the source and a same-origin
+`/offline/comics/{issueId}/cover` cache key, plus a ThumbHash for placeholder
+rendering.
+
+The CBZ archive and validated issue/series metadata are required. A cover is not:
+if its request or cache write fails, the comic remains readable and its metadata
+is marked `pending`. A later bundle access retries the cover. Deleting the comic
+bundle removes the archive, metadata sidecar, searchable IndexedDB record, and
+cached cover response.
+
+## Non-downloaded issues (ComicVine direct)
+
 For issues with `status: "Wanted"` or `"Skipped"`:
+
 1. Elasticsearch stores the original ComicVine URL.
 2. Browser fetches directly from ComicVine (CDN allows browser requests).
 3. No server-side caching (since we can't reliably fetch from ComicVine server-side).
 
-### Configuration
+## Configuration
 
 - `COVERS_DIR`: Local directory for cached covers (default: `data/covers`)
 
-```
+## Implementation
 
-### Implementation
-
-- `src/util/covers.ts`: CBZ extraction and caching logiciesArt`)
+- `src/util/covers.ts`: server-side CBZ cover extraction and caching
 - `src/pages/covers/[...path].ts`: Route handler for serving covers
+- `src/components/ComicCache/comicCache.utils.ts`: browser bundle and cover caching
 
-### Dependencies
+## Dependencies
 
 - `fflate`: Used for CBZ extraction (CBZ files are ZIP archives)

@@ -6,6 +6,7 @@ export interface PwaUiStateInput {
 	supported: boolean;
 }
 
+/** Communicates connectivity and actual readiness rather than registration alone. */
 export function derivePwaUiStatus({
 	online,
 	ready,
@@ -16,6 +17,7 @@ export function derivePwaUiStatus({
 	return ready ? "ready" : "preparing";
 }
 
+/** Defers worker changes until a later launch to avoid interrupting reading. */
 export function shouldActivateWaitingWorker({
 	hasWaitingWorker,
 	updateWasPendingAtLaunch,

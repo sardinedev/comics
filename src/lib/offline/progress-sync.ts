@@ -5,11 +5,8 @@ import {
 	offlineProgress,
 	queueProgressUpdate,
 } from "./database";
-import {
-	createOutboxReplayEngine,
-	type OutboxReplayEngine,
-	type OutboxRepository,
-} from "./outbox";
+import type { OutboxReplayEngine, OutboxRepository } from "./outbox";
+import { createOutboxReplayEngine } from "./outbox";
 import type {
 	OfflineOutboxRecord,
 	OfflineProgressRecord,
@@ -54,6 +51,7 @@ export type ProgressReplayEngineOptions = ProgressReplayHandlerOptions & {
 	retryDelayMs?: (attempts: number) => number;
 };
 
+/** Makes progress timestamps comparable across devices and timezone representations. */
 function normalizedTimestamp(
 	value: string | undefined,
 	now: () => Date,
@@ -65,10 +63,12 @@ function normalizedTimestamp(
 	return date.toISOString();
 }
 
+/** Keeps retransmitted progress identifiable as the same mutation. */
 function defaultMutationId(): string {
 	return crypto.randomUUID();
 }
 
+/** Rejects impossible reading positions before they become durable queued work. */
 function validateProgress(input: SaveReadingProgressInput): void {
 	if (!input.issueId.trim()) throw new Error("issueId is required");
 	if (!Number.isInteger(input.currentPage) || input.currentPage < 1) {
@@ -128,6 +128,7 @@ export async function saveReadingProgress(
 	return { queued: true, progress, mutation };
 }
 
+/** Avoids applying an older response to a more recently saved reading position. */
 async function updateProgressStatus(
 	record: ProgressOutboxRecord,
 	repository: ProgressRepository,
@@ -145,6 +146,7 @@ type ProgressSyncResponse = {
 	updated_at?: unknown;
 };
 
+/** Requires usable server progress before replacing a local reading position. */
 function isAuthoritativeProgress(
 	body: ProgressSyncResponse,
 ): body is { stale: true; current_page: number; updated_at: string } {
@@ -227,6 +229,7 @@ export function createProgressReplayHandler(
 	};
 }
 
+/** Keeps a progress-only replay from consuming unrelated library actions. */
 function progressOnlyRepository(
 	repository: OutboxRepository,
 ): OutboxRepository {
