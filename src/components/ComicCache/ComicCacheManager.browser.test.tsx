@@ -1,47 +1,105 @@
+import type { OfflineComicRecord } from "@lib/offline/types";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-preact";
 
-vi.mock("./comicCache.utils", () => ({
-	deleteCachedIssue: vi.fn(),
-	listCachedComics: vi.fn(),
+vi.mock("@lib/offline/database", () => ({
+	isOfflineStorageSupported: vi.fn(() => true),
+	offlineComics: { getAll: vi.fn() },
 }));
 
-const { deleteCachedIssue, listCachedComics } = await import(
+vi.mock("./comicCache.utils", () => ({
+	deleteCachedIssue: vi.fn(),
+	isIssueCached: vi.fn(async () => true),
+	openComicCache: vi.fn(async () => ({})),
+}));
+
+const { isOfflineStorageSupported, offlineComics } = await import(
+	"@lib/offline/database"
+);
+const { deleteCachedIssue, isIssueCached, openComicCache } = await import(
 	"./comicCache.utils"
 );
 const { ComicCacheManager } = await import("./ComicCacheManager");
 
+const mockedStorageSupported = vi.mocked(isOfflineStorageSupported);
+const mockedGetAll = vi.mocked(offlineComics.getAll);
 const mockedDeleteCachedIssue = vi.mocked(deleteCachedIssue);
-const mockedListCachedComics = vi.mocked(listCachedComics);
+
+function comic(
+	issueId: string,
+	seriesName: string,
+	issueNumber: number | string,
+	overrides: Partial<OfflineComicRecord> = {},
+): OfflineComicRecord {
+	return {
+		issueId,
+		seriesId: `series-${seriesName}`,
+		seriesName,
+		issueNumber,
+		archiveCacheKey: `/api/comic/${issueId}/download`,
+		sizeBytes: 1024,
+		cachedAt: "2026-05-03T12:00:00.000Z",
+		updatedAt: "2026-05-03T12:00:00.000Z",
+		...overrides,
+	};
+}
 
 afterEach(() => {
 	vi.resetAllMocks();
+	mockedStorageSupported.mockReturnValue(true);
 });
 
 describe("ComicCacheManager", () => {
-	test("renders cached comics and deletes after confirmation", async () => {
-		mockedListCachedComics.mockResolvedValue([
-			{
-				issueId: "i1",
-				sizeBytes: 1024,
-				downloadUrl: "/api/comic/i1/download",
-				metadata: {
-					version: 1,
-					issueId: "i1",
-					seriesName: "Saga",
-					issueNumber: 1,
-					issueName: "One",
-					sizeBytes: 1024,
-					cachedAt: "2026-05-03T12:00:00.000Z",
-					downloadUrl: "/api/comic/i1/download",
-				},
-			},
-		]);
-		mockedDeleteCachedIssue.mockResolvedValue({
-			archiveDeleted: true,
-			metadataDeleted: true,
+	test("finishes legacy migration before querying the downloaded library", async () => {
+		let finishMigration!: () => void;
+		vi.mocked(openComicCache).mockImplementationOnce(async () => {
+			await new Promise<void>((resolve) => {
+				finishMigration = resolve;
+			});
+			mockedGetAll.mockResolvedValue([comic("legacy", "Legacy", 1)]);
+			return {} as Cache;
 		});
+		render(<ComicCacheManager />);
+		await expect.poll(() => typeof finishMigration).toBe("function");
+		expect(mockedGetAll).not.toHaveBeenCalled();
+		finishMigration();
+		await expect
+			.element(page.getByRole("link", { name: "Legacy #1" }))
+			.toBeInTheDocument();
+	});
+
+	test("reads canonical offline records and links directly to the reader", async () => {
+		mockedGetAll.mockResolvedValue([
+			comic("i1", "Saga", 1, {
+				issueName: "One",
+				coverCacheKey: "/covers/saga-1.jpg",
+			}),
+		]);
+
+		render(<ComicCacheManager />);
+
+		const issueLink = page.getByRole("link", { name: "Saga #1" });
+		await expect.element(issueLink).toBeInTheDocument();
+		await expect.element(issueLink).toHaveAttribute("href", "/comic/i1/read");
+		await expect
+			.element(page.getByRole("img"))
+			.toHaveAttribute("src", "/covers/saga-1.jpg");
+		await expect
+			.element(page.getByText(/Downloaded 2026-05-03/))
+			.toBeInTheDocument();
+		expect(mockedGetAll).toHaveBeenCalledOnce();
+	});
+
+	test("does not advertise projections without a complete bundle", async () => {
+		mockedGetAll.mockResolvedValue([
+			comic("complete", "Saga", 1),
+			comic("missing-archive", "Saga", 2),
+			comic("invalid-sidecar", "Saga", 3),
+		]);
+		vi.mocked(isIssueCached).mockImplementation(
+			async (issueId) => issueId === "complete",
+		);
 
 		render(<ComicCacheManager />);
 
@@ -49,84 +107,115 @@ describe("ComicCacheManager", () => {
 			.element(page.getByRole("link", { name: "Saga #1" }))
 			.toBeInTheDocument();
 		await expect
-			.element(page.getByText(/Cached 2026-05-03/))
-			.toBeInTheDocument();
+			.element(page.getByRole("link", { name: "Saga #2" }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "Saga #3" }))
+			.not.toBeInTheDocument();
+		expect(isIssueCached).toHaveBeenCalledTimes(3);
+	});
+
+	test("naturally orders issues and uses a placeholder without a cached cover", async () => {
+		mockedGetAll.mockResolvedValue([
+			comic("saga-10", "Saga", 10),
+			comic("monstress-1", "Monstress", 1),
+			comic("saga-2", "Saga", 2),
+		]);
+
+		render(<ComicCacheManager />);
+
+		const links = page.getByRole("link");
+		await expect.element(links.nth(0)).toHaveTextContent("Monstress #1");
+		await expect.element(links.nth(1)).toHaveTextContent("Saga #2");
+		await expect.element(links.nth(2)).toHaveTextContent("Saga #10");
+		await expect.element(page.getByRole("img")).not.toBeInTheDocument();
+	});
+
+	test("deletes a downloaded issue through the bundle deletion utility", async () => {
+		mockedGetAll.mockResolvedValue([comic("i1", "Saga", 1)]);
+		mockedDeleteCachedIssue.mockResolvedValue({
+			archiveDeleted: true,
+			metadataDeleted: true,
+			coverDeleted: false,
+		});
+
+		render(<ComicCacheManager />);
 
 		await page.getByRole("button", { name: "Delete Saga #1" }).click();
 		await page.getByRole("button", { name: "Confirm delete Saga #1" }).click();
 
 		expect(mockedDeleteCachedIssue).toHaveBeenCalledWith("i1");
 		await expect
-			.element(page.getByText("No comics are cached in this browser."))
+			.element(page.getByText("No comics are downloaded in this browser."))
 			.toBeInTheDocument();
 	});
 
-	test("renders and deletes a sidecar-less cached comic", async () => {
-		mockedListCachedComics.mockResolvedValue([
-			{
-				issueId: "legacy",
-				sizeBytes: 5,
-				downloadUrl: "/api/comic/legacy/download",
-				metadata: null,
-			},
-		]);
-		mockedDeleteCachedIssue.mockResolvedValue({
-			archiveDeleted: true,
-			metadataDeleted: false,
-		});
+	test("reports deletion failures without removing the local row", async () => {
+		mockedGetAll.mockResolvedValue([comic("i1", "Saga", 1)]);
+		mockedDeleteCachedIssue.mockRejectedValue(new Error("storage failure"));
 
 		render(<ComicCacheManager />);
 
+		await page.getByRole("button", { name: "Delete Saga #1" }).click();
+		await page.getByRole("button", { name: "Confirm delete Saga #1" }).click();
+
 		await expect
-			.element(page.getByRole("link", { name: "Issue legacy" }))
+			.element(
+				page
+					.getByRole("alert")
+					.getByText("The downloaded comic could not be deleted."),
+			)
 			.toBeInTheDocument();
-		await expect.element(page.getByText("Cached archive")).toBeInTheDocument();
-
-		await page.getByRole("button", { name: "Delete Issue legacy" }).click();
-		await page
-			.getByRole("button", { name: "Confirm delete Issue legacy" })
-			.click();
-
-		expect(mockedDeleteCachedIssue).toHaveBeenCalledWith("legacy");
 		await expect
-			.element(page.getByText("No comics are cached in this browser."))
+			.element(page.getByRole("link", { name: "Saga #1" }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Delete Saga #1" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText("Deletion pending"))
 			.toBeInTheDocument();
 	});
 
-	test("bulk deletes all selected cached comics after confirmation", async () => {
-		mockedListCachedComics.mockResolvedValue([
-			{
-				issueId: "i1",
-				sizeBytes: 1024,
-				downloadUrl: "/api/comic/i1/download",
-				metadata: {
-					version: 1,
-					issueId: "i1",
-					seriesName: "Saga",
-					issueNumber: 1,
-					sizeBytes: 1024,
-					cachedAt: "2026-05-03T12:00:00.000Z",
-					downloadUrl: "/api/comic/i1/download",
-				},
-			},
-			{
-				issueId: "i2",
-				sizeBytes: 2048,
-				downloadUrl: "/api/comic/i2/download",
-				metadata: {
-					version: 1,
-					issueId: "i2",
-					seriesName: "Saga",
-					issueNumber: 2,
-					sizeBytes: 2048,
-					cachedAt: "2026-05-03T12:00:00.000Z",
-					downloadUrl: "/api/comic/i2/download",
-				},
-			},
+	test("retains pending cleanup after remount and allows retry without a reader link", async () => {
+		mockedGetAll.mockResolvedValue([
+			comic("i1", "Saga", 1, { deletionPending: true }),
+		]);
+		vi.mocked(isIssueCached).mockResolvedValue(false);
+		const first = render(<ComicCacheManager />);
+		await expect
+			.element(page.getByText("Deletion pending"))
+			.toBeInTheDocument();
+		first.unmount();
+		render(<ComicCacheManager />);
+		await expect
+			.element(page.getByText("Deletion pending"))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "Saga #1" }))
+			.not.toBeInTheDocument();
+		mockedDeleteCachedIssue.mockResolvedValue({
+			archiveDeleted: true,
+			metadataDeleted: false,
+			coverDeleted: false,
+		});
+		await page.getByRole("button", { name: "Delete Saga #1" }).click();
+		await page.getByRole("button", { name: "Confirm delete Saga #1" }).click();
+		expect(mockedDeleteCachedIssue).toHaveBeenCalledWith("i1");
+		await expect
+			.element(page.getByText("No comics are downloaded in this browser."))
+			.toBeInTheDocument();
+	});
+
+	test("bulk deletes all selected downloaded comics after confirmation", async () => {
+		mockedGetAll.mockResolvedValue([
+			comic("i1", "Saga", 1),
+			comic("i2", "Saga", 2, { sizeBytes: 2048 }),
 		]);
 		mockedDeleteCachedIssue.mockResolvedValue({
 			archiveDeleted: true,
 			metadataDeleted: true,
+			coverDeleted: false,
 		});
 
 		render(<ComicCacheManager />);
@@ -135,17 +224,88 @@ describe("ComicCacheManager", () => {
 			.element(page.getByRole("link", { name: "Saga #1" }))
 			.toBeInTheDocument();
 		await page.getByLabelText("Select all").click();
-
-		const deleteSelectedButton = page.getByRole("button", { name: "Delete 2" });
-		await expect.element(deleteSelectedButton).toBeInTheDocument();
-		await deleteSelectedButton.click();
+		await page.getByRole("button", { name: "Delete 2" }).click();
 		await page.getByRole("button", { name: "Confirm delete" }).click();
 
 		expect(
 			mockedDeleteCachedIssue.mock.calls.map(([issueId]) => issueId),
 		).toEqual(["i1", "i2"]);
 		await expect
-			.element(page.getByText("No comics are cached in this browser."))
+			.element(page.getByText("No comics are downloaded in this browser."))
+			.toBeInTheDocument();
+	});
+
+	test("removes successful bulk deletions and retains only failed selections for retry", async () => {
+		mockedGetAll.mockResolvedValue([
+			comic("i1", "Saga", 1),
+			comic("i2", "Saga", 2),
+		]);
+		mockedDeleteCachedIssue.mockImplementation(async (issueId) => {
+			if (issueId === "i2") throw new Error("storage failure");
+			return {
+				archiveDeleted: true,
+				metadataDeleted: true,
+				coverDeleted: false,
+			};
+		});
+		render(<ComicCacheManager />);
+		await expect
+			.element(page.getByRole("link", { name: "Saga #1" }))
+			.toBeInTheDocument();
+		await page.getByLabelText("Select all").click();
+		await page.getByRole("button", { name: "Delete 2", exact: true }).click();
+		await page
+			.getByRole("button", { name: "Confirm delete", exact: true })
+			.click();
+		await expect
+			.element(page.getByRole("link", { name: "Saga #1" }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "Saga #2" }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Delete Saga #2" }))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page
+					.getByRole("alert")
+					.getByText("1 downloaded comic could not be deleted."),
+			)
+			.toBeInTheDocument();
+		mockedDeleteCachedIssue.mockResolvedValue({
+			archiveDeleted: true,
+			metadataDeleted: true,
+			coverDeleted: false,
+		});
+		await page.getByRole("button", { name: "Delete 1", exact: true }).click();
+		await page
+			.getByRole("button", { name: "Confirm delete", exact: true })
+			.click();
+		expect(
+			mockedDeleteCachedIssue.mock.calls.map(([issueId]) => issueId),
+		).toEqual(["i1", "i2", "i2"]);
+		await expect
+			.element(page.getByText("No comics are downloaded in this browser."))
+			.toBeInTheDocument();
+	});
+
+	test("shows storage unsupported and read error states", async () => {
+		mockedStorageSupported.mockReturnValue(false);
+		const first = render(<ComicCacheManager />);
+		await expect
+			.element(page.getByText("Offline comic storage is unavailable"))
+			.toBeInTheDocument();
+		first.unmount();
+
+		mockedStorageSupported.mockReturnValue(true);
+		mockedGetAll.mockRejectedValue(new Error("IndexedDB failed"));
+		render(<ComicCacheManager />);
+		await expect
+			.element(page.getByText("Failed to read downloaded comics."))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("button", { name: "Retry" }))
 			.toBeInTheDocument();
 	});
 });

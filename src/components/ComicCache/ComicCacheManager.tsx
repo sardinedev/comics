@@ -1,9 +1,14 @@
 import { Icon } from "@components/Icon/Icon";
+import {
+	isOfflineStorageSupported,
+	offlineComics,
+} from "@lib/offline/database";
+import type { OfflineComicRecord } from "@lib/offline/types";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import {
-	type CachedComic,
 	deleteCachedIssue,
-	listCachedComics,
+	isIssueCached,
+	openComicCache,
 } from "./comicCache.utils";
 
 /** Loading state for the browser cache manager island. */
@@ -32,13 +37,8 @@ function formatBytes(bytes: number): string {
  * @param comic - Cached comic entry to label.
  * @returns Series/issue title, or an issue-id fallback for sidecar-less entries.
  */
-function formatIssueTitle(comic: CachedComic): string {
-	const metadata = comic.metadata;
-	if (!metadata) return `Issue ${comic.issueId}`;
-
-	const issueNumber =
-		metadata.issueNumber != null ? ` #${metadata.issueNumber}` : "";
-	return `${metadata.seriesName ?? "Comic"}${issueNumber}`;
+function formatIssueTitle(comic: OfflineComicRecord): string {
+	return `${comic.seriesName} #${comic.issueNumber}`;
 }
 
 /**
@@ -47,22 +47,40 @@ function formatIssueTitle(comic: CachedComic): string {
  * @param comic - Cached comic entry to summarize.
  * @returns Issue title/date/year details, or a fallback archive label.
  */
-function formatIssueMeta(comic: CachedComic): string {
-	const metadata = comic.metadata;
-	if (!metadata) return "Cached archive";
-
+function formatIssueMeta(comic: OfflineComicRecord): string {
 	const parts = [
-		metadata.issueName,
-		metadata.issueDate?.slice(0, 10),
-		metadata.seriesYear,
+		comic.issueName,
+		comic.issueDate?.slice(0, 10),
+		comic.seriesYear,
 	].filter(Boolean);
 
-	return parts.length > 0 ? parts.join(" · ") : "Cached archive";
+	return parts.length > 0 ? parts.join(" · ") : "Downloaded issue";
+}
+
+/** Canonical ordering for the local library: series, then natural issue number. */
+function sortOfflineComics(comics: OfflineComicRecord[]): OfflineComicRecord[] {
+	return [...comics].sort((left, right) => {
+		const bySeries = left.seriesName.localeCompare(
+			right.seriesName,
+			undefined,
+			{
+				sensitivity: "base",
+			},
+		);
+		if (bySeries !== 0) return bySeries;
+		const byIssue = String(left.issueNumber).localeCompare(
+			String(right.issueNumber),
+			undefined,
+			{ numeric: true, sensitivity: "base" },
+		);
+		return byIssue !== 0 ? byIssue : left.issueId.localeCompare(right.issueId);
+	});
 }
 
 /** Renders the browser cache management UI for cached comic archives. */
 export function ComicCacheManager() {
-	const [comics, setComics] = useState<CachedComic[]>([]);
+	const [comics, setComics] = useState<OfflineComicRecord[]>([]);
+	const [actionError, setActionError] = useState<string | null>(null);
 	const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 	const [confirmingIssueId, setConfirmingIssueId] = useState<string | null>(
 		null,
@@ -72,18 +90,32 @@ export function ComicCacheManager() {
 	const [state, setState] = useState<LoadState>("loading");
 
 	const loadComics = useCallback(async () => {
-		if (typeof caches === "undefined") {
+		if (!isOfflineStorageSupported()) {
 			setState("unsupported");
 			return;
 		}
 
 		setState("loading");
 		setError(null);
+		setActionError(null);
 		setConfirmBulkDelete(false);
 		setConfirmingIssueId(null);
 
 		try {
-			const cachedComics = await listCachedComics();
+			if (!(await openComicCache())) throw new Error("Comic cache unavailable");
+			const records = await offlineComics.getAll();
+			const validatedRecords = await Promise.all(
+				records.map(async (comic) =>
+					comic.deletionPending || (await isIssueCached(comic.issueId))
+						? comic
+						: null,
+				),
+			);
+			const cachedComics = sortOfflineComics(
+				validatedRecords.filter(
+					(comic): comic is OfflineComicRecord => comic !== null,
+				),
+			);
 			setComics(cachedComics);
 			setSelectedIds((current) => {
 				const next = new Set<string>();
@@ -95,7 +127,7 @@ export function ComicCacheManager() {
 			});
 			setState("ready");
 		} catch {
-			setError("Failed to read the browser cache.");
+			setError("Failed to read downloaded comics.");
 			setState("error");
 		}
 	}, []);
@@ -146,17 +178,37 @@ export function ComicCacheManager() {
 	 * @param issueIds - Cached issue ids to remove.
 	 */
 	async function removeIssues(issueIds: string[]) {
-		await Promise.all(issueIds.map((issueId) => deleteCachedIssue(issueId)));
+		setActionError(null);
+		const results = await Promise.allSettled(
+			issueIds.map((issueId) => deleteCachedIssue(issueId)),
+		);
+		const deletedIds = new Set(
+			issueIds.filter((_, index) => results[index].status === "fulfilled"),
+		);
 		setComics((current) =>
-			current.filter((comic) => !issueIds.includes(comic.issueId)),
+			current
+				.filter((comic) => !deletedIds.has(comic.issueId))
+				.map((comic) =>
+					issueIds.includes(comic.issueId)
+						? { ...comic, deletionPending: true }
+						: comic,
+				),
 		);
 		setSelectedIds((current) => {
 			const next = new Set(current);
-			for (const issueId of issueIds) next.delete(issueId);
+			for (const issueId of deletedIds) next.delete(issueId);
 			return next;
 		});
 		setConfirmBulkDelete(false);
 		setConfirmingIssueId(null);
+		const failedCount = issueIds.length - deletedIds.size;
+		if (failedCount > 0) {
+			setActionError(
+				issueIds.length === 1
+					? "The downloaded comic could not be deleted."
+					: `${failedCount} downloaded comic${failedCount === 1 ? "" : "s"} could not be deleted.`,
+			);
+		}
 	}
 
 	/**
@@ -202,7 +254,7 @@ export function ComicCacheManager() {
 		return (
 			<div class="border border-slate-800 bg-slate-900 p-6">
 				<p class="text-sm text-slate-400">
-					Browser cache storage is unavailable in this context.
+					Offline comic storage is unavailable in this context.
 				</p>
 			</div>
 		);
@@ -225,6 +277,14 @@ export function ComicCacheManager() {
 
 	return (
 		<section class="flex flex-col gap-6">
+			{actionError && (
+				<div
+					role="alert"
+					class="border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300"
+				>
+					{actionError}
+				</div>
+			)}
 			<div class="grid gap-px overflow-hidden border border-slate-800 bg-slate-800 sm:grid-cols-3">
 				<div class="bg-slate-900 p-4">
 					<p class="text-[10px] font-bold uppercase tracking-widest text-slate-600">
@@ -286,7 +346,7 @@ export function ComicCacheManager() {
 			{comics.length === 0 ? (
 				<div class="border border-slate-800 bg-slate-900 p-8">
 					<p class="text-sm text-slate-500">
-						No comics are cached in this browser.
+						No comics are downloaded in this browser.
 					</p>
 				</div>
 			) : (
@@ -307,10 +367,10 @@ export function ComicCacheManager() {
 							</div>
 
 							<div class="h-20 w-14 overflow-hidden bg-slate-800 ring-1 ring-white/5">
-								{comic.metadata?.coverUrl ? (
+								{comic.coverCacheKey && !comic.deletionPending ? (
 									<img
-										src={comic.metadata.coverUrl}
-										alt=""
+										src={comic.coverCacheKey}
+										alt={`${formatIssueTitle(comic)} cover`}
 										class="h-full w-full object-cover"
 										loading="lazy"
 									/>
@@ -322,20 +382,27 @@ export function ComicCacheManager() {
 							</div>
 
 							<div class="min-w-0">
-								<a
-									href={`/comic/${comic.issueId}`}
-									class="block truncate text-sm font-bold text-white transition-colors hover:text-amber-400"
-								>
-									{formatIssueTitle(comic)}
-								</a>
+								{comic.deletionPending ? (
+									<p class="block truncate text-sm font-bold text-white">
+										{formatIssueTitle(comic)}
+									</p>
+								) : (
+									<a
+										href={`/comic/${encodeURIComponent(comic.issueId)}/read`}
+										class="block truncate text-sm font-bold text-white transition-colors hover:text-amber-400"
+									>
+										{formatIssueTitle(comic)}
+									</a>
+								)}
 								<p class="mt-1 truncate text-xs text-slate-500">
-									{formatIssueMeta(comic)}
+									{comic.deletionPending
+										? "Deletion pending"
+										: formatIssueMeta(comic)}
 								</p>
 								<p class="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-600">
 									{formatBytes(comic.sizeBytes)}
-									{comic.metadata?.cachedAt
-										? ` · Cached ${comic.metadata.cachedAt.slice(0, 10)}`
-										: ""}
+									{!comic.deletionPending &&
+										` · Downloaded ${comic.cachedAt.slice(0, 10)}`}
 								</p>
 							</div>
 

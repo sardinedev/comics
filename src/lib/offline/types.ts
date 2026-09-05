@@ -6,7 +6,7 @@ export type OfflineIssueReference = {
 };
 
 /**
- * Searchable metadata for a comic whose archive is available offline.
+ * Searchable metadata for an offline comic or a bundle awaiting deletion.
  *
  * Binary archives and covers live in Cache Storage. This record deliberately
  * contains only structured data and cache keys so it remains cheap to query.
@@ -28,6 +28,7 @@ export type OfflineComicRecord = {
 	sizeBytes: number;
 	cachedAt: string;
 	updatedAt: string;
+	deletionPending?: boolean;
 	previousIssue?: OfflineIssueReference | null;
 	nextIssue?: OfflineIssueReference | null;
 };

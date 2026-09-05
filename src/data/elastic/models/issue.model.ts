@@ -76,6 +76,8 @@ export const issuesMappings: estypes.MappingTypeMapping = {
 		last_opened_at: { type: "date" }, // Most recent access
 		completed_at: { type: "date" }, // When marked as read
 		current_page: { type: "integer" }, // Resume reading from this page
+		progress_updated_at: { type: "date" }, // Client timestamp used for conflict resolution
+		progress_mutation_id: { type: "keyword" }, // Last applied idempotency key
 		is_favorite: { type: "boolean" },
 		user_rating: { type: "float" }, // 1-5 stars
 
