@@ -82,10 +82,12 @@ type LegacyCachedComicMetadata = ComicCacheMetadataInput & {
 
 let migrationPromise: Promise<void> | null = null;
 
+/** Keeps archive requests and cache lookups on the same encoded issue key. */
 export function getComicDownloadUrl(issueId: string): string {
 	return `/api/comic/${encodeURIComponent(issueId)}/download`;
 }
 
+/** Keeps metadata separate from archive bytes while retaining a stable issue key. */
 export function getComicMetadataUrl(issueId: string): string {
 	return `/api/comic/${encodeURIComponent(issueId)}/cache-metadata`;
 }
@@ -95,6 +97,7 @@ export function getCachedComicCoverUrl(issueId: string): string {
 	return `/offline/comics/${encodeURIComponent(issueId)}/cover`;
 }
 
+/** Distinguishes archive entries from sidecars when inspecting legacy caches. */
 export function parseIssueIdFromDownloadUrl(
 	input: string | Request,
 ): string | null {
@@ -112,10 +115,12 @@ export function parseIssueIdFromDownloadUrl(
 	}
 }
 
+/** Rejects missing identity fields before a bundle is advertised as readable. */
 function isNonEmptyString(value: unknown): value is string {
 	return typeof value === "string" && value.trim().length > 0;
 }
 
+/** Keeps malformed adjacency metadata from producing broken reader links. */
 function isIssueReference(value: unknown): value is CachedIssueReference {
 	if (!value || typeof value !== "object") return false;
 	const reference = value as Partial<CachedIssueReference>;
@@ -149,6 +154,7 @@ export function isValidComicCacheMetadataInput(
 	);
 }
 
+/** Prevents incomplete or mismatched sidecars from being treated as complete bundles. */
 function isCachedComicMetadata(
 	value: unknown,
 	issueId: string,
@@ -169,6 +175,7 @@ function isCachedComicMetadata(
 	);
 }
 
+/** Establishes the metadata contract required to find and open a downloaded issue. */
 function buildCachedMetadata(
 	input: ComicCacheMetadataInput,
 	sizeBytes: number,
@@ -202,6 +209,7 @@ function buildCachedMetadata(
 	};
 }
 
+/** Projects bundle metadata into the searchable local library. */
 function toOfflineComicRecord(
 	metadata: CachedComicMetadata,
 ): OfflineComicRecord {
@@ -225,6 +233,7 @@ function toOfflineComicRecord(
 	};
 }
 
+/** Repairs missing library metadata when a readable bundle already exists. */
 async function ensureOfflineComicRecord(
 	metadata: CachedComicMetadata,
 ): Promise<OfflineComicRecord> {
@@ -241,6 +250,7 @@ async function ensureOfflineComicRecord(
 	return record;
 }
 
+/** Preserves earlier downloads while upgrading complete bundles for the offline library. */
 async function migrateLegacyCache(target: Cache): Promise<void> {
 	if (await target.match(MIGRATION_MARKER_URL)) return;
 
@@ -339,6 +349,7 @@ export async function isIssueCached(issueId: string): Promise<boolean> {
 	);
 }
 
+/** Treats corrupt sidecars as unavailable rather than exposing invalid bundle metadata. */
 export async function readCachedComicMetadata(
 	issueId: string,
 	openedCache?: Cache,
@@ -356,6 +367,7 @@ export async function readCachedComicMetadata(
 	}
 }
 
+/** Persists the identity and navigation data needed alongside an archive. */
 export async function writeCachedComicMetadata(
 	input: ComicCacheMetadataInput,
 	sizeBytes: number,
@@ -373,6 +385,7 @@ export async function writeCachedComicMetadata(
 	return metadata;
 }
 
+/** Keeps cover failures optional so they cannot prevent an otherwise readable download. */
 async function cacheCover(
 	metadata: CachedComicMetadata,
 ): Promise<CachedComicMetadata> {
@@ -433,6 +446,7 @@ export async function retryCachedComicCover(issueId: string): Promise<boolean> {
 	}
 }
 
+/** Allows legacy archives without size metadata to appear in storage accounting. */
 async function getCachedArchiveSize(
 	cache: Cache,
 	request: Request,
@@ -442,6 +456,7 @@ async function getCachedArchiveSize(
 	return (await response.arrayBuffer()).byteLength;
 }
 
+/** Makes older archive entries discoverable and repairs their searchable projections. */
 export async function listCachedComics(): Promise<CachedComic[]> {
 	const cache = await openComicCache();
 	if (!cache) return [];
@@ -487,6 +502,7 @@ export async function listCachedComics(): Promise<CachedComic[]> {
 	});
 }
 
+/** Removes all bundle-owned records together so deleted issues cannot remain advertised. */
 export async function deleteCachedIssue(
 	issueId: string,
 ): Promise<CacheDeleteResult> {
@@ -512,6 +528,7 @@ export async function deleteCachedIssue(
 	return { archiveDeleted, metadataDeleted, coverDeleted };
 }
 
+/** Advertises a download only after required records exist, rolling back failed attempts. */
 async function commitBundle(
 	cache: Cache,
 	cbz: Uint8Array,
@@ -558,6 +575,7 @@ async function commitBundle(
 	}
 }
 
+/** Reports transfer progress without requiring the server to provide a content length. */
 async function readDownloadResponse(
 	response: Response,
 	onProgress: (ratio: number) => void,

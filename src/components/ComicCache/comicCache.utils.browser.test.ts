@@ -20,10 +20,10 @@ vi.mock("@lib/offline/database", () => ({
 
 const { offlineComics } = await import("@lib/offline/database");
 
+import type { ComicCacheMetadataInput } from "./comicCache.utils";
 import {
 	CACHED_COMIC_METADATA_VERSION,
 	COMIC_CACHE_NAME,
-	type ComicCacheMetadataInput,
 	deleteCachedIssue,
 	downloadIssueToCache,
 	getCachedComicCoverUrl,
@@ -41,11 +41,13 @@ import {
 
 const cleanupIds = new Set<string>();
 
+/** Registers fixture ownership so a test cannot leave downloaded data behind. */
 function trackIssueId(issueId: string): string {
 	cleanupIds.add(issueId);
 	return issueId;
 }
 
+/** Provides a complete bundle fixture so each test changes only the field it exercises. */
 function metadataFor(
 	issueId: string,
 	overrides: Partial<ComicCacheMetadataInput> = {},
@@ -64,6 +66,7 @@ function metadataFor(
 	};
 }
 
+/** Seeds archive bytes without involving the download behavior under test. */
 async function putArchive(
 	issueId: string,
 	bytes = new Uint8Array([1, 2, 3]),
