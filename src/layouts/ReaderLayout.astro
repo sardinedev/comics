@@ -16,15 +16,24 @@ const { title } = Astro.props;
 			name="viewport"
 			content="width=device-width, initial-scale=1.0, viewport-fit=cover"
 		>
+		<meta name="theme-color" content="#000000">
+		<meta name="mobile-web-app-capable" content="yes">
 		<meta name="apple-mobile-web-app-capable" content="yes">
 		<meta
 			name="apple-mobile-web-app-status-bar-style"
 			content="black-translucent"
 		>
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+		<link rel="apple-touch-icon" href="/pwa/icon-180.png">
+		<link rel="manifest" href="/manifest.webmanifest">
 		<title>{title}</title>
 	</head>
 	<body class="bg-black overflow-hidden h-dvh w-dvw">
 		<slot />
+		<script>
+		import { initialisePwa } from "@lib/pwa/client";
+
+		void initialisePwa();
+		</script>
 	</body>
 </html>

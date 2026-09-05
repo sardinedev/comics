@@ -31,7 +31,39 @@ import { SearchBar } from "@components/SearchBar/SearchBar";
 			>
 		</nav>
 
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-1 sm:gap-2">
+			<span
+				data-outbox-pending-count
+				hidden
+				role="status"
+				aria-live="polite"
+				aria-atomic="true"
+				class="inline-flex h-7 min-w-7 items-center justify-center bg-amber-500 px-2 text-[10px] font-black tabular-nums text-slate-950 data-[state=failed]:bg-red-900 data-[state=failed]:text-red-200"
+				>0</span
+			>
+			<div
+				data-pwa-status
+				hidden
+				role="status"
+				aria-live="polite"
+				aria-atomic="true"
+				class="pwa-status mr-1 inline-flex h-7 shrink-0 items-center gap-1.5 border border-slate-700 bg-slate-800 px-2 text-[10px] font-bold uppercase tracking-widest text-slate-300 data-[status=offline]:border-amber-500/50 data-[status=offline]:bg-amber-500/10 data-[status=offline]:text-amber-400 data-[status=unavailable]:border-red-900/80 data-[status=unavailable]:bg-red-950 data-[status=unavailable]:text-red-300"
+			>
+				<span class="h-1.5 w-1.5 bg-current" aria-hidden="true"></span>
+				<span data-status-label="offline">Offline</span>
+				<span data-status-label="preparing">
+					<span class="sm:hidden">Saving</span>
+					<span class="hidden sm:inline">Preparing offline</span>
+				</span>
+				<span data-status-label="ready">
+					<span class="sm:hidden">Ready</span>
+					<span class="hidden sm:inline">Ready offline</span>
+				</span>
+				<span data-status-label="unavailable">
+					<span class="sm:hidden">Online</span>
+					<span class="hidden sm:inline">Online only</span>
+				</span>
+			</div>
 			<button
 				type="button"
 				id="header-search-btn"
@@ -40,7 +72,11 @@ import { SearchBar } from "@components/SearchBar/SearchBar";
 			>
 				<Icon name="search" class="h-4 w-4" color="currentColor" />
 			</button>
-			<form method="POST" action="/api/auth/logout">
+			<form
+				method="POST"
+				action="/api/auth/logout"
+				data-purge-offline-on-submit
+			>
 				<button
 					type="submit"
 					aria-label="Sign out"
@@ -56,9 +92,26 @@ import { SearchBar } from "@components/SearchBar/SearchBar";
 <SearchBar client:only="preact" />
 
 <script>
+import { initialisePendingActionCount } from "@lib/offline/library-sync";
+
+initialisePendingActionCount();
 document.addEventListener("click", (e) => {
 	if ((e.target as Element)?.closest("#header-search-btn")) {
 		window.dispatchEvent(new CustomEvent("open-search"));
 	}
 });
+document.addEventListener("astro:page-load", initialisePendingActionCount);
 </script>
+
+<style>
+.pwa-status [data-status-label] {
+	display: none;
+}
+
+.pwa-status[data-status="offline"] [data-status-label="offline"],
+.pwa-status[data-status="preparing"] [data-status-label="preparing"],
+.pwa-status[data-status="ready"] [data-status-label="ready"],
+.pwa-status[data-status="unavailable"] [data-status-label="unavailable"] {
+	display: inline;
+}
+</style>
