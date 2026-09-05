@@ -40,6 +40,18 @@ const nextIssue: Issue = {
 	synced_at: "2026-01-01T00:00:00.000Z",
 };
 
+describe("getIssue", () => {
+	test("preserves optional lookups while allowing strict callers to handle failures", async () => {
+		const failure = new Error("Elasticsearch unavailable");
+		elasticState.get.mockRejectedValueOnce(failure);
+		await expect(queries.getIssue("issue-1")).resolves.toBeNull();
+		elasticState.get.mockRejectedValueOnce(failure);
+		await expect(
+			queries.getIssue("issue-1", { throwOnError: true }),
+		).rejects.toBe(failure);
+	});
+});
+
 describe("getSeriesCacheManifest", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();

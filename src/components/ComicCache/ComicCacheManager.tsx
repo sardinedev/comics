@@ -5,7 +5,11 @@ import {
 } from "@lib/offline/database";
 import type { OfflineComicRecord } from "@lib/offline/types";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
-import { deleteCachedIssue, openComicCache } from "./comicCache.utils";
+import {
+	deleteCachedIssue,
+	isIssueCached,
+	openComicCache,
+} from "./comicCache.utils";
 
 /** Loading state for the browser cache manager island. */
 type LoadState = "loading" | "ready" | "unsupported" | "error";
@@ -99,7 +103,17 @@ export function ComicCacheManager() {
 
 		try {
 			if (!(await openComicCache())) throw new Error("Comic cache unavailable");
-			const cachedComics = sortOfflineComics(await offlineComics.getAll());
+			const records = await offlineComics.getAll();
+			const validatedRecords = await Promise.all(
+				records.map(async (comic) =>
+					(await isIssueCached(comic.issueId)) ? comic : null,
+				),
+			);
+			const cachedComics = sortOfflineComics(
+				validatedRecords.filter(
+					(comic): comic is OfflineComicRecord => comic !== null,
+				),
+			);
 			setComics(cachedComics);
 			setSelectedIds((current) => {
 				const next = new Set<string>();

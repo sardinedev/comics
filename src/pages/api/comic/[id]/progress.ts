@@ -91,17 +91,31 @@ export async function handleProgress(
 			updatedAt: normalizedUpdatedAt,
 			mutationId: mutation_id,
 		});
-		const authoritativeIssue = result.applied ? issue : await getIssue(id);
+		let savedPage = current_page;
+		let savedUpdatedAt = result.updatedAt;
+		if (!result.applied) {
+			const authoritativeIssue = await getIssue(id, { throwOnError: true });
+			const authoritativeUpdatedAt = parseIsoTimestamp(
+				authoritativeIssue?.progress_updated_at,
+			);
+			if (
+				!authoritativeIssue ||
+				typeof authoritativeIssue.current_page !== "number" ||
+				!Number.isInteger(authoritativeIssue.current_page) ||
+				authoritativeIssue.current_page < 1 ||
+				!authoritativeUpdatedAt
+			) {
+				throw new Error("Authoritative reading progress unavailable");
+			}
+			savedPage = authoritativeIssue.current_page;
+			savedUpdatedAt = authoritativeUpdatedAt;
+		}
 		return json({
 			ok: true,
 			applied: result.applied,
 			stale: !result.applied,
-			current_page: result.applied
-				? current_page
-				: (authoritativeIssue?.current_page ?? current_page),
-			updated_at: result.applied
-				? result.updatedAt
-				: (authoritativeIssue?.progress_updated_at ?? result.updatedAt),
+			current_page: savedPage,
+			updated_at: savedUpdatedAt,
 		});
 	} catch (err) {
 		console.error("Failed to update reading progress:", err);

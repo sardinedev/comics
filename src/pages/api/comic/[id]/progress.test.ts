@@ -122,13 +122,74 @@ describe("progress API writes", () => {
 		});
 	});
 
+	test.each([
+		null,
+		{ issue_id: "issue-1" },
+		{ current_page: 19, progress_updated_at: "invalid" },
+		{ current_page: 0, progress_updated_at: validBody.updated_at },
+	])("returns a retryable error instead of rejected values when authoritative progress is unavailable: %j", async (authoritativeIssue) => {
+		queryMocks.getIssue
+			.mockResolvedValueOnce({ issue_id: "issue-1" })
+			.mockResolvedValueOnce(authoritativeIssue);
+		queryMocks.updateReadingProgress.mockResolvedValue({
+			applied: false,
+			updatedAt: validBody.updated_at,
+		});
+		const consoleError = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => { });
+		try {
+			const response = await handleProgress("issue-1", request(validBody));
+			expect(response.status).toBe(500);
+			expect(await response.json()).toEqual({
+				error: "Failed to update progress",
+			});
+			expect(consoleError).toHaveBeenCalledWith(
+				"Failed to update reading progress:",
+				expect.any(Error),
+			);
+		} finally {
+			consoleError.mockRestore();
+		}
+	});
+
+	test("logs the underlying error when the authoritative lookup fails", async () => {
+		const failure = new Error("Elasticsearch unavailable");
+		queryMocks.getIssue
+			.mockResolvedValueOnce({ issue_id: "issue-1" })
+			.mockRejectedValueOnce(failure);
+		queryMocks.updateReadingProgress.mockResolvedValue({
+			applied: false,
+			updatedAt: validBody.updated_at,
+		});
+		const consoleError = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => { });
+		try {
+			const response = await handleProgress("issue-1", request(validBody));
+			expect(response.status).toBe(500);
+			expect(await response.json()).toEqual({
+				error: "Failed to update progress",
+			});
+			expect(queryMocks.getIssue).toHaveBeenLastCalledWith("issue-1", {
+				throwOnError: true,
+			});
+			expect(consoleError).toHaveBeenCalledWith(
+				"Failed to update reading progress:",
+				failure,
+			);
+		} finally {
+			consoleError.mockRestore();
+		}
+	});
+
 	test("returns 500 when Elasticsearch rejects the update", async () => {
 		queryMocks.updateReadingProgress.mockRejectedValue(
 			new Error("unavailable"),
 		);
 		const consoleError = vi
 			.spyOn(console, "error")
-			.mockImplementation(() => {});
+			.mockImplementation(() => { });
 
 		const response = await handleProgress("issue-1", request(validBody));
 

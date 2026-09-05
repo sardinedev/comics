@@ -10,13 +10,14 @@ vi.mock("@lib/offline/database", () => ({
 
 vi.mock("./comicCache.utils", () => ({
 	deleteCachedIssue: vi.fn(),
+	isIssueCached: vi.fn(async () => true),
 	openComicCache: vi.fn(async () => ({})),
 }));
 
 const { isOfflineStorageSupported, offlineComics } = await import(
 	"@lib/offline/database"
 );
-const { deleteCachedIssue, openComicCache } = await import(
+const { deleteCachedIssue, isIssueCached, openComicCache } = await import(
 	"./comicCache.utils"
 );
 const { ComicCacheManager } = await import("./ComicCacheManager");
@@ -88,6 +89,30 @@ describe("ComicCacheManager", () => {
 			.element(page.getByText(/Downloaded 2026-05-03/))
 			.toBeInTheDocument();
 		expect(mockedGetAll).toHaveBeenCalledOnce();
+	});
+
+	test("does not advertise projections without a complete bundle", async () => {
+		mockedGetAll.mockResolvedValue([
+			comic("complete", "Saga", 1),
+			comic("missing-archive", "Saga", 2),
+			comic("invalid-sidecar", "Saga", 3),
+		]);
+		vi.mocked(isIssueCached).mockImplementation(
+			async (issueId) => issueId === "complete",
+		);
+
+		render(<ComicCacheManager />);
+
+		await expect
+			.element(page.getByRole("link", { name: "Saga #1" }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "Saga #2" }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole("link", { name: "Saga #3" }))
+			.not.toBeInTheDocument();
+		expect(isIssueCached).toHaveBeenCalledTimes(3);
 	});
 
 	test("naturally orders issues and uses a placeholder without a cached cover", async () => {
