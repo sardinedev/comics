@@ -42,10 +42,12 @@ const libraryRecord: AddToLibraryOutboxRecord = {
 class MemoryOutboxRepository implements OutboxRepository {
 	readonly records = new Map<string, OfflineOutboxRecord>();
 
+	/** Seeds the test repository with records indexed by mutation id. */
 	constructor(records: OfflineOutboxRecord[] = []) {
 		for (const record of records) this.records.set(record.id, record);
 	}
 
+	/** Settles a matching id and timestamp, returning false when that version is absent. */
 	async updateIfCurrent(
 		expected: OfflineOutboxRecord,
 		replacement: OfflineOutboxRecord | null,
@@ -57,10 +59,12 @@ class MemoryOutboxRepository implements OutboxRepository {
 		return true;
 	}
 
+	/** Returns a new array of stored record references without imposing replay order. */
 	async getAll(): Promise<OfflineOutboxRecord[]> {
 		return [...this.records.values()];
 	}
 
+	/** Finds the current record for a dedupe key, or undefined when no match exists. */
 	async getByDedupeKey(
 		dedupeKey: string,
 	): Promise<OfflineOutboxRecord | undefined> {
@@ -69,17 +73,25 @@ class MemoryOutboxRepository implements OutboxRepository {
 		);
 	}
 
+	/** Stores a record while removing any different id with the same dedupe key. */
 	async put(record: OfflineOutboxRecord): Promise<void> {
 		const existing = await this.getByDedupeKey(record.dedupeKey);
 		if (existing && existing.id !== record.id) this.records.delete(existing.id);
 		this.records.set(record.id, record);
 	}
 
+	/** Removes a stored mutation by id; missing ids are harmless. */
 	async delete(id: string): Promise<void> {
 		this.records.delete(id);
 	}
 }
 
+/**
+ * Creates a manually resolved promise for deterministic replay-race tests.
+ *
+ * @typeParam T - The value supplied when the test releases the promise.
+ * @returns The pending promise and its externally callable resolver.
+ */
 function deferred<T>(): {
 	promise: Promise<T>;
 	resolve: (value: T) => void;
@@ -91,6 +103,7 @@ function deferred<T>(): {
 	return { promise, resolve };
 }
 
+/** Creates configurable transport spies that succeed by default for both mutation kinds. */
 function createHandlers() {
 	return {
 		progress: vi.fn(
@@ -204,6 +217,133 @@ describe("OutboxReplayEngine", () => {
 		expect(second).toMatchObject({ attempted: 0, skippedNotDue: 2 });
 	});
 
+	test.each([
+		408, 429,
+	])("retries transient HTTP %s responses", async (status) => {
+		const repository = new MemoryOutboxRepository([progressRecord]);
+		const handlers = createHandlers();
+		handlers.progress.mockResolvedValueOnce({ status });
+		let now = new Date("2026-08-16T12:00:00.000Z");
+		const engine = createOutboxReplayEngine({
+			repository,
+			handlers,
+			onAuthInvalid: vi.fn(),
+			now: () => now,
+		});
+
+		await expect(engine.replay()).resolves.toMatchObject({
+			retryScheduled: 1,
+			failed: 0,
+		});
+		expect(repository.records.get(progressRecord.id)).toMatchObject({
+			status: "pending",
+			attempts: 1,
+			nextAttemptAt: "2026-08-16T12:00:01.000Z",
+		});
+		now = new Date("2026-08-16T12:00:01.000Z");
+		await expect(engine.replay()).resolves.toMatchObject({ succeeded: 1 });
+	});
+
+	test.each([
+		"deleted",
+		"replaced",
+		"updated",
+	] as const)("does not dispatch a waiting record that was %s", async (change) => {
+		const repository = new MemoryOutboxRepository([
+			libraryRecord,
+			progressRecord,
+		]);
+		const handlers = createHandlers();
+		handlers["add-to-library"].mockImplementation(async () => {
+			if (change === "deleted") {
+				await repository.delete(progressRecord.id);
+			} else {
+				await repository.put({
+					...progressRecord,
+					id: change === "replaced" ? "progress-2" : progressRecord.id,
+					updatedAt: "2026-08-16T12:00:00.000Z",
+				});
+			}
+			return { status: 204 };
+		});
+		const engine = createOutboxReplayEngine({
+			repository,
+			handlers,
+			onAuthInvalid: vi.fn(),
+		});
+
+		await expect(engine.replay()).resolves.toMatchObject({
+			attempted: 1,
+			succeeded: 1,
+			superseded: 1,
+		});
+		expect(handlers.progress).not.toHaveBeenCalled();
+		expect(engine.state.counts.total).toBe(change === "deleted" ? 0 : 1);
+	});
+
+	test("does not restore stale state or counts from an overlapping refresh", async () => {
+		const repository = new MemoryOutboxRepository([progressRecord]);
+		const handlers = createHandlers();
+		const started = deferred<void>();
+		const response = deferred<{ status: number }>();
+		const counts = deferred<OfflineOutboxRecord[]>();
+		handlers.progress.mockImplementation(() => {
+			started.resolve();
+			return response.promise;
+		});
+		const engine = createOutboxReplayEngine({
+			repository,
+			handlers,
+			onAuthInvalid: vi.fn(),
+		});
+		const replay = engine.replay();
+		await started.promise;
+		vi.spyOn(repository, "getAll").mockImplementationOnce(() => counts.promise);
+		const refresh = engine.refreshCounts();
+		response.resolve({ status: 204 });
+		await replay;
+		counts.resolve([progressRecord]);
+		await refresh;
+
+		expect(engine.state).toEqual({
+			isReplaying: false,
+			counts: { pending: 0, failed: 0, total: 0 },
+		});
+	});
+
+	test("keeps full queue reads bounded and emits current counts per record", async () => {
+		const records = Array.from({ length: 20 }, (_, index) => ({
+			...progressRecord,
+			id: `progress-${index}`,
+			dedupeKey: `progress:issue-${index}`,
+		}));
+		const repository = new MemoryOutboxRepository(records);
+		const getAll = vi.spyOn(repository, "getAll");
+		const events: OutboxReplayEvent[] = [];
+		const engine = createOutboxReplayEngine({
+			repository,
+			handlers: createHandlers(),
+			onAuthInvalid: vi.fn(),
+		});
+		engine.subscribe((event) => events.push(event));
+
+		await engine.replay();
+
+		expect(getAll.mock.calls.length).toBeLessThanOrEqual(3);
+		expect(events.filter((event) => event.type === "state")).toHaveLength(2);
+		expect(
+			events
+				.filter((event) => event.type === "record")
+				.map((event) => event.state.counts),
+		).toEqual(
+			records.map((_, index) => ({
+				pending: records.length - index - 1,
+				failed: 0,
+				total: records.length - index - 1,
+			})),
+		);
+	});
+
 	test("marks a permanent non-auth 4xx response as failed", async () => {
 		const repository = new MemoryOutboxRepository([progressRecord]);
 		const handlers = createHandlers();
@@ -262,18 +402,22 @@ describe("OutboxReplayEngine", () => {
 
 	test("does not overwrite a newer deduplicated mutation during replay", async () => {
 		const repository = new MemoryOutboxRepository([progressRecord]);
+		const started = deferred<void>();
 		const response = deferred<{ status: number }>();
 		const engine = createOutboxReplayEngine({
 			repository,
 			handlers: {
-				progress: () => response.promise,
+				progress: () => {
+					started.resolve();
+					return response.promise;
+				},
 				"add-to-library": async () => ({ status: 204 }),
 			},
 			onAuthInvalid: vi.fn(),
 		});
 
 		const replay = engine.replay();
-		await vi.waitFor(() => expect(engine.state.isReplaying).toBe(true));
+		await started.promise;
 		const newerRecord: ProgressOutboxRecord = {
 			...progressRecord,
 			id: "progress-2",
