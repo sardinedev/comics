@@ -1,5 +1,6 @@
 import {
 	type ComicCacheMetadataInput,
+	type DownloadIssueOptions,
 	downloadIssueToCache,
 } from "@components/ComicCache/comicCache.utils";
 import { unzip } from "fflate";
@@ -45,13 +46,16 @@ export function getMimeType(name: string): string {
  * Behavior:
  * - Returns the cached archive immediately on cache hit (progress jumps to 1).
  * - On cache miss, streams the response body to report download progress,
- *   then stores the archive in the cache for future offline reads.
+ *   then stores the archive in the cache for future offline reads. A failed
+ *   save (for example, storage is full) goes to `options.onSaveError` and
+ *   never blocks reading.
  * - Falls back to {@link Response.arrayBuffer} when the response has no
  *   readable stream body.
  *
  * @param issueId - Elasticsearch issue id used to build the download URL.
  * @param onProgress - Called with a ratio in `[0, 1]` as bytes are received.
  * @param metadata - Optional cache sidecar data written when the archive is stored.
+ * @param options - `onSaveError` receives a failed save instead of rejecting.
  * @returns The full CBZ archive bytes.
  * @throws If the network response is not OK or the body cannot be read.
  */
@@ -59,8 +63,9 @@ export async function downloadCbz(
 	issueId: string,
 	onProgress: (ratio: number) => void,
 	metadata?: ComicCacheMetadataInput,
+	options?: DownloadIssueOptions,
 ): Promise<Uint8Array> {
-	return downloadIssueToCache(issueId, onProgress, metadata);
+	return downloadIssueToCache(issueId, onProgress, metadata, options);
 }
 
 /**

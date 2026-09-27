@@ -7,7 +7,7 @@ import {
 	expect,
 	test,
 } from "vitest";
-import { KNOWN_OFFLINE_CACHE_NAMES } from "./cache-names";
+import { OFFLINE_CACHE_PREFIXES } from "./cache-names";
 import { clearOfflineData } from "./clear";
 import {
 	closeOfflineDatabase,
@@ -67,8 +67,8 @@ const progressMutation: OfflineOutboxRecord = {
 
 const testRunId = crypto.randomUUID();
 const TEST_DATABASE_NAME = `${OFFLINE_DATABASE_NAME}-database-browser-${testRunId}`;
-const TEST_CACHE_NAMES = KNOWN_OFFLINE_CACHE_NAMES.map(
-	(name) => `${name}-database-browser-${testRunId}`,
+const TEST_CACHE_NAMES = OFFLINE_CACHE_PREFIXES.map(
+	(prefix) => `${prefix}database-browser-${testRunId}`,
 );
 const UNRELATED_TEST_CACHE_NAME = `unrelated-cache-${testRunId}`;
 

@@ -6,15 +6,7 @@ const VERSION = "v1";
 const PAGE_CACHE = `comics-offline-pages-${VERSION}`;
 const ASSET_CACHE = `comics-offline-assets-${VERSION}`;
 const COVER_CACHE = "comics-offline-covers-v1";
-const OFFLINE_DATABASE = "comics-offline";
 const PWA_CACHE_PREFIXES = ["comics-offline-pages-", "comics-offline-assets-"];
-const KNOWN_OFFLINE_CACHES = [
-	"comic-reader-v1",
-	"comic-reader-v2",
-	PAGE_CACHE,
-	ASSET_CACHE,
-	COVER_CACHE,
-];
 
 const {
 	SHELL_PAGES,
@@ -23,7 +15,6 @@ const {
 	getDocumentFallbackPath,
 	isCacheableAssetResponse,
 	isCacheableDocumentResponse,
-	isConfirmedAuthInvalidResponse,
 	isDocumentRequest,
 	isOfflineCoverRequest,
 	isStaticAssetRequest,
@@ -91,24 +82,13 @@ self.addEventListener("message", (event) => {
 		);
 		return;
 	}
-
-	if (message.type === "PURGE_OFFLINE") {
-		event.waitUntil(
-			purgeOfflineData().finally(() =>
-				reply(event, { type: "PURGE_RESULT", ok: true }),
-			),
-		);
-	}
 });
 
+// An expired session never purges downloads here: redirects to /login are
+// returned as-is and never cached. Only explicit logout purges (the page does it).
 async function networkFirstDocument(request, url) {
 	try {
 		const response = await fetch(request);
-		if (isConfirmedAuthInvalidResponse(response, self.location.origin)) {
-			await purgeOfflineData();
-			await broadcast({ type: "AUTH_INVALIDATED" });
-			return response;
-		}
 		if (isCacheableDocumentResponse(url, response)) {
 			const cache = await caches.open(PAGE_CACHE);
 			await cacheDocument(cache, url, response.clone());
@@ -179,11 +159,6 @@ async function warmOfflineShell() {
 			headers: { Accept: "text/html" },
 		});
 		const response = await fetch(request);
-		if (isConfirmedAuthInvalidResponse(response, self.location.origin)) {
-			await purgeOfflineData();
-			await broadcast({ type: "AUTH_INVALIDATED" });
-			throw new Error(`Authentication expired while warming ${url.pathname}`);
-		}
 		if (!isCacheableDocumentResponse(url, response)) {
 			throw new Error(`Could not cache ${url.pathname}: ${response.status}`);
 		}
@@ -305,30 +280,6 @@ async function deleteObsoletePwaCaches() {
 			)
 			.map((name) => caches.delete(name)),
 	);
-}
-
-async function purgeOfflineData() {
-	await Promise.all([
-		...KNOWN_OFFLINE_CACHES.map((name) => caches.delete(name)),
-		deleteDatabase(OFFLINE_DATABASE),
-	]);
-}
-
-function deleteDatabase(name) {
-	return new Promise((resolve) => {
-		const request = indexedDB.deleteDatabase(name);
-		request.addEventListener("success", () => resolve());
-		request.addEventListener("error", () => resolve());
-		request.addEventListener("blocked", () => resolve());
-	});
-}
-
-async function broadcast(message) {
-	const windows = await self.clients.matchAll({
-		type: "window",
-		includeUncontrolled: true,
-	});
-	for (const client of windows) client.postMessage(message);
 }
 
 function reply(event, message) {

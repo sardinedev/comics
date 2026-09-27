@@ -1,7 +1,6 @@
 import {
 	COMIC_CACHE_NAME,
 	getComicMetadataUrl,
-	LEGACY_COMIC_CACHE_NAME,
 } from "@components/ComicCache/comicCache.utils";
 import { zipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -109,7 +108,6 @@ describe("downloadCbz", () => {
 	// Scope cache writes to a unique URL per test so they don't bleed across
 	// runs in the shared comic bundle Cache Storage buckets.
 	const issueId = `test-${crypto.randomUUID()}`;
-	const url = `/api/comic/${issueId}/download`;
 	const cbz = buildCbz({ "001.png": PNG_BYTES });
 
 	let fetchSpy: ReturnType<typeof vi.spyOn>;
@@ -130,12 +128,10 @@ describe("downloadCbz", () => {
 		fetchSpy.mockRestore();
 		// Clear any cache entries we wrote across all variants of this test's URL.
 		if (typeof caches !== "undefined") {
-			for (const cacheName of [COMIC_CACHE_NAME, LEGACY_COMIC_CACHE_NAME]) {
-				const cache = await caches.open(cacheName);
-				for (const id of [issueId, `${issueId}-err`, `${issueId}-no-len`]) {
-					await cache.delete(`/api/comic/${id}/download`);
-					await cache.delete(getComicMetadataUrl(id));
-				}
+			const cache = await caches.open(COMIC_CACHE_NAME);
+			for (const id of [issueId, `${issueId}-err`, `${issueId}-no-len`]) {
+				await cache.delete(`/api/comic/${id}/download`);
+				await cache.delete(getComicMetadataUrl(id));
 			}
 		}
 	});
@@ -160,29 +156,12 @@ describe("downloadCbz", () => {
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
 		expect(progress.at(-1)).toBeCloseTo(1, 5);
 
-		// Second call should hit the cache (no new fetch).
-		const out2 = await downloadCbz(issueId, () => {});
+		// Second call should hit the cache (no new fetch) and jump to 100%.
+		const hitProgress: number[] = [];
+		const out2 = await downloadCbz(issueId, (r) => hitProgress.push(r));
 		expect(out2).toEqual(cbz);
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
-	});
-
-	test("returns the cached archive without calling fetch on hit", async () => {
-		// Pre-populate the cache directly so we can prove fetch is bypassed.
-		const cache = await caches.open(COMIC_CACHE_NAME);
-		await cache.put(
-			url,
-			new Response(cbz.buffer as ArrayBuffer, {
-				headers: { "Content-Type": "application/octet-stream" },
-			}),
-		);
-
-		const progress: number[] = [];
-		const out = await downloadCbz(issueId, (r) => progress.push(r));
-
-		expect(out).toEqual(cbz);
-		expect(fetchSpy).not.toHaveBeenCalled();
-		// Cache hits jump straight to 100%.
-		expect(progress).toEqual([1]);
+		expect(hitProgress).toEqual([1]);
 	});
 
 	test("succeeds without Content-Length (skips progress updates)", async () => {

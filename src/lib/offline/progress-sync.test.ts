@@ -1,3 +1,4 @@
+import { expiredSessionResponse } from "@util/mocks/expiredSession.mock";
 import { describe, expect, test, vi } from "vitest";
 import type { OutboxRepository } from "./outbox";
 import {
@@ -281,7 +282,7 @@ describe("createProgressReplayEngine", () => {
 		);
 	});
 
-	test("purges rather than acknowledging a followed login redirect", async () => {
+	test("pauses rather than acknowledging a followed login redirect", async () => {
 		const response = new Response("<html>Log in</html>", {
 			headers: { "Content-Type": "text/html" },
 		});
@@ -291,23 +292,20 @@ describe("createProgressReplayEngine", () => {
 		});
 		const outbox = new MemoryOutboxRepository([mutation]);
 		const progressRepository = new MemoryProgressRepository([progress]);
-		const onAuthInvalid = vi.fn();
 		const engine = createProgressReplayEngine({
 			outboxRepository: outbox,
 			progressRepository,
 			fetcher: async () => response,
-			onAuthInvalid,
 		});
 		expect(await engine.replay()).toMatchObject({
 			authInvalid: true,
 			succeeded: 0,
 		});
-		expect(onAuthInvalid).toHaveBeenCalledOnce();
 		expect(progressRepository.records.get(progress.issueId)).toEqual(progress);
 		expect(outbox.records.get(mutation.id)).toEqual(mutation);
 	});
 
-	test("purges and stops on an auth-invalid response", async () => {
+	test("pauses and stops on a confirmed auth-invalid response", async () => {
 		const laterMutation: ProgressOutboxRecord = {
 			...mutation,
 			id: "mutation-2",
@@ -317,20 +315,40 @@ describe("createProgressReplayEngine", () => {
 			updatedAt: "2026-08-16T13:00:00.000Z",
 		};
 		const outbox = new MemoryOutboxRepository([mutation, laterMutation]);
-		const onAuthInvalid = vi.fn();
-		const fetcher = vi.fn(async () => new Response(null, { status: 401 }));
+		const fetcher = vi.fn(async () => expiredSessionResponse());
 		const engine = createProgressReplayEngine({
 			outboxRepository: outbox,
 			progressRepository: new MemoryProgressRepository([progress]),
 			fetcher,
-			onAuthInvalid,
 		});
 
 		await expect(engine.replay()).resolves.toMatchObject({
 			attempted: 1,
 			authInvalid: true,
 		});
-		expect(onAuthInvalid).toHaveBeenCalledOnce();
 		expect(fetcher).toHaveBeenCalledOnce();
+		expect(outbox.records.size).toBe(2);
+	});
+
+	test("retries progress on a bare 403 without pausing sync", async () => {
+		const outbox = new MemoryOutboxRepository([mutation]);
+		const progressRepository = new MemoryProgressRepository([progress]);
+		const engine = createProgressReplayEngine({
+			outboxRepository: outbox,
+			progressRepository,
+			fetcher: async () => new Response(null, { status: 403 }),
+		});
+
+		await expect(engine.replay()).resolves.toMatchObject({
+			authInvalid: false,
+			retryScheduled: 1,
+		});
+		expect(outbox.records.get(mutation.id)).toMatchObject({
+			status: "pending",
+			attempts: 1,
+		});
+		expect(progressRepository.records.get(progress.issueId)?.syncStatus).toBe(
+			"pending",
+		);
 	});
 });

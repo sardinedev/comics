@@ -16,6 +16,9 @@ Configured in `tsconfig.json`. Prefer using them:
 - `@util/*` → `src/util/*`
 - `@components/*` → `src/components/*`
 - `@layouts/*` → `src/layouts/*`
+- `@data/*` → `src/data/*`
+- `@lib/*` → `src/lib/*`
+- `@stores/*` → `src/stores/*`
 
 ## Integration logic
 

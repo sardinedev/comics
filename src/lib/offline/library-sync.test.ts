@@ -1,3 +1,4 @@
+import { expiredSessionResponse } from "@util/mocks/expiredSession.mock";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { OfflineOutboxRecord } from "./types";
 
@@ -42,10 +43,7 @@ vi.mock("./database", () => ({
 	},
 }));
 
-vi.mock("./clear", () => ({
-	clearOfflineData: vi.fn(async () => records.clear()),
-}));
-
+import { $syncAuthRequired } from "@stores/offline.store";
 import {
 	getQueuedAddToLibrary,
 	queueAddToLibrary,
@@ -56,6 +54,7 @@ import { createOutboxReplayEngine } from "./outbox";
 
 beforeEach(() => {
 	records.clear();
+	$syncAuthRequired.set(false);
 	vi.stubGlobal("navigator", { onLine: true });
 });
 
@@ -112,20 +111,31 @@ describe("add-to-library outbox", () => {
 
 	test.each([
 		[503, "pending"],
+		[429, "pending"],
 		[422, "failed"],
-		[401, undefined],
+		[401, "pending"],
+		[403, "pending"],
 	] as const)("classifies HTTP %s without losing the action", async (status, queuedStatus) => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			new Response("{}", { status, statusText: `Status ${status}` }),
 		);
 
 		const result = await requestAddToLibrary("series-1");
-		expect(result.status).toBe(
-			status === 422 || status === 401 ? "failed" : "pending",
-		);
+		expect(result.status).toBe(queuedStatus);
 		expect((await getQueuedAddToLibrary("series-1"))?.status).toBe(
 			queuedStatus,
 		);
+		expect($syncAuthRequired.get()).toBe(false);
+	});
+
+	test("keeps the action and asks for sign-in on a confirmed auth-invalid response", async () => {
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(expiredSessionResponse());
+
+		await expect(requestAddToLibrary("series-1")).resolves.toMatchObject({
+			status: "pending",
+		});
+		expect((await getQueuedAddToLibrary("series-1"))?.status).toBe("pending");
+		expect($syncAuthRequired.get()).toBe(true);
 	});
 
 	test("retains an ambiguous network failure for replay", async () => {
@@ -153,7 +163,6 @@ describe("add-to-library outbox", () => {
 				progress: async () => ({ status: 204 }),
 				"add-to-library": replayAddToLibrary,
 			},
-			onAuthInvalid: vi.fn(),
 		});
 
 		await expect(engine.replay()).resolves.toMatchObject({ succeeded: 1 });
@@ -162,21 +171,16 @@ describe("add-to-library outbox", () => {
 	});
 
 	test("lets the generic engine own auth invalidation", async () => {
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response("{}", { status: 403 }),
-		);
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(expiredSessionResponse());
 		await queueAddToLibrary("series-1");
-		const onAuthInvalid = vi.fn();
 		const engine = createOutboxReplayEngine({
 			handlers: {
 				progress: async () => ({ status: 204 }),
 				"add-to-library": replayAddToLibrary,
 			},
-			onAuthInvalid,
 		});
 
 		await expect(engine.replay()).resolves.toMatchObject({ authInvalid: true });
-		expect(onAuthInvalid).toHaveBeenCalledOnce();
 		expect(records.size).toBe(1);
 	});
 });

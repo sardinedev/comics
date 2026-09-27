@@ -1,5 +1,9 @@
 import { clearOfflineData } from "@lib/offline";
 import {
+	isOfflineStorageSupported,
+	offlineComics,
+} from "@lib/offline/database";
+import {
 	initialiseLibrarySync,
 	replayAddToLibrary,
 } from "@lib/offline/library-sync";
@@ -8,9 +12,9 @@ import {
 	type OutboxReplayEngine,
 } from "@lib/offline/outbox";
 import { createProgressReplayHandler } from "@lib/offline/progress-sync";
+import { requestPersistentStorage } from "@lib/offline/storage";
 import {
 	derivePwaUiStatus,
-	isConfirmedAuthInvalidResponse,
 	type PwaUiStatus,
 	shouldActivateWaitingWorker,
 } from "./lifecycle";
@@ -42,7 +46,6 @@ interface PwaController {
 
 declare global {
 	interface Window {
-		__comicsNativeFetch?: typeof window.fetch;
 		__comicsPwa?: PwaController;
 	}
 }
@@ -173,33 +176,14 @@ function observeUpdates(
 	});
 }
 
-function installAuthInvalidationFetchHook(): void {
-	if (window.__comicsNativeFetch) return;
-	const nativeFetch = window.fetch.bind(window);
-	window.__comicsNativeFetch = nativeFetch;
-	window.fetch = async (...args: Parameters<typeof fetch>) => {
-		const response = await nativeFetch(...args);
-		if (isConfirmedAuthInvalidResponse(response, window.location.origin)) {
-			await purgeOfflineContent().catch((error) =>
-				console.warn("[pwa] Could not clear invalidated offline data", error),
-			);
-		}
-		return response;
-	};
-}
-
 function replayOutboxWhenOnline(): void {
 	if (!navigator.onLine) return;
 	if (!outboxReplayEngine) {
 		outboxReplayEngine = createOutboxReplayEngine({
 			handlers: {
-				progress: createProgressReplayHandler({
-					fetcher: (...args) =>
-						(window.__comicsNativeFetch ?? window.fetch)(...args),
-				}),
+				progress: createProgressReplayHandler(),
 				"add-to-library": replayAddToLibrary,
 			},
-			onAuthInvalid: purgeOfflineContent,
 		});
 		initialiseLibrarySync(outboxReplayEngine);
 	}
@@ -208,6 +192,12 @@ function replayOutboxWhenOnline(): void {
 		.catch((error) =>
 			console.warn("[pwa] Could not replay queued offline actions", error),
 		);
+}
+
+/** Covers comics downloaded before persistence was first requested. */
+async function persistExistingDownloads(): Promise<void> {
+	if (!isOfflineStorageSupported()) return;
+	if ((await offlineComics.count()) > 0) await requestPersistentStorage();
 }
 
 function bindLogoutPurge(): void {
@@ -229,18 +219,12 @@ function bindLogoutPurge(): void {
 	}
 }
 
+/** Logout-only purge of every downloaded comic, queued action and cached page. */
 export async function purgeOfflineContent(): Promise<void> {
 	const controller = getController();
 	controller.ready = false;
 	renderStatus(controller);
-
-	const registration = controller.registration;
-	const worker = registration ? workerFor(registration) : null;
-	const workerPurge = worker
-		? sendMessage(worker, { type: "PURGE_OFFLINE" }).catch(() => undefined)
-		: Promise.resolve(undefined);
-
-	await Promise.all([clearOfflineData(), workerPurge]);
+	await clearOfflineData();
 }
 
 export async function initialisePwa(): Promise<void> {
@@ -250,7 +234,6 @@ export async function initialisePwa(): Promise<void> {
 	if (controller.started) return;
 	controller.started = true;
 
-	installAuthInvalidationFetchHook();
 	window.addEventListener("offline", () => renderStatus(controller));
 	window.addEventListener("online", () => {
 		void warmOfflineShell(controller);
@@ -264,6 +247,9 @@ export async function initialisePwa(): Promise<void> {
 		renderStatus(controller);
 	});
 	replayOutboxWhenOnline();
+	void persistExistingDownloads().catch((error) =>
+		console.warn("[pwa] Could not request persistent storage", error),
+	);
 
 	if (!("serviceWorker" in navigator)) return;
 	const updateWasPendingAtLaunch =
@@ -279,12 +265,6 @@ export async function initialisePwa(): Promise<void> {
 			registration,
 			updateWasPendingAtLaunch || Boolean(registration.waiting),
 		);
-
-		navigator.serviceWorker.addEventListener("message", (event) => {
-			if (event.data?.type === "AUTH_INVALIDATED") {
-				void purgeOfflineContent();
-			}
-		});
 
 		await navigator.serviceWorker.ready;
 		await refreshReadiness(controller);

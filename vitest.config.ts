@@ -10,6 +10,7 @@ const aliases = [
 	{ find: /^@util\/(.*)/, replacement: `${srcRoot}util/$1` },
 	{ find: /^@data\/(.*)/, replacement: `${srcRoot}data/$1` },
 	{ find: /^@lib\/(.*)/, replacement: `${srcRoot}lib/$1` },
+	{ find: /^@stores\/(.*)/, replacement: `${srcRoot}stores/$1` },
 ];
 
 export default defineConfig({

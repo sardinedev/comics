@@ -1,4 +1,4 @@
-import { KNOWN_OFFLINE_CACHE_NAMES } from "./cache-names";
+import { OFFLINE_CACHE_PREFIXES } from "./cache-names";
 import {
 	closeOfflineDatabase,
 	getOfflineDatabaseName,
@@ -26,10 +26,18 @@ async function deleteOfflineDatabase(): Promise<boolean> {
 	});
 }
 
+async function ownedCacheNames(): Promise<string[]> {
+	const names = await caches.keys();
+	return names.filter((name) =>
+		OFFLINE_CACHE_PREFIXES.some((prefix) => name.startsWith(prefix)),
+	);
+}
+
 async function deleteOfflineCaches(
-	cacheNames: readonly string[],
+	requestedNames: readonly string[] | undefined,
 ): Promise<string[]> {
 	if (typeof caches === "undefined") return [];
+	const cacheNames = requestedNames ?? (await ownedCacheNames());
 
 	const results = await Promise.all(
 		cacheNames.map(async (cacheName) => ({
@@ -45,14 +53,15 @@ async function deleteOfflineCaches(
 
 /**
  * Permanently removes every IndexedDB and Cache Storage bucket owned by
- * offline mode. Authentication code can call this without importing UI code.
+ * offline mode. Cache Storage is shared with the service worker, so this is
+ * the single purge path. Only explicit logout calls it.
  */
 export async function clearOfflineData(
 	options: ClearOfflineDataOptions = {},
 ): Promise<ClearOfflineDataResult> {
 	const [databaseDeleted, deletedCaches] = await Promise.all([
 		deleteOfflineDatabase(),
-		deleteOfflineCaches(options.cacheNames ?? KNOWN_OFFLINE_CACHE_NAMES),
+		deleteOfflineCaches(options.cacheNames),
 	]);
 
 	return { databaseDeleted, deletedCaches };

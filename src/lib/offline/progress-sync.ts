@@ -1,5 +1,4 @@
-import { isConfirmedAuthInvalidResponse } from "./auth-response";
-import { clearOfflineData } from "./clear";
+import { flagIfSessionExpired } from "@stores/offline.store";
 import {
 	offlineOutbox,
 	offlineProgress,
@@ -7,8 +6,11 @@ import {
 } from "./database";
 import {
 	createOutboxReplayEngine,
+	isPermanentFailureStatus,
+	type OutboxHandlerResult,
 	type OutboxReplayEngine,
 	type OutboxRepository,
+	SESSION_EXPIRED_RESULT,
 } from "./outbox";
 import type {
 	OfflineOutboxRecord,
@@ -49,7 +51,6 @@ export type ProgressReplayHandlerOptions = {
 
 export type ProgressReplayEngineOptions = ProgressReplayHandlerOptions & {
 	outboxRepository?: OutboxRepository;
-	onAuthInvalid?: () => void | Promise<void>;
 	now?: () => Date;
 	retryDelayMs?: (attempts: number) => number;
 };
@@ -161,7 +162,7 @@ function isAuthoritativeProgress(
 /** Creates the transport handler consumed by the generic outbox engine. */
 export function createProgressReplayHandler(
 	options: ProgressReplayHandlerOptions = {},
-): (record: ProgressOutboxRecord) => Promise<Response> {
+): (record: ProgressOutboxRecord) => Promise<OutboxHandlerResult> {
 	const fetcher = options.fetcher ?? fetch;
 	const progressRepository = options.progressRepository ?? offlineProgress;
 
@@ -180,9 +181,7 @@ export function createProgressReplayHandler(
 			},
 		);
 
-		if (isConfirmedAuthInvalidResponse(response, globalThis.location?.origin)) {
-			return new Response(null, { status: 401, statusText: "Session expired" });
-		}
+		if (flagIfSessionExpired(response)) return SESSION_EXPIRED_RESULT;
 
 		if (response.ok) {
 			const body = (await response
@@ -191,10 +190,7 @@ export function createProgressReplayHandler(
 				.catch(() => ({}))) as ProgressSyncResponse;
 			if (body.stale === true) {
 				if (!isAuthoritativeProgress(body)) {
-					return new Response(null, {
-						status: 502,
-						statusText: "Invalid stale progress response",
-					});
+					return { status: 502, statusText: "Invalid stale progress response" };
 				}
 				const current = await progressRepository.get(record.payload.issueId);
 				if (current?.updatedAt === record.payload.updatedAt) {
@@ -209,12 +205,7 @@ export function createProgressReplayHandler(
 			} else {
 				await updateProgressStatus(record, progressRepository, "synced");
 			}
-		} else if (
-			response.status >= 400 &&
-			response.status < 500 &&
-			response.status !== 401 &&
-			response.status !== 403
-		) {
+		} else if (isPermanentFailureStatus(response.status)) {
 			await updateProgressStatus(
 				record,
 				progressRepository,
@@ -223,7 +214,7 @@ export function createProgressReplayHandler(
 			);
 		}
 
-		return response;
+		return { status: response.status, statusText: response.statusText };
 	};
 }
 
@@ -255,10 +246,6 @@ export function createProgressReplayEngine(
 		handlers: {
 			progress: createProgressReplayHandler(options),
 			"add-to-library": async () => ({ status: 500 }),
-		},
-		onAuthInvalid: async () => {
-			if (options.onAuthInvalid) await options.onAuthInvalid();
-			else await clearOfflineData();
 		},
 		now: options.now,
 		retryDelayMs: options.retryDelayMs,

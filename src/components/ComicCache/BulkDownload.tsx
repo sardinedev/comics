@@ -1,4 +1,6 @@
 import { Icon } from "@components/Icon/Icon";
+import { SessionExpiredError } from "@lib/offline/auth-response";
+import { isQuotaExceededError } from "@lib/offline/storage";
 import {
 	useCallback,
 	useEffect,
@@ -28,6 +30,9 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
 	const [failedIssues, setFailedIssues] = useState<ComicCacheMetadataInput[]>(
 		[],
 	);
+	const [stopReason, setStopReason] = useState<
+		"storage-full" | "session-expired" | null
+	>(null);
 	const [phase, setPhase] = useState<DownloadPhase>("checking");
 	const [activeIssue, setActiveIssue] =
 		useState<ComicCacheMetadataInput | null>(null);
@@ -117,12 +122,13 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
 
 			setPhase("downloading");
 			setFailedIssues([]);
+			setStopReason(null);
 			setCompletedThisRun(0);
 			setTotalThisRun(targetIssues.length);
 
 			const failures: ComicCacheMetadataInput[] = [];
 
-			for (const issue of targetIssues) {
+			for (const [index, issue] of targetIssues.entries()) {
 				setActiveIssue(issue);
 				setActiveProgress(0);
 
@@ -133,7 +139,19 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
 						issue,
 					);
 					setCachedIds((current) => new Set(current).add(issue.issueId));
-				} catch {
+				} catch (error) {
+					const reason = isQuotaExceededError(error)
+						? "storage-full"
+						: error instanceof SessionExpiredError
+							? "session-expired"
+							: null;
+					if (reason) {
+						// Every remaining download would fail the same way.
+						failures.push(...targetIssues.slice(index));
+						setFailedIssues([...failures]);
+						setStopReason(reason);
+						break;
+					}
 					failures.push(issue);
 					setFailedIssues([...failures]);
 				} finally {
@@ -257,8 +275,34 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
 							role="alert"
 							class="border-t border-slate-800 p-4 text-xs font-semibold text-red-400"
 						>
-							Failed to cache {failedIssues.length} issue
-							{failedIssues.length === 1 ? "" : "s"}.
+							{stopReason === "storage-full" ? (
+								<>
+									Storage is full. Free space on the{" "}
+									<a
+										href="/cache"
+										class="underline transition-colors hover:text-red-300"
+									>
+										Cache page
+									</a>
+									, then retry.
+								</>
+							) : stopReason === "session-expired" ? (
+								<>
+									Your session has expired.{" "}
+									<a
+										href="/login"
+										class="underline transition-colors hover:text-red-300"
+									>
+										Sign in again
+									</a>{" "}
+									to keep downloading.
+								</>
+							) : (
+								<>
+									Failed to cache {failedIssues.length} issue
+									{failedIssues.length === 1 ? "" : "s"}.
+								</>
+							)}
 						</p>
 					)}
 				</div>
