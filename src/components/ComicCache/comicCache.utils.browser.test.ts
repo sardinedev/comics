@@ -1,5 +1,7 @@
 import { OFFLINE_COVER_CACHE_NAME } from "@lib/offline/cache-names";
 import type { OfflineComicRecord } from "@lib/offline/types";
+import { $syncAuthRequired } from "@stores/offline.store";
+import { expiredSessionResponse } from "@util/mocks/expiredSession.mock";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 function assertDefined<T>(
@@ -424,6 +426,19 @@ describe("comic cache utilities", () => {
 		expect(
 			await coverCache.match(getCachedComicCoverUrl(issueId)),
 		).toBeUndefined();
+	});
+
+	test("asks for sign-in and saves nothing when the session expired", async () => {
+		const issueId = trackIssueId(`expired-${crypto.randomUUID()}`);
+		$syncAuthRequired.set(false);
+		fetchSpy.mockResolvedValueOnce(expiredSessionResponse());
+
+		await expect(
+			downloadIssueToCache(issueId, () => {}, metadataFor(issueId)),
+		).rejects.toThrow("session has expired");
+		expect($syncAuthRequired.get()).toBe(true);
+		expect(await isIssueCached(issueId)).toBe(false);
+		$syncAuthRequired.set(false);
 	});
 
 	test("downloads and commits archive, metadata, and cover bytes", async () => {

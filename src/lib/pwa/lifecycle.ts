@@ -25,5 +25,3 @@ export function shouldActivateWaitingWorker({
 }): boolean {
 	return hasWaitingWorker && updateWasPendingAtLaunch;
 }
-
-export { isConfirmedAuthInvalidResponse } from "../offline/auth-response";

@@ -403,9 +403,34 @@ describe("OutboxReplayEngine", () => {
 		});
 	});
 
+	test("pauses replay and keeps records on a confirmed auth-invalid result", async () => {
+		const repository = new MemoryOutboxRepository([
+			libraryRecord,
+			progressRecord,
+		]);
+		const onAuthInvalid = vi.fn();
+		const progressHandler = vi.fn(async () => ({ status: 204 }));
+		const engine = createOutboxReplayEngine({
+			repository,
+			handlers: {
+				progress: progressHandler,
+				"add-to-library": async () => ({ status: 401, authInvalid: true }),
+			},
+			onAuthInvalid,
+		});
+
+		const summary = await engine.replay();
+
+		expect(summary).toMatchObject({ attempted: 1, authInvalid: true });
+		expect(onAuthInvalid).toHaveBeenCalledWith(libraryRecord);
+		expect(progressHandler).not.toHaveBeenCalled();
+		expect(repository.records.get(libraryRecord.id)).toEqual(libraryRecord);
+		expect(repository.records.size).toBe(2);
+	});
+
 	test.each([
 		401, 403,
-	] as const)("invokes auth invalidation and stops replay on %s", async (status) => {
+	] as const)("marks a bare %s failed without pausing replay", async (status) => {
 		const repository = new MemoryOutboxRepository([
 			libraryRecord,
 			progressRecord,
@@ -423,10 +448,10 @@ describe("OutboxReplayEngine", () => {
 
 		const summary = await engine.replay();
 
-		expect(summary).toMatchObject({ attempted: 1, authInvalid: true });
-		expect(onAuthInvalid).toHaveBeenCalledWith(libraryRecord, status);
-		expect(progressHandler).not.toHaveBeenCalled();
-		expect(repository.records.size).toBe(2);
+		expect(summary).toMatchObject({ attempted: 2, authInvalid: false });
+		expect(onAuthInvalid).not.toHaveBeenCalled();
+		expect(progressHandler).toHaveBeenCalledOnce();
+		expect(repository.records.get(libraryRecord.id)?.status).toBe("failed");
 	});
 
 	test("does not overwrite a newer deduplicated mutation during replay", async () => {

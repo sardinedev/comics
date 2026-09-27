@@ -3,6 +3,7 @@ import {
 	isOfflineStorageSupported,
 	offlineComics,
 } from "@lib/offline/database";
+import { getStorageSummary, type StorageSummary } from "@lib/offline/storage";
 import type { OfflineComicRecord } from "@lib/offline/types";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import {
@@ -88,6 +89,7 @@ export function ComicCacheManager() {
 	const [error, setError] = useState<string | null>(null);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [state, setState] = useState<LoadState>("loading");
+	const [storage, setStorage] = useState<StorageSummary | null>(null);
 
 	const loadComics = useCallback(async () => {
 		if (!isOfflineStorageSupported()) {
@@ -117,6 +119,7 @@ export function ComicCacheManager() {
 				),
 			);
 			setComics(cachedComics);
+			setStorage(await getStorageSummary().catch(() => null));
 			setSelectedIds((current) => {
 				const next = new Set<string>();
 				const cachedIds = new Set(cachedComics.map((comic) => comic.issueId));
@@ -299,6 +302,15 @@ export function ComicCacheManager() {
 					<p class="mt-2 text-3xl font-black text-white">
 						{formatBytes(totalSize)}
 					</p>
+					{storage && storage.quota > 0 && (
+						<p class="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+							{formatBytes(storage.usage)} of {formatBytes(storage.quota)} used
+							{" · "}
+							{storage.persisted
+								? "Kept by this browser"
+								: "Browser may clear when space is low"}
+						</p>
+					)}
 				</div>
 				<div class="bg-slate-900 p-4">
 					<p class="text-[10px] font-bold uppercase tracking-widest text-slate-600">

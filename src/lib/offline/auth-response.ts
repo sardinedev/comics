@@ -1,3 +1,5 @@
+import { AUTH_INVALID_HEADER } from "@lib/auth/headers";
+
 function isAuthPath(pathname: string): boolean {
 	return (
 		pathname === "/login" ||
@@ -20,7 +22,7 @@ export function isConfirmedAuthInvalidResponse(
 	response: Response,
 	expectedOrigin?: string,
 ): boolean {
-	if (response.headers.get("x-comics-auth-invalid") === "true") return true;
+	if (response.headers.get(AUTH_INVALID_HEADER) === "true") return true;
 	if (!response.redirected) return false;
 	try {
 		const url = new URL(response.url);

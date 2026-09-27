@@ -4,7 +4,9 @@ import {
 	OFFLINE_COVER_CACHE_NAME,
 } from "@lib/offline/cache-names";
 import { offlineComics } from "@lib/offline/database";
+import { requestPersistentStorage } from "@lib/offline/storage";
 import type { OfflineComicRecord } from "@lib/offline/types";
+import { flagIfSessionExpired } from "@stores/offline.store";
 
 /** Current Cache Storage bucket for complete offline comic bundles. */
 export const COMIC_CACHE_NAME = COMIC_ARCHIVE_CACHE_NAME;
@@ -675,6 +677,38 @@ async function readDownloadResponse(
 }
 
 /**
+ * Commits the bundle, then asks the browser to keep it. When `onSaveError` is
+ * given, a failed save is reported there and the downloaded bytes are
+ * returned anyway; otherwise the error is rethrown.
+ */
+async function saveForOffline(
+	cache: Cache,
+	cbz: Uint8Array,
+	metadata: ComicCacheMetadataInput,
+	{ onSaveError }: DownloadIssueOptions,
+): Promise<Uint8Array> {
+	try {
+		const committed = await commitBundle(cache, cbz, metadata);
+		void requestPersistentStorage().catch(() => false);
+		return committed;
+	} catch (error) {
+		if (!onSaveError) throw error;
+		console.warn("[offline] Could not save comic for offline reading", error);
+		onSaveError(error);
+		return cbz;
+	}
+}
+
+export type DownloadIssueOptions = {
+	/**
+	 * Receives a failed save (for example, storage is full) instead of the
+	 * download rejecting. The reader uses this so reading never depends on
+	 * saving.
+	 */
+	onSaveError?: (error: unknown) => void;
+};
+
+/**
  * Downloads and atomically commits the required archive + metadata records.
  * Optional cover failures produce a readable bundle with a pending retry state.
  */
@@ -682,6 +716,7 @@ export async function downloadIssueToCache(
 	issueId: string,
 	onProgress: (ratio: number) => void,
 	metadata?: ComicCacheMetadataInput,
+	options: DownloadIssueOptions = {},
 ): Promise<Uint8Array> {
 	const url = getComicDownloadUrl(issueId);
 	const cache = await openComicCache();
@@ -697,7 +732,12 @@ export async function downloadIssueToCache(
 			? await readCachedComicMetadata(issueId, cache)
 			: null;
 		if (!existingMetadata && metadata && cache) {
-			const committedBytes = await commitBundle(cache, cbz, metadata);
+			const committedBytes = await saveForOffline(
+				cache,
+				cbz,
+				metadata,
+				options,
+			);
 			onProgress(1);
 			return committedBytes;
 		} else if (existingMetadata) {
@@ -717,6 +757,9 @@ export async function downloadIssueToCache(
 	buildCachedMetadata(metadata, 0);
 
 	const response = await fetch(url);
+	if (flagIfSessionExpired(response)) {
+		throw new Error("Your session has expired. Sign in again to download.");
+	}
 	if (!response.ok) {
 		const body = await response.json().catch(() => ({}));
 		throw new Error(
@@ -726,6 +769,6 @@ export async function downloadIssueToCache(
 	}
 
 	const cbz = await readDownloadResponse(response, onProgress);
-	if (cache) return commitBundle(cache, cbz, metadata);
-	return cbz;
+	if (!cache) return cbz;
+	return saveForOffline(cache, cbz, metadata, options);
 }

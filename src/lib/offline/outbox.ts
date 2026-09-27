@@ -8,7 +8,21 @@ import type {
 export type OutboxHandlerResult = {
 	status: number;
 	statusText?: string;
+	/** Set only when the server confirmed the session is invalid. */
+	authInvalid?: boolean;
 };
+
+/** Handler result for a confirmed invalid session; the record stays pending. */
+export const SESSION_EXPIRED_RESULT: OutboxHandlerResult = {
+	status: 401,
+	statusText: "Session expired",
+	authInvalid: true,
+};
+
+/** A 4xx that retrying cannot fix. 408 and 429 are transient. */
+export function isPermanentFailureStatus(status: number): boolean {
+	return status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
 
 export type OutboxReplayHandlers = {
 	/** Sends a progress mutation; thrown errors are treated as retryable failures. */
@@ -74,7 +88,6 @@ export type OutboxReplayEvent =
 	| {
 			type: "auth-invalid";
 			record: OfflineOutboxRecord;
-			status: 401 | 403;
 			state: OutboxReplayState;
 	  };
 
@@ -91,13 +104,11 @@ export type OutboxReplaySummary = {
 export type OutboxReplayOptions = {
 	handlers: OutboxReplayHandlers;
 	/**
-	 * Handles a 401 or 403 before replay stops, without the engine settling the record.
-	 * A rejected callback rejects replay; callers own any session cleanup.
+	 * Handles a confirmed invalid session before replay stops. The record stays
+	 * pending so it replays after the user signs in again.
+	 * A rejected callback rejects replay.
 	 */
-	onAuthInvalid: (
-		record: OfflineOutboxRecord,
-		status: 401 | 403,
-	) => void | Promise<void>;
+	onAuthInvalid?: (record: OfflineOutboxRecord) => void | Promise<void>;
 	repository?: OutboxRepository;
 	/** Supplies the clock for due checks and mutation timestamps; defaults to system time. */
 	now?: () => Date;
@@ -251,8 +262,9 @@ export class OutboxReplayEngine {
 	 * @returns The active pass's promise, shared by concurrent calls on this instance.
 	 * @remarks
 	 * Successful 2xx responses remove current records. Network errors, 408, 429,
-	 * and other non-4xx failures persist retry metadata; other non-auth 4xx responses
-	 * mark records failed. A 401 or 403 invokes auth handling and stops the pass.
+	 * and other non-4xx failures persist retry metadata; other 4xx responses,
+	 * including a bare 401/403, mark records failed. A confirmed invalid session
+	 * (`authInvalid`) invokes auth handling and stops the pass.
 	 * Not-yet-due and superseded records are skipped. New mutations and scheduled
 	 * retries require a later call; there is no automatic drain or retry timer.
 	 * @throws Rejects on repository or auth-callback failures, rather than transport failures.
@@ -328,25 +340,15 @@ export class OutboxReplayEngine {
 					continue;
 				}
 
-				if (response.status === 401 || response.status === 403) {
+				if (response.authInvalid) {
 					summary.authInvalid = true;
-					await this.#onAuthInvalid(record, response.status);
+					await this.#onAuthInvalid?.(record);
 					await this.refreshCounts();
-					this.#emit({
-						type: "auth-invalid",
-						record,
-						status: response.status,
-						state: this.state,
-					});
+					this.#emit({ type: "auth-invalid", record, state: this.state });
 					break;
 				}
 
-				if (
-					response.status >= 400 &&
-					response.status < 500 &&
-					response.status !== 408 &&
-					response.status !== 429
-				) {
+				if (isPermanentFailureStatus(response.status)) {
 					const outcome = await this.#markFailed(
 						record,
 						describeResponse(response),

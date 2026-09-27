@@ -1,5 +1,6 @@
 import { Icon } from "@components/Icon/Icon";
 import { saveReadingProgress } from "@lib/offline/progress-sync";
+import { isQuotaExceededError } from "@lib/offline/storage";
 import type { ProgressOutboxRecord } from "@lib/offline/types";
 import { useComputed, useSignal } from "@preact/signals";
 import type { TargetedMouseEvent, TargetedPointerEvent } from "preact";
@@ -43,6 +44,7 @@ export function ComicReader({
 	const currentPage = useSignal(0);
 	const downloadProgress = useSignal(0);
 	const error = useSignal<string | null>(null);
+	const saveError = useSignal<string | null>(null);
 	const imageMetrics = useSignal<ImageMetrics | null>(null);
 	const isFullscreen = useSignal(false);
 	const isPanning = useSignal(false);
@@ -344,6 +346,7 @@ export function ComicReader({
 		lastLocallySavedPageRef.current = null;
 		latestProgressMutationRef.current = null;
 		localSavePromiseRef.current = undefined;
+		saveError.value = null;
 
 		let cancelled = false;
 		let createdUrls: string[] = [];
@@ -357,6 +360,14 @@ export function ComicReader({
 							downloadProgress.value = ratio;
 						},
 						cacheMetadata,
+						{
+							onSaveError: (saveFailure) => {
+								if (cancelled) return;
+								saveError.value = isQuotaExceededError(saveFailure)
+									? "Storage is full, so this comic wasn’t saved for offline reading. Free space on the Cache page."
+									: "This comic couldn’t be saved for offline reading.";
+							},
+						},
 					),
 					resolveReaderStartPage(
 						issueId,
@@ -872,6 +883,26 @@ export function ComicReader({
 						<p class="text-sm font-semibold text-white">
 							Next issue isn’t downloaded
 						</p>
+					</div>
+				</div>
+			)}
+			{saveError.value && (
+				<div
+					class="pointer-events-none absolute inset-x-0 top-16 z-30 px-4"
+					role="status"
+				>
+					<div class="pointer-events-auto mx-auto flex max-w-xl items-center justify-between gap-2 border-b border-slate-700 bg-black/80 py-1 pl-4 pr-1 backdrop-blur-sm">
+						<p class="text-sm text-slate-300">{saveError.value}</p>
+						<button
+							type="button"
+							onClick={() => {
+								saveError.value = null;
+							}}
+							class="flex h-10 w-10 shrink-0 items-center justify-center text-white/80 hover:text-white"
+							aria-label="Dismiss"
+						>
+							<Icon name="close" />
+						</button>
 					</div>
 				</div>
 			)}

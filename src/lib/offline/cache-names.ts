@@ -7,11 +7,11 @@ export const OFFLINE_ASSET_CACHE_NAME = "comics-offline-assets-v1";
 export const OFFLINE_DOCUMENT_CACHE_NAME = "comics-offline-pages-v1";
 export const OFFLINE_COVER_CACHE_NAME = "comics-offline-covers-v1";
 
-/** Every Cache Storage bucket owned by offline mode and cleared on logout. */
-export const KNOWN_OFFLINE_CACHE_NAMES = [
-	LEGACY_COMIC_ARCHIVE_CACHE_NAME,
-	COMIC_ARCHIVE_CACHE_NAME,
-	OFFLINE_ASSET_CACHE_NAME,
-	OFFLINE_DOCUMENT_CACHE_NAME,
-	OFFLINE_COVER_CACHE_NAME,
+/**
+ * Prefixes of every cache bucket this app owns, including versions the service
+ * worker may create later. Logout purges all of them.
+ */
+export const OFFLINE_CACHE_PREFIXES = [
+	"comic-reader-",
+	"comics-offline-",
 ] as const;

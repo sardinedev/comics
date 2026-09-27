@@ -1,5 +1,6 @@
 import { defineMiddleware } from "astro:middleware";
 import { getAllowedDids } from "@lib/auth/allowed";
+import { AUTH_INVALID_HEADER } from "@lib/auth/headers";
 import { getSessionDid } from "@lib/auth/session";
 import { env } from "@lib/env";
 
@@ -57,6 +58,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
 	const did = getSessionDid(request);
 	if (!did || !allowedDids.includes(did)) {
+		// API callers need an explicit signal they can tell apart from a
+		// resource-level 401/403, not an HTML login page.
+		if (url.pathname.startsWith("/api/")) {
+			return new Response(JSON.stringify({ error: "Unauthorized" }), {
+				status: 401,
+				headers: {
+					"Content-Type": "application/json",
+					[AUTH_INVALID_HEADER]: "true",
+				},
+			});
+		}
 		return context.redirect("/login");
 	}
 

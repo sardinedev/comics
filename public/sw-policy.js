@@ -82,20 +82,6 @@
 		);
 	}
 
-	function isConfirmedAuthInvalidResponse(response, expectedOrigin) {
-		if (response.headers.get("x-comics-auth-invalid") === "true") return true;
-		if (!response.redirected) return false;
-		try {
-			const url = new URL(response.url);
-			return (
-				(!expectedOrigin || url.origin === expectedOrigin) &&
-				isAuthPath(url.pathname)
-			);
-		} catch {
-			return false;
-		}
-	}
-
 	function extractStaticAssetUrls(html, baseUrl) {
 		const urls = new Set();
 		const patterns = [
@@ -130,7 +116,6 @@
 		isAuthPath,
 		isCacheableAssetResponse,
 		isCacheableDocumentResponse,
-		isConfirmedAuthInvalidResponse,
 		isComicReaderPath,
 		isDocumentRequest,
 		isExcludedDocumentPath,

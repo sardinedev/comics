@@ -32,6 +32,7 @@ Always use these instead of relative imports crossing directory boundaries:
 - `@data/*` → `src/data/*`
 - `@lib/*` → `src/lib/*`
 - `@util/*` → `src/util/*`
+- `@stores/*` → `src/stores/*`
 
 ## Conventions
 

@@ -1,11 +1,12 @@
-import { isConfirmedAuthInvalidResponse } from "./auth-response";
-import { clearOfflineData } from "./clear";
+import { flagIfSessionExpired } from "@stores/offline.store";
 import { offlineOutbox } from "./database";
 import {
 	getOutboxCounts,
+	isPermanentFailureStatus,
 	type OutboxCounts,
 	type OutboxHandlerResult,
 	type OutboxReplayEngine,
+	SESSION_EXPIRED_RESULT,
 } from "./outbox";
 import type { AddToLibraryOutboxRecord } from "./types";
 
@@ -80,8 +81,7 @@ export async function replayAddToLibrary(
 		}),
 	});
 
-	if (isConfirmedAuthInvalidResponse(response, globalThis.location?.origin))
-		return { status: 401, statusText: "Session expired" };
+	if (flagIfSessionExpired(response)) return SESSION_EXPIRED_RESULT;
 
 	// Older servers may use 409 for an already-added series. It is equivalent
 	// to success for this idempotent resource mutation.
@@ -133,12 +133,15 @@ export async function requestAddToLibrary(
 			await publishOutboxStatus();
 			return { status: "added" };
 		}
-		if (response.status === 401 || response.status === 403) {
-			await clearOfflineData();
+		if (response.authInvalid) {
+			// Keep the queued action; it replays once the user signs in again.
 			await publishOutboxStatus();
-			return { status: "failed", message: "Your session has expired." };
+			return {
+				status: "pending",
+				message: "Sign in again to finish adding this series.",
+			};
 		}
-		if (response.status >= 400 && response.status < 500) {
+		if (isPermanentFailureStatus(response.status)) {
 			await updateQueuedMutation(record, {
 				attempts: record.attempts + 1,
 				status: "failed",

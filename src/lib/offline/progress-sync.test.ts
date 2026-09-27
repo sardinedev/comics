@@ -1,3 +1,4 @@
+import { expiredSessionResponse } from "@util/mocks/expiredSession.mock";
 import { describe, expect, test, vi } from "vitest";
 import type { OutboxRepository } from "./outbox";
 import {
@@ -281,7 +282,7 @@ describe("createProgressReplayEngine", () => {
 		);
 	});
 
-	test("purges rather than acknowledging a followed login redirect", async () => {
+	test("pauses rather than acknowledging a followed login redirect", async () => {
 		const response = new Response("<html>Log in</html>", {
 			headers: { "Content-Type": "text/html" },
 		});
@@ -307,7 +308,7 @@ describe("createProgressReplayEngine", () => {
 		expect(outbox.records.get(mutation.id)).toEqual(mutation);
 	});
 
-	test("purges and stops on an auth-invalid response", async () => {
+	test("pauses and stops on a confirmed auth-invalid response", async () => {
 		const laterMutation: ProgressOutboxRecord = {
 			...mutation,
 			id: "mutation-2",
@@ -318,7 +319,7 @@ describe("createProgressReplayEngine", () => {
 		};
 		const outbox = new MemoryOutboxRepository([mutation, laterMutation]);
 		const onAuthInvalid = vi.fn();
-		const fetcher = vi.fn(async () => new Response(null, { status: 401 }));
+		const fetcher = vi.fn(async () => expiredSessionResponse());
 		const engine = createProgressReplayEngine({
 			outboxRepository: outbox,
 			progressRepository: new MemoryProgressRepository([progress]),
@@ -332,5 +333,28 @@ describe("createProgressReplayEngine", () => {
 		});
 		expect(onAuthInvalid).toHaveBeenCalledOnce();
 		expect(fetcher).toHaveBeenCalledOnce();
+		expect(outbox.records.size).toBe(2);
+	});
+
+	test("marks progress failed on a bare 403 without pausing sync", async () => {
+		const outbox = new MemoryOutboxRepository([mutation]);
+		const progressRepository = new MemoryProgressRepository([progress]);
+		const onAuthInvalid = vi.fn();
+		const engine = createProgressReplayEngine({
+			outboxRepository: outbox,
+			progressRepository,
+			fetcher: async () => new Response(null, { status: 403 }),
+			onAuthInvalid,
+		});
+
+		await expect(engine.replay()).resolves.toMatchObject({
+			authInvalid: false,
+			failed: 1,
+		});
+		expect(onAuthInvalid).not.toHaveBeenCalled();
+		expect(outbox.records.get(mutation.id)?.status).toBe("failed");
+		expect(progressRepository.records.get(progress.issueId)?.syncStatus).toBe(
+			"failed",
+		);
 	});
 });

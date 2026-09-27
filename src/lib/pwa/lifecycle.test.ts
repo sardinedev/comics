@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-	derivePwaUiStatus,
-	isConfirmedAuthInvalidResponse,
-	shouldActivateWaitingWorker,
-} from "./lifecycle";
+import { derivePwaUiStatus, shouldActivateWaitingWorker } from "./lifecycle";
 
 describe("derivePwaUiStatus", () => {
 	it("always makes a lost connection obvious", () => {
@@ -47,44 +43,6 @@ describe("shouldActivateWaitingWorker", () => {
 				hasWaitingWorker: true,
 				updateWasPendingAtLaunch: false,
 			}),
-		).toBe(false);
-	});
-});
-
-describe("isConfirmedAuthInvalidResponse", () => {
-	it("recognises the explicit server invalidation header", () => {
-		const response = new Response(null, {
-			headers: { "X-Comics-Auth-Invalid": "true" },
-			status: 401,
-		});
-		expect(isConfirmedAuthInvalidResponse(response)).toBe(true);
-	});
-
-	it("does not purge for an unrelated unauthorized response", () => {
-		expect(
-			isConfirmedAuthInvalidResponse(new Response(null, { status: 401 })),
-		).toBe(false);
-	});
-
-	it("recognises a followed redirect to login", () => {
-		const response = new Response(null, { status: 200 });
-		Object.defineProperties(response, {
-			redirected: { value: true },
-			url: { value: "https://comics.example/login" },
-		});
-		expect(
-			isConfirmedAuthInvalidResponse(response, "https://comics.example"),
-		).toBe(true);
-	});
-
-	it("does not trust a login redirect on another origin", () => {
-		const response = new Response(null, { status: 200 });
-		Object.defineProperties(response, {
-			redirected: { value: true },
-			url: { value: "https://accounts.example/login" },
-		});
-		expect(
-			isConfirmedAuthInvalidResponse(response, "https://comics.example"),
 		).toBe(false);
 	});
 });
