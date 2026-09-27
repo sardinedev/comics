@@ -1,3 +1,4 @@
+import { $syncAuthRequired } from "@stores/offline.store";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-preact";
@@ -20,7 +21,10 @@ beforeEach(() => {
 	mockedRequest.mockResolvedValue({ status: "added" });
 });
 
-afterEach(() => vi.resetAllMocks());
+afterEach(() => {
+	vi.resetAllMocks();
+	$syncAuthRequired.set(false);
+});
 
 describe("AddToLibrary", () => {
 	test("shows online success after the optimistic request", async () => {
@@ -55,6 +59,28 @@ describe("AddToLibrary", () => {
 			.element(page.getByText("Will add when you’re back online."))
 			.toBeInTheDocument();
 		resolveRequest({ status: "pending" });
+	});
+
+	test("asks to sign in for a queued action while the session is expired", async () => {
+		$syncAuthRequired.set(true);
+		mockedGetQueued.mockResolvedValue({
+			id: "library-1",
+			dedupeKey: "library:series-1",
+			kind: "add-to-library",
+			payload: { seriesId: "series-1" },
+			createdAt: "2026-08-16T10:00:00.000Z",
+			updatedAt: "2026-08-16T10:00:00.000Z",
+			attempts: 0,
+			status: "pending",
+		});
+		render(<AddToLibrary seriesId="series-1" />);
+
+		await expect
+			.element(page.getByRole("button", { name: "Pending sync" }))
+			.toBeDisabled();
+		await expect
+			.element(page.getByText("Sign in again to finish adding this series."))
+			.toBeInTheDocument();
 	});
 
 	test("restores a failed queued action and allows retry", async () => {

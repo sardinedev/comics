@@ -36,7 +36,7 @@ function formatBytes(bytes: number): string {
  * Formats the primary title for a cached comic row.
  *
  * @param comic - Cached comic entry to label.
- * @returns Series/issue title, or an issue-id fallback for sidecar-less entries.
+ * @returns Series/issue title.
  */
 function formatIssueTitle(comic: OfflineComicRecord): string {
 	return `${comic.seriesName} #${comic.issueNumber}`;
@@ -119,7 +119,10 @@ export function ComicCacheManager() {
 				),
 			);
 			setComics(cachedComics);
-			setStorage(await getStorageSummary().catch(() => null));
+			// The usage line is optional, so it never delays the list.
+			void getStorageSummary()
+				.catch(() => null)
+				.then(setStorage);
 			setSelectedIds((current) => {
 				const next = new Set<string>();
 				const cachedIds = new Set(cachedComics.map((comic) => comic.issueId));
@@ -204,6 +207,11 @@ export function ComicCacheManager() {
 		});
 		setConfirmBulkDelete(false);
 		setConfirmingIssueId(null);
+		if (deletedIds.size > 0) {
+			void getStorageSummary()
+				.catch(() => null)
+				.then(setStorage);
+		}
 		const failedCount = issueIds.length - deletedIds.size;
 		if (failedCount > 0) {
 			setActionError(

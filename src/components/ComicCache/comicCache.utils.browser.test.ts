@@ -40,13 +40,10 @@ import {
 	getComicDownloadUrl,
 	getComicMetadataUrl,
 	isIssueCached,
-	LEGACY_COMIC_CACHE_NAME,
-	listCachedComics,
 	openComicCache,
 	parseIssueIdFromDownloadUrl,
 	readCachedComicMetadata,
 	retryCachedComicCover,
-	writeCachedComicMetadata,
 } from "./comicCache.utils";
 
 const cleanupIds = new Set<string>();
@@ -74,12 +71,8 @@ function metadataFor(
 	};
 }
 
-async function putArchive(
-	issueId: string,
-	bytes = new Uint8Array([1, 2, 3]),
-	cacheName = COMIC_CACHE_NAME,
-) {
-	const cache = await caches.open(cacheName);
+async function putArchive(issueId: string, bytes = new Uint8Array([1, 2, 3])) {
+	const cache = await caches.open(COMIC_CACHE_NAME);
 	await cache.put(
 		getComicDownloadUrl(issueId),
 		new Response(bytes, {
@@ -96,17 +89,24 @@ describe("comic cache utilities", () => {
 		fetchSpy = vi.spyOn(globalThis, "fetch");
 	});
 
+	async function seedCompleteBundle(
+		issueId: string,
+		bytes = new Uint8Array([1, 2, 3, 4]),
+	) {
+		fetchSpy.mockResolvedValueOnce(new Response(bytes));
+		await downloadIssueToCache(issueId, () => {}, metadataFor(issueId));
+	}
+
 	afterEach(async () => {
 		fetchSpy.mockRestore();
-		for (const cacheName of [COMIC_CACHE_NAME, LEGACY_COMIC_CACHE_NAME]) {
-			const cache = await caches.open(cacheName);
-			await Promise.all(
-				[...cleanupIds].flatMap((issueId) => [
-					cache.delete(getComicDownloadUrl(issueId)),
-					cache.delete(getComicMetadataUrl(issueId)),
-				]),
-			);
-		}
+		$syncAuthRequired.set(false);
+		const cache = await caches.open(COMIC_CACHE_NAME);
+		await Promise.all(
+			[...cleanupIds].flatMap((issueId) => [
+				cache.delete(getComicDownloadUrl(issueId)),
+				cache.delete(getComicMetadataUrl(issueId)),
+			]),
+		);
 		const coverCache = await caches.open(OFFLINE_COVER_CACHE_NAME);
 		await Promise.all(
 			[...cleanupIds].map((issueId) =>
@@ -128,28 +128,16 @@ describe("comic cache utilities", () => {
 		expect(parseIssueIdFromDownloadUrl("/api/search?q=abc")).toBeNull();
 	});
 
-	test("writes, reads, lists, and deletes metadata with adjacency", async () => {
+	test("reads and deletes bundle metadata with adjacency", async () => {
 		const issueId = trackIssueId(`sidecar-${crypto.randomUUID()}`);
-		const archiveBytes = await putArchive(
-			issueId,
-			new Uint8Array([1, 2, 3, 4]),
-		);
-		const written = await writeCachedComicMetadata(
-			metadataFor(issueId),
-			archiveBytes.byteLength,
-		);
+		await seedCompleteBundle(issueId);
 
-		expect(written).toMatchObject({
+		expect(await readCachedComicMetadata(issueId)).toMatchObject({
 			issueId,
+			issueName: "Chapter Two",
 			sizeBytes: 4,
 			previousIssue: { issueId: "issue-1", issueNumber: 1 },
 			nextIssue: { issueId: "issue-3", issueNumber: 3 },
-		});
-		const comics = await listCachedComics();
-		expect(comics.find((entry) => entry.issueId === issueId)).toMatchObject({
-			issueId,
-			sizeBytes: 4,
-			metadata: expect.objectContaining({ issueName: "Chapter Two" }),
 		});
 		expect(await offlineComics.get(issueId)).toMatchObject({
 			issueId,
@@ -167,19 +155,6 @@ describe("comic cache utilities", () => {
 	});
 
 	describe("isIssueCached projection invariants", () => {
-		async function seedCompleteBundle(issueId: string) {
-			const archiveBytes = await putArchive(
-				issueId,
-				new Uint8Array([1, 2, 3, 4]),
-			);
-			await writeCachedComicMetadata(
-				metadataFor(issueId),
-				archiveBytes.byteLength,
-			);
-
-			await listCachedComics();
-		}
-
 		test("is true when archive, sidecar, and projection all agree", async () => {
 			const issueId = trackIssueId(`invariant-agree-${crypto.randomUUID()}`);
 			await seedCompleteBundle(issueId);
@@ -234,9 +209,7 @@ describe("comic cache utilities", () => {
 
 	test("preserves the bundle when deletion cannot open Cache Storage", async () => {
 		const issueId = trackIssueId(`delete-unavailable-${crypto.randomUUID()}`);
-		await putArchive(issueId);
-		await writeCachedComicMetadata(metadataFor(issueId), 3);
-		await listCachedComics();
+		await seedCompleteBundle(issueId);
 		const openSpy = vi
 			.spyOn(caches, "open")
 			.mockRejectedValueOnce(new Error("unavailable"));
@@ -371,7 +344,6 @@ describe("comic cache utilities", () => {
 			});
 			expect(await cache.match(getComicDownloadUrl(issueId))).toBeTruthy();
 			expect(await readCachedComicMetadata(issueId)).not.toBeNull();
-			await listCachedComics();
 			expect(await offlineComics.get(issueId)).toMatchObject({
 				deletionPending: true,
 			});
@@ -430,7 +402,6 @@ describe("comic cache utilities", () => {
 
 	test("asks for sign-in and saves nothing when the session expired", async () => {
 		const issueId = trackIssueId(`expired-${crypto.randomUUID()}`);
-		$syncAuthRequired.set(false);
 		fetchSpy.mockResolvedValueOnce(expiredSessionResponse());
 
 		await expect(
@@ -438,7 +409,6 @@ describe("comic cache utilities", () => {
 		).rejects.toThrow("session has expired");
 		expect($syncAuthRequired.get()).toBe(true);
 		expect(await isIssueCached(issueId)).toBe(false);
-		$syncAuthRequired.set(false);
 	});
 
 	test("downloads and commits archive, metadata, and cover bytes", async () => {
@@ -783,34 +753,6 @@ describe("comic cache utilities", () => {
 		).toBeUndefined();
 	});
 
-	test.each([
-		"sidecar",
-		"projection",
-	])("preserves an existing archive when an upgrade fails at %s", async (failureStage) => {
-		const issueId = trackIssueId(`upgrade-fail-${crypto.randomUUID()}`);
-		const archiveBytes = await putArchive(
-			issueId,
-			new Uint8Array([4, 3, 2, 1]),
-		);
-		const metadata = metadataFor(issueId);
-		const putSpy = vi.spyOn(offlineComics, "put");
-		if (failureStage === "sidecar") Object.assign(metadata, { self: metadata });
-		else putSpy.mockRejectedValueOnce(new Error("projection failed"));
-		try {
-			await expect(
-				downloadIssueToCache(issueId, () => {}, metadata),
-			).rejects.toThrow();
-			expect(await downloadIssueToCache(issueId, () => {})).toEqual(
-				archiveBytes,
-			);
-			expect(await readCachedComicMetadata(issueId)).toBeNull();
-			expect(await offlineComics.get(issueId)).toBeUndefined();
-			expect(fetchSpy).not.toHaveBeenCalled();
-		} finally {
-			putSpy.mockRestore();
-		}
-	});
-
 	test("rolls back required records without opening the optional cover cache", async () => {
 		const issueId = trackIssueId(`rollback-cover-${crypto.randomUUID()}`);
 		await openComicCache();
@@ -840,17 +782,25 @@ describe("comic cache utilities", () => {
 		}
 	});
 
-	test("keeps a cached archive without a sidecar readable but not complete", async () => {
+	test("replaces a cached archive that has no sidecar with a fresh download", async () => {
 		const issueId = trackIssueId(`no-sidecar-${crypto.randomUUID()}`);
-		const archiveBytes = await putArchive(
-			issueId,
-			new Uint8Array([4, 3, 2, 1]),
-		);
-		const output = await downloadIssueToCache(issueId, () => {});
+		await putArchive(issueId, new Uint8Array([4, 3, 2, 1]));
+		const freshBytes = new Uint8Array([1, 2, 3]);
+		fetchSpy.mockResolvedValueOnce(new Response(freshBytes));
 
-		expect(output).toEqual(archiveBytes);
-		expect(fetchSpy).not.toHaveBeenCalled();
-		expect(await isIssueCached(issueId)).toBe(false);
+		const output = await downloadIssueToCache(
+			issueId,
+			() => {},
+			metadataFor(issueId),
+		);
+
+		expect(output).toEqual(freshBytes);
+		expect(fetchSpy).toHaveBeenCalledOnce();
+		expect(await isIssueCached(issueId)).toBe(true);
+		const archive = await (await caches.open(COMIC_CACHE_NAME)).match(
+			getComicDownloadUrl(issueId),
+		);
+		expect(await archive?.arrayBuffer()).toEqual(freshBytes.buffer);
 	});
 
 	test("records the original cover URL alongside its downloaded bytes", async () => {

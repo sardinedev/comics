@@ -8,6 +8,10 @@ vi.mock("@lib/offline/database", () => ({
 	offlineComics: { getAll: vi.fn() },
 }));
 
+vi.mock("@lib/offline/storage", () => ({
+	getStorageSummary: vi.fn(async () => null),
+}));
+
 vi.mock("./comicCache.utils", () => ({
 	deleteCachedIssue: vi.fn(),
 	isIssueCached: vi.fn(async () => true),
@@ -17,12 +21,12 @@ vi.mock("./comicCache.utils", () => ({
 const { isOfflineStorageSupported, offlineComics } = await import(
 	"@lib/offline/database"
 );
-const { deleteCachedIssue, isIssueCached, openComicCache } = await import(
-	"./comicCache.utils"
-);
+const { deleteCachedIssue, isIssueCached } = await import("./comicCache.utils");
+const { getStorageSummary } = await import("@lib/offline/storage");
 const { ComicCacheManager } = await import("./ComicCacheManager");
 
 const mockedStorageSupported = vi.mocked(isOfflineStorageSupported);
+const mockedGetStorageSummary = vi.mocked(getStorageSummary);
 const mockedGetAll = vi.mocked(offlineComics.getAll);
 const mockedDeleteCachedIssue = vi.mocked(deleteCachedIssue);
 
@@ -51,24 +55,6 @@ afterEach(() => {
 });
 
 describe("ComicCacheManager", () => {
-	test("finishes legacy migration before querying the downloaded library", async () => {
-		let finishMigration!: () => void;
-		vi.mocked(openComicCache).mockImplementationOnce(async () => {
-			await new Promise<void>((resolve) => {
-				finishMigration = resolve;
-			});
-			mockedGetAll.mockResolvedValue([comic("legacy", "Legacy", 1)]);
-			return {} as Cache;
-		});
-		render(<ComicCacheManager />);
-		await expect.poll(() => typeof finishMigration).toBe("function");
-		expect(mockedGetAll).not.toHaveBeenCalled();
-		finishMigration();
-		await expect
-			.element(page.getByRole("link", { name: "Legacy #1" }))
-			.toBeInTheDocument();
-	});
-
 	test("reads canonical offline records and links directly to the reader", async () => {
 		mockedGetAll.mockResolvedValue([
 			comic("i1", "Saga", 1, {
@@ -147,6 +133,48 @@ describe("ComicCacheManager", () => {
 		expect(mockedDeleteCachedIssue).toHaveBeenCalledWith("i1");
 		await expect
 			.element(page.getByText("No comics are downloaded in this browser."))
+			.toBeInTheDocument();
+	});
+
+	test("shows the list without waiting for the storage estimate", async () => {
+		mockedGetAll.mockResolvedValue([comic("i1", "Saga", 1)]);
+		mockedGetStorageSummary.mockReturnValue(new Promise(() => {}));
+
+		render(<ComicCacheManager />);
+
+		await expect
+			.element(page.getByRole("link", { name: "Saga #1" }))
+			.toBeInTheDocument();
+	});
+
+	test("refreshes origin storage usage after a deletion", async () => {
+		mockedGetAll.mockResolvedValue([comic("i1", "Saga", 1)]);
+		mockedGetStorageSummary.mockResolvedValue({
+			usage: 4 * 1024 ** 2,
+			quota: 100 * 1024 ** 2,
+			persisted: false,
+		});
+		mockedDeleteCachedIssue.mockResolvedValue({
+			archiveDeleted: true,
+			metadataDeleted: true,
+			coverDeleted: false,
+		});
+
+		render(<ComicCacheManager />);
+
+		await expect
+			.element(page.getByText(/4\.0 MB of 100 MB used/))
+			.toBeInTheDocument();
+		mockedGetStorageSummary.mockResolvedValue({
+			usage: 1024 ** 2,
+			quota: 100 * 1024 ** 2,
+			persisted: false,
+		});
+		await page.getByRole("button", { name: "Delete Saga #1" }).click();
+		await page.getByRole("button", { name: "Confirm delete Saga #1" }).click();
+
+		await expect
+			.element(page.getByText(/1\.0 MB of 100 MB used/))
 			.toBeInTheDocument();
 	});
 

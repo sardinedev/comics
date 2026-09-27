@@ -4,6 +4,7 @@ import {
 	OUTBOX_STATUS_EVENT,
 	requestAddToLibrary,
 } from "@lib/offline/library-sync";
+import { $syncAuthRequired } from "@stores/offline.store";
 import { useCallback, useEffect, useId, useRef, useState } from "preact/hooks";
 
 type AddState = "idle" | "submitting" | "pending" | "added" | "failed";
@@ -32,7 +33,11 @@ export function AddToLibrary({ seriesId }: { seriesId: string }) {
 			} else if (queued) {
 				hasQueuedAction.current = true;
 				setState("pending");
-				setMessage("Will add when you’re back online.");
+				setMessage(
+					$syncAuthRequired.get()
+						? "Sign in again to finish adding this series."
+						: "Will add when you’re back online.",
+				);
 			} else if (hasQueuedAction.current) {
 				setState("added");
 				setMessage("Series added to your library.");

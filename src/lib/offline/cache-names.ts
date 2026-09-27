@@ -1,5 +1,4 @@
-/** Existing cache bucket containing downloaded comic archives. */
-export const LEGACY_COMIC_ARCHIVE_CACHE_NAME = "comic-reader-v1";
+/** Cache bucket containing downloaded comic archives and their metadata. */
 export const COMIC_ARCHIVE_CACHE_NAME = "comic-reader-v2";
 
 /** Cache buckets reserved for the PWA shell, documents, and offline covers. */

@@ -1,4 +1,5 @@
 import { Icon } from "@components/Icon/Icon";
+import { SessionExpiredError } from "@lib/offline/auth-response";
 import { isQuotaExceededError } from "@lib/offline/storage";
 import {
 	useCallback,
@@ -29,7 +30,9 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
 	const [failedIssues, setFailedIssues] = useState<ComicCacheMetadataInput[]>(
 		[],
 	);
-	const [storageFull, setStorageFull] = useState(false);
+	const [stopReason, setStopReason] = useState<
+		"storage-full" | "session-expired" | null
+	>(null);
 	const [phase, setPhase] = useState<DownloadPhase>("checking");
 	const [activeIssue, setActiveIssue] =
 		useState<ComicCacheMetadataInput | null>(null);
@@ -119,7 +122,7 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
 
 			setPhase("downloading");
 			setFailedIssues([]);
-			setStorageFull(false);
+			setStopReason(null);
 			setCompletedThisRun(0);
 			setTotalThisRun(targetIssues.length);
 
@@ -137,11 +140,16 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
 					);
 					setCachedIds((current) => new Set(current).add(issue.issueId));
 				} catch (error) {
-					if (isQuotaExceededError(error)) {
+					const reason = isQuotaExceededError(error)
+						? "storage-full"
+						: error instanceof SessionExpiredError
+							? "session-expired"
+							: null;
+					if (reason) {
 						// Every remaining download would fail the same way.
 						failures.push(...targetIssues.slice(index));
 						setFailedIssues([...failures]);
-						setStorageFull(true);
+						setStopReason(reason);
 						break;
 					}
 					failures.push(issue);
@@ -267,7 +275,7 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
 							role="alert"
 							class="border-t border-slate-800 p-4 text-xs font-semibold text-red-400"
 						>
-							{storageFull ? (
+							{stopReason === "storage-full" ? (
 								<>
 									Storage is full. Free space on the{" "}
 									<a
@@ -277,6 +285,17 @@ export function BulkDownload({ issues, downloadedIssues }: BulkDownloadProps) {
 										Cache page
 									</a>
 									, then retry.
+								</>
+							) : stopReason === "session-expired" ? (
+								<>
+									Your session has expired.{" "}
+									<a
+										href="/login"
+										class="underline transition-colors hover:text-red-300"
+									>
+										Sign in again
+									</a>{" "}
+									to keep downloading.
 								</>
 							) : (
 								<>

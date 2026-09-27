@@ -34,3 +34,11 @@ export function isConfirmedAuthInvalidResponse(
 		return false;
 	}
 }
+
+/** Thrown when the server confirms the session expired during a request. */
+export class SessionExpiredError extends Error {
+	constructor(message = "Your session has expired. Sign in again.") {
+		super(message);
+		this.name = "SessionExpiredError";
+	}
+}
