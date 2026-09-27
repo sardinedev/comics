@@ -4,6 +4,7 @@ import {
 	OUTBOX_STATUS_EVENT,
 	requestAddToLibrary,
 } from "@lib/offline/library-sync";
+import { useStore } from "@nanostores/preact";
 import { $syncAuthRequired } from "@stores/offline.store";
 import { useCallback, useEffect, useId, useRef, useState } from "preact/hooks";
 
@@ -20,6 +21,7 @@ const LABELS: Record<AddState, string> = {
 export function AddToLibrary({ seriesId }: { seriesId: string }) {
 	const [state, setState] = useState<AddState>("idle");
 	const [message, setMessage] = useState<string | null>(null);
+	const syncAuthRequired = useStore($syncAuthRequired);
 	const statusId = useId();
 	const hasQueuedAction = useRef(false);
 
@@ -33,11 +35,7 @@ export function AddToLibrary({ seriesId }: { seriesId: string }) {
 			} else if (queued) {
 				hasQueuedAction.current = true;
 				setState("pending");
-				setMessage(
-					$syncAuthRequired.get()
-						? "Sign in again to finish adding this series."
-						: "Will add when you’re back online.",
-				);
+				setMessage("Will add when you’re back online.");
 			} else if (hasQueuedAction.current) {
 				setState("added");
 				setMessage("Series added to your library.");
@@ -66,12 +64,11 @@ export function AddToLibrary({ seriesId }: { seriesId: string }) {
 			const result = await requestAddToLibrary(seriesId);
 			setState(result.status);
 			setMessage(
-				result.message ??
-					(result.status === "added"
-						? "Series added to your library."
-						: result.status === "pending"
-							? "Will add when you’re back online."
-							: "Couldn’t add this series. Try again."),
+				result.status === "added"
+					? "Series added to your library."
+					: result.status === "pending"
+						? "Will add when you’re back online."
+						: "Couldn’t add this series. Try again.",
 			);
 		} catch {
 			setState("failed");
@@ -79,6 +76,11 @@ export function AddToLibrary({ seriesId }: { seriesId: string }) {
 		}
 	}, [seriesId]);
 
+	// The session can expire after the action was queued, so derive it live.
+	const statusMessage =
+		state === "pending" && syncAuthRequired
+			? "Sign in again to finish adding this series."
+			: message;
 	const isDisabled =
 		state === "submitting" || state === "pending" || state === "added";
 
@@ -88,14 +90,14 @@ export function AddToLibrary({ seriesId }: { seriesId: string }) {
 				type="button"
 				onClick={onClick}
 				disabled={isDisabled}
-				aria-describedby={message ? statusId : undefined}
+				aria-describedby={statusMessage ? statusId : undefined}
 				data-add-to-library-state={state}
 				class="group flex min-h-11 items-center gap-2 bg-amber-500 px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-slate-950 transition-colors hover:bg-amber-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-300"
 			>
 				<Icon name={state === "added" ? "tick" : "add"} />
 				{LABELS[state]}
 			</button>
-			{message && (
+			{statusMessage && (
 				<p
 					id={statusId}
 					role={state === "failed" ? "alert" : "status"}
@@ -104,7 +106,7 @@ export function AddToLibrary({ seriesId }: { seriesId: string }) {
 						state === "failed" ? "text-red-400" : "text-amber-500"
 					}`}
 				>
-					{message}
+					{statusMessage}
 				</p>
 			)}
 		</div>

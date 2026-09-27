@@ -40,6 +40,22 @@ describe("AddToLibrary", () => {
 		expect(mockedRequest).toHaveBeenCalledWith("series-1");
 	});
 
+	test("asks to sign in when an online add finds the session expired", async () => {
+		mockedRequest.mockImplementation(async () => {
+			$syncAuthRequired.set(true);
+			return { status: "pending" };
+		});
+		render(<AddToLibrary seriesId="series-1" />);
+
+		await page.getByRole("button", { name: "Add to library" }).click();
+		await expect
+			.element(page.getByRole("button", { name: "Pending sync" }))
+			.toBeDisabled();
+		await expect
+			.element(page.getByText("Sign in again to finish adding this series."))
+			.toBeInTheDocument();
+	});
+
 	test("immediately exposes an obvious offline pending state", async () => {
 		vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
 		let resolveRequest!: (value: { status: "pending" }) => void;
@@ -61,8 +77,7 @@ describe("AddToLibrary", () => {
 		resolveRequest({ status: "pending" });
 	});
 
-	test("asks to sign in for a queued action while the session is expired", async () => {
-		$syncAuthRequired.set(true);
+	test("switches a queued action to a sign-in prompt when the session expires", async () => {
 		mockedGetQueued.mockResolvedValue({
 			id: "library-1",
 			dedupeKey: "library:series-1",
@@ -78,6 +93,12 @@ describe("AddToLibrary", () => {
 		await expect
 			.element(page.getByRole("button", { name: "Pending sync" }))
 			.toBeDisabled();
+		await expect
+			.element(page.getByText("Will add when you’re back online."))
+			.toBeInTheDocument();
+
+		$syncAuthRequired.set(true);
+
 		await expect
 			.element(page.getByText("Sign in again to finish adding this series."))
 			.toBeInTheDocument();

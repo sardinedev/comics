@@ -113,7 +113,8 @@ describe("add-to-library outbox", () => {
 		[503, "pending"],
 		[429, "pending"],
 		[422, "failed"],
-		[401, "failed"],
+		[401, "pending"],
+		[403, "pending"],
 	] as const)("classifies HTTP %s without losing the action", async (status, queuedStatus) => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			new Response("{}", { status, statusText: `Status ${status}` }),
@@ -162,7 +163,6 @@ describe("add-to-library outbox", () => {
 				progress: async () => ({ status: 204 }),
 				"add-to-library": replayAddToLibrary,
 			},
-			onAuthInvalid: vi.fn(),
 		});
 
 		await expect(engine.replay()).resolves.toMatchObject({ succeeded: 1 });
@@ -173,17 +173,14 @@ describe("add-to-library outbox", () => {
 	test("lets the generic engine own auth invalidation", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(expiredSessionResponse());
 		await queueAddToLibrary("series-1");
-		const onAuthInvalid = vi.fn();
 		const engine = createOutboxReplayEngine({
 			handlers: {
 				progress: async () => ({ status: 204 }),
 				"add-to-library": replayAddToLibrary,
 			},
-			onAuthInvalid,
 		});
 
 		await expect(engine.replay()).resolves.toMatchObject({ authInvalid: true });
-		expect(onAuthInvalid).toHaveBeenCalledOnce();
 		expect(records.size).toBe(1);
 	});
 });

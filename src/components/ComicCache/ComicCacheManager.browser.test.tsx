@@ -178,6 +178,44 @@ describe("ComicCacheManager", () => {
 			.toBeInTheDocument();
 	});
 
+	test("ignores a storage estimate that resolves after a newer one", async () => {
+		const summary = (megabytes: number) => ({
+			usage: megabytes * 1024 ** 2,
+			quota: 100 * 1024 ** 2,
+			persisted: false,
+		});
+		let resolveInitial: (value: ReturnType<typeof summary>) => void = () => {};
+		mockedGetAll.mockResolvedValue([comic("i1", "Saga", 1)]);
+		mockedGetStorageSummary
+			.mockReturnValueOnce(
+				new Promise((resolve) => {
+					resolveInitial = resolve;
+				}),
+			)
+			.mockResolvedValueOnce(summary(1));
+		mockedDeleteCachedIssue.mockResolvedValue({
+			archiveDeleted: true,
+			metadataDeleted: true,
+			coverDeleted: false,
+		});
+
+		render(<ComicCacheManager />);
+
+		await page.getByRole("button", { name: "Delete Saga #1" }).click();
+		await page.getByRole("button", { name: "Confirm delete Saga #1" }).click();
+		await expect
+			.element(page.getByText(/1\.0 MB of 100 MB used/))
+			.toBeInTheDocument();
+
+		resolveInitial(summary(4));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(page.getByText(/4\.0 MB of 100 MB used/).query()).toBeNull();
+		await expect
+			.element(page.getByText(/1\.0 MB of 100 MB used/))
+			.toBeInTheDocument();
+	});
+
 	test("reports deletion failures without removing the local row", async () => {
 		mockedGetAll.mockResolvedValue([comic("i1", "Saga", 1)]);
 		mockedDeleteCachedIssue.mockRejectedValue(new Error("storage failure"));

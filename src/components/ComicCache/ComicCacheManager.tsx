@@ -5,7 +5,13 @@ import {
 } from "@lib/offline/database";
 import { getStorageSummary, type StorageSummary } from "@lib/offline/storage";
 import type { OfflineComicRecord } from "@lib/offline/types";
-import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "preact/hooks";
 import {
 	deleteCachedIssue,
 	isIssueCached,
@@ -90,6 +96,17 @@ export function ComicCacheManager() {
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [state, setState] = useState<LoadState>("loading");
 	const [storage, setStorage] = useState<StorageSummary | null>(null);
+	const storageRequest = useRef(0);
+
+	/** Refreshes the optional usage line; only the latest request may apply. */
+	const refreshStorage = useCallback(() => {
+		const request = ++storageRequest.current;
+		void getStorageSummary()
+			.catch(() => null)
+			.then((summary) => {
+				if (request === storageRequest.current) setStorage(summary);
+			});
+	}, []);
 
 	const loadComics = useCallback(async () => {
 		if (!isOfflineStorageSupported()) {
@@ -120,9 +137,7 @@ export function ComicCacheManager() {
 			);
 			setComics(cachedComics);
 			// The usage line is optional, so it never delays the list.
-			void getStorageSummary()
-				.catch(() => null)
-				.then(setStorage);
+			refreshStorage();
 			setSelectedIds((current) => {
 				const next = new Set<string>();
 				const cachedIds = new Set(cachedComics.map((comic) => comic.issueId));
@@ -136,7 +151,7 @@ export function ComicCacheManager() {
 			setError("Failed to read downloaded comics.");
 			setState("error");
 		}
-	}, []);
+	}, [refreshStorage]);
 
 	useEffect(() => {
 		void loadComics();
@@ -207,11 +222,7 @@ export function ComicCacheManager() {
 		});
 		setConfirmBulkDelete(false);
 		setConfirmingIssueId(null);
-		if (deletedIds.size > 0) {
-			void getStorageSummary()
-				.catch(() => null)
-				.then(setStorage);
-		}
+		if (deletedIds.size > 0) refreshStorage();
 		const failedCount = issueIds.length - deletedIds.size;
 		if (failedCount > 0) {
 			setActionError(

@@ -51,7 +51,6 @@ export type ProgressReplayHandlerOptions = {
 
 export type ProgressReplayEngineOptions = ProgressReplayHandlerOptions & {
 	outboxRepository?: OutboxRepository;
-	onAuthInvalid?: () => void | Promise<void>;
 	now?: () => Date;
 	retryDelayMs?: (attempts: number) => number;
 };
@@ -248,7 +247,6 @@ export function createProgressReplayEngine(
 			progress: createProgressReplayHandler(options),
 			"add-to-library": async () => ({ status: 500 }),
 		},
-		onAuthInvalid: options.onAuthInvalid,
 		now: options.now,
 		retryDelayMs: options.retryDelayMs,
 	});

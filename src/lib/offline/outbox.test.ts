@@ -174,7 +174,6 @@ describe("OutboxReplayEngine", () => {
 					return { status: 201 };
 				},
 			},
-			onAuthInvalid: vi.fn(),
 		});
 		engine.subscribe((event) => events.push(event));
 
@@ -221,7 +220,6 @@ describe("OutboxReplayEngine", () => {
 					throw new TypeError("Failed to fetch");
 				},
 			},
-			onAuthInvalid: vi.fn(),
 			now: () => new Date("2026-08-16T12:00:00.000Z"),
 			retryDelayMs: (attempts) => attempts * 5_000,
 		});
@@ -256,7 +254,6 @@ describe("OutboxReplayEngine", () => {
 		const engine = createOutboxReplayEngine({
 			repository,
 			handlers,
-			onAuthInvalid: vi.fn(),
 			now: () => now,
 		});
 
@@ -298,7 +295,6 @@ describe("OutboxReplayEngine", () => {
 		const engine = createOutboxReplayEngine({
 			repository,
 			handlers,
-			onAuthInvalid: vi.fn(),
 		});
 
 		await expect(engine.replay()).resolves.toMatchObject({
@@ -323,7 +319,6 @@ describe("OutboxReplayEngine", () => {
 		const engine = createOutboxReplayEngine({
 			repository,
 			handlers,
-			onAuthInvalid: vi.fn(),
 		});
 		const replay = engine.replay();
 		await started.promise;
@@ -352,7 +347,6 @@ describe("OutboxReplayEngine", () => {
 		const engine = createOutboxReplayEngine({
 			repository,
 			handlers: createHandlers(),
-			onAuthInvalid: vi.fn(),
 		});
 		engine.subscribe((event) => events.push(event));
 
@@ -383,7 +377,6 @@ describe("OutboxReplayEngine", () => {
 		const engine = createOutboxReplayEngine({
 			repository,
 			handlers,
-			onAuthInvalid: vi.fn(),
 			now: () => new Date("2026-08-16T12:00:00.000Z"),
 		});
 
@@ -408,7 +401,6 @@ describe("OutboxReplayEngine", () => {
 			libraryRecord,
 			progressRecord,
 		]);
-		const onAuthInvalid = vi.fn();
 		const progressHandler = vi.fn(async () => ({ status: 204 }));
 		const engine = createOutboxReplayEngine({
 			repository,
@@ -416,13 +408,11 @@ describe("OutboxReplayEngine", () => {
 				progress: progressHandler,
 				"add-to-library": async () => ({ status: 401, authInvalid: true }),
 			},
-			onAuthInvalid,
 		});
 
 		const summary = await engine.replay();
 
 		expect(summary).toMatchObject({ attempted: 1, authInvalid: true });
-		expect(onAuthInvalid).toHaveBeenCalledWith(libraryRecord);
 		expect(progressHandler).not.toHaveBeenCalled();
 		expect(repository.records.get(libraryRecord.id)).toEqual(libraryRecord);
 		expect(repository.records.size).toBe(2);
@@ -430,12 +420,11 @@ describe("OutboxReplayEngine", () => {
 
 	test.each([
 		401, 403,
-	] as const)("marks a bare %s failed without pausing replay", async (status) => {
+	] as const)("retries a bare %s without pausing replay", async (status) => {
 		const repository = new MemoryOutboxRepository([
 			libraryRecord,
 			progressRecord,
 		]);
-		const onAuthInvalid = vi.fn();
 		const progressHandler = vi.fn(async () => ({ status: 204 }));
 		const engine = createOutboxReplayEngine({
 			repository,
@@ -443,15 +432,20 @@ describe("OutboxReplayEngine", () => {
 				progress: progressHandler,
 				"add-to-library": async () => ({ status }),
 			},
-			onAuthInvalid,
 		});
 
 		const summary = await engine.replay();
 
-		expect(summary).toMatchObject({ attempted: 2, authInvalid: false });
-		expect(onAuthInvalid).not.toHaveBeenCalled();
+		expect(summary).toMatchObject({
+			attempted: 2,
+			authInvalid: false,
+			retryScheduled: 1,
+		});
 		expect(progressHandler).toHaveBeenCalledOnce();
-		expect(repository.records.get(libraryRecord.id)?.status).toBe("failed");
+		expect(repository.records.get(libraryRecord.id)).toMatchObject({
+			status: "pending",
+			attempts: 1,
+		});
 	});
 
 	test("does not overwrite a newer deduplicated mutation during replay", async () => {
@@ -467,7 +461,6 @@ describe("OutboxReplayEngine", () => {
 				},
 				"add-to-library": async () => ({ status: 204 }),
 			},
-			onAuthInvalid: vi.fn(),
 		});
 
 		const replay = engine.replay();
@@ -501,7 +494,6 @@ describe("OutboxReplayEngine", () => {
 				progress: handler,
 				"add-to-library": async () => ({ status: 204 }),
 			},
-			onAuthInvalid: vi.fn(),
 		});
 
 		const firstReplay = engine.replay();

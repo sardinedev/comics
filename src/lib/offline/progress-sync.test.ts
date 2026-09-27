@@ -292,18 +292,15 @@ describe("createProgressReplayEngine", () => {
 		});
 		const outbox = new MemoryOutboxRepository([mutation]);
 		const progressRepository = new MemoryProgressRepository([progress]);
-		const onAuthInvalid = vi.fn();
 		const engine = createProgressReplayEngine({
 			outboxRepository: outbox,
 			progressRepository,
 			fetcher: async () => response,
-			onAuthInvalid,
 		});
 		expect(await engine.replay()).toMatchObject({
 			authInvalid: true,
 			succeeded: 0,
 		});
-		expect(onAuthInvalid).toHaveBeenCalledOnce();
 		expect(progressRepository.records.get(progress.issueId)).toEqual(progress);
 		expect(outbox.records.get(mutation.id)).toEqual(mutation);
 	});
@@ -318,43 +315,40 @@ describe("createProgressReplayEngine", () => {
 			updatedAt: "2026-08-16T13:00:00.000Z",
 		};
 		const outbox = new MemoryOutboxRepository([mutation, laterMutation]);
-		const onAuthInvalid = vi.fn();
 		const fetcher = vi.fn(async () => expiredSessionResponse());
 		const engine = createProgressReplayEngine({
 			outboxRepository: outbox,
 			progressRepository: new MemoryProgressRepository([progress]),
 			fetcher,
-			onAuthInvalid,
 		});
 
 		await expect(engine.replay()).resolves.toMatchObject({
 			attempted: 1,
 			authInvalid: true,
 		});
-		expect(onAuthInvalid).toHaveBeenCalledOnce();
 		expect(fetcher).toHaveBeenCalledOnce();
 		expect(outbox.records.size).toBe(2);
 	});
 
-	test("marks progress failed on a bare 403 without pausing sync", async () => {
+	test("retries progress on a bare 403 without pausing sync", async () => {
 		const outbox = new MemoryOutboxRepository([mutation]);
 		const progressRepository = new MemoryProgressRepository([progress]);
-		const onAuthInvalid = vi.fn();
 		const engine = createProgressReplayEngine({
 			outboxRepository: outbox,
 			progressRepository,
 			fetcher: async () => new Response(null, { status: 403 }),
-			onAuthInvalid,
 		});
 
 		await expect(engine.replay()).resolves.toMatchObject({
 			authInvalid: false,
-			failed: 1,
+			retryScheduled: 1,
 		});
-		expect(onAuthInvalid).not.toHaveBeenCalled();
-		expect(outbox.records.get(mutation.id)?.status).toBe("failed");
+		expect(outbox.records.get(mutation.id)).toMatchObject({
+			status: "pending",
+			attempts: 1,
+		});
 		expect(progressRepository.records.get(progress.issueId)?.syncStatus).toBe(
-			"failed",
+			"pending",
 		);
 	});
 });

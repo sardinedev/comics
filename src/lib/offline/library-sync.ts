@@ -14,7 +14,6 @@ export const OUTBOX_STATUS_EVENT = "comics:outbox-status";
 
 export type AddToLibraryRequestResult = {
 	status: "added" | "pending" | "failed";
-	message?: string;
 };
 
 function normaliseSeriesId(seriesId: string): string {
@@ -136,10 +135,7 @@ export async function requestAddToLibrary(
 		if (response.authInvalid) {
 			// Keep the queued action; it replays once the user signs in again.
 			await publishOutboxStatus();
-			return {
-				status: "pending",
-				message: "Sign in again to finish adding this series.",
-			};
+			return { status: "pending" };
 		}
 		if (isPermanentFailureStatus(response.status)) {
 			await updateQueuedMutation(record, {

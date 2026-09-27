@@ -19,9 +19,15 @@ export const SESSION_EXPIRED_RESULT: OutboxHandlerResult = {
 	authInvalid: true,
 };
 
-/** A 4xx that retrying cannot fix. 408 and 429 are transient. */
+/**
+ * A 4xx that retrying cannot fix. 408 and 429 are transient. The app marks an
+ * expired session with the auth-invalid header, so a bare 401/403 comes from
+ * something in front of it and is retried rather than dropping the action.
+ */
 export function isPermanentFailureStatus(status: number): boolean {
-	return status >= 400 && status < 500 && status !== 408 && status !== 429;
+	return (
+		status >= 400 && status < 500 && ![401, 403, 408, 429].includes(status)
+	);
 }
 
 export type OutboxReplayHandlers = {
@@ -103,12 +109,6 @@ export type OutboxReplaySummary = {
 
 export type OutboxReplayOptions = {
 	handlers: OutboxReplayHandlers;
-	/**
-	 * Handles a confirmed invalid session before replay stops. The record stays
-	 * pending so it replays after the user signs in again.
-	 * A rejected callback rejects replay.
-	 */
-	onAuthInvalid?: (record: OfflineOutboxRecord) => void | Promise<void>;
 	repository?: OutboxRepository;
 	/** Supplies the clock for due checks and mutation timestamps; defaults to system time. */
 	now?: () => Date;
@@ -194,7 +194,6 @@ export async function getOutboxCounts(
  */
 export class OutboxReplayEngine {
 	readonly #handlers: OutboxReplayHandlers;
-	readonly #onAuthInvalid: OutboxReplayOptions["onAuthInvalid"];
 	readonly #repository: OutboxRepository;
 	readonly #now: () => Date;
 	readonly #retryDelayMs: (attempts: number) => number;
@@ -210,11 +209,10 @@ export class OutboxReplayEngine {
 	/**
 	 * Creates an idle engine without accessing storage or starting replay.
 	 *
-	 * @param options - Transports, auth handling, and optional storage, clock, and backoff overrides.
+	 * @param options - Transports and optional storage, clock, and backoff overrides.
 	 */
 	constructor(options: OutboxReplayOptions) {
 		this.#handlers = options.handlers;
-		this.#onAuthInvalid = options.onAuthInvalid;
 		this.#repository = options.repository ?? offlineOutbox;
 		this.#now = options.now ?? (() => new Date());
 		this.#retryDelayMs = options.retryDelayMs ?? defaultRetryDelayMs;
@@ -261,13 +259,13 @@ export class OutboxReplayEngine {
 	 *
 	 * @returns The active pass's promise, shared by concurrent calls on this instance.
 	 * @remarks
-	 * Successful 2xx responses remove current records. Network errors, 408, 429,
-	 * and other non-4xx failures persist retry metadata; other 4xx responses,
-	 * including a bare 401/403, mark records failed. A confirmed invalid session
-	 * (`authInvalid`) invokes auth handling and stops the pass.
+	 * Successful 2xx responses remove current records. Network errors, a bare
+	 * 401/403, 408, 429, and other non-4xx failures persist retry metadata; other
+	 * 4xx responses mark records failed. A confirmed invalid session
+	 * (`authInvalid`) stops the pass and leaves the record pending for after sign-in.
 	 * Not-yet-due and superseded records are skipped. New mutations and scheduled
 	 * retries require a later call; there is no automatic drain or retry timer.
-	 * @throws Rejects on repository or auth-callback failures, rather than transport failures.
+	 * @throws Rejects on repository failures, rather than transport failures.
 	 */
 	replay(): Promise<OutboxReplaySummary> {
 		if (this.#activeReplay) return this.#activeReplay;
@@ -342,7 +340,6 @@ export class OutboxReplayEngine {
 
 				if (response.authInvalid) {
 					summary.authInvalid = true;
-					await this.#onAuthInvalid?.(record);
 					await this.refreshCounts();
 					this.#emit({ type: "auth-invalid", record, state: this.state });
 					break;
@@ -508,7 +505,7 @@ export class OutboxReplayEngine {
 /**
  * Creates an idle, independently coordinated replay engine.
  *
- * @param options - Mutation handlers, auth handling, and optional runtime overrides.
+ * @param options - Mutation handlers and optional runtime overrides.
  * @returns An engine ready for explicit count refreshes, subscriptions, and replay calls.
  */
 export function createOutboxReplayEngine(
