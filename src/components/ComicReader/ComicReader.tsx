@@ -1,7 +1,6 @@
 import { Icon } from "@components/Icon/Icon";
 import { saveReadingProgress } from "@lib/offline/progress-sync";
 import { isQuotaExceededError } from "@lib/offline/storage";
-import type { ProgressOutboxRecord } from "@lib/offline/types";
 import { useComputed, useSignal } from "@preact/signals";
 import type { TargetedMouseEvent, TargetedPointerEvent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
@@ -71,11 +70,6 @@ export function ComicReader({
 	const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
 
 	const lastSavedPageRef = useRef<number | null>(null);
-	const lastLocallySavedPageRef = useRef<number | null>(null);
-	const latestProgressMutationRef = useRef<ProgressOutboxRecord | null>(null);
-	const localSavePromiseRef = useRef<
-		Promise<ProgressOutboxRecord | undefined> | undefined
-	>();
 	const activeGestureRef = useRef<ActiveGesture | null>(null);
 	const lastTapRef = useRef<GesturePoint | null>(null);
 	const pendingTapTimeoutRef = useRef<number | null>(null);
@@ -83,68 +77,22 @@ export function ComicReader({
 	const suppressClickRef = useRef(false);
 	const suppressClickTimeoutRef = useRef<number | null>(null);
 
-	function buildProgressBody(mutation: ProgressOutboxRecord): string {
-		return JSON.stringify({
-			current_page: mutation.payload.currentPage,
-			total_pages: mutation.payload.totalPages,
-			updated_at: mutation.payload.updatedAt,
-			mutation_id: mutation.payload.mutationId,
-		});
-	}
-
-	/**
-	 * Sends progress via `sendBeacon`. Used on `visibilitychange`,
-	 * `beforeunload`, periodic interval, and explicit navigation — all of which
-	 * tolerate (or require) fire-and-forget delivery.
-	 */
-	function flushProgress() {
+	/** Saves the current page locally; saving also syncs it when online. */
+	function persistProgress() {
 		if (pages.value.length === 0) return;
-		void persistLocalProgress().then((mutation) => {
-			if (!mutation || mutation.payload.currentPage !== currentPage.value + 1)
-				return;
-			if (lastSavedPageRef.current === currentPage.value) return;
-			if (!navigator.onLine) return;
-			const ok = navigator.sendBeacon(
-				`/api/comic/${issueId}/progress`,
-				new Blob([buildProgressBody(mutation)], { type: "application/json" }),
-			);
-			if (ok) lastSavedPageRef.current = currentPage.value;
-		});
-	}
-
-	function persistLocalProgress(): Promise<ProgressOutboxRecord | undefined> {
-		if (pages.value.length === 0) return Promise.resolve(undefined);
-		if (lastLocallySavedPageRef.current === currentPage.value) {
-			if (
-				latestProgressMutationRef.current?.payload.currentPage ===
-				currentPage.value + 1
-			) {
-				return Promise.resolve(latestProgressMutationRef.current);
-			}
-			return localSavePromiseRef.current ?? Promise.resolve(undefined);
-		}
+		if (lastSavedPageRef.current === currentPage.value) return;
 		const savingPage = currentPage.value;
-		lastLocallySavedPageRef.current = savingPage;
-		const saving = saveReadingProgress({
+		lastSavedPageRef.current = savingPage;
+		saveReadingProgress({
 			issueId,
 			currentPage: savingPage + 1,
 			totalPages: pages.value.length,
-		})
-			.then(({ mutation }) => {
-				if (mutation && currentPage.value === savingPage) {
-					latestProgressMutationRef.current = mutation;
-				}
-				return mutation;
-			})
-			.catch(() => {
-				// Reading remains usable when best-effort storage is unavailable.
-				if (lastLocallySavedPageRef.current === savingPage) {
-					lastLocallySavedPageRef.current = null;
-				}
-				return undefined;
-			});
-		localSavePromiseRef.current = saving;
-		return saving;
+		}).catch(() => {
+			// Reading remains usable when best-effort storage is unavailable.
+			if (lastSavedPageRef.current === savingPage) {
+				lastSavedPageRef.current = null;
+			}
+		});
 	}
 
 	function clearPendingTap() {
@@ -343,9 +291,6 @@ export function ComicReader({
 	useEffect(() => {
 		supportsFullscreen.value = "requestFullscreen" in document.documentElement;
 		lastSavedPageRef.current = null;
-		lastLocallySavedPageRef.current = null;
-		latestProgressMutationRef.current = null;
-		localSavePromiseRef.current = undefined;
 		saveError.value = null;
 
 		let cancelled = false;
@@ -423,7 +368,7 @@ export function ComicReader({
 	}, [isLoading.value, pages.value.length]);
 
 	useEffect(() => {
-		if (!isLoading.value && pages.value.length > 0) persistLocalProgress();
+		if (!isLoading.value && pages.value.length > 0) persistProgress();
 	}, [currentPage.value, isLoading.value, pages.value.length]);
 
 	useEffect(() => {
@@ -479,22 +424,6 @@ export function ComicReader({
 		return () => document.removeEventListener("fullscreenchange", handler);
 	}, []);
 
-	useEffect(() => {
-		const onVisibilityChange = () => {
-			if (document.visibilityState === "hidden") flushProgress();
-		};
-		const onBeforeUnload = () => flushProgress();
-		const interval = setInterval(flushProgress, 30_000);
-
-		document.addEventListener("visibilitychange", onVisibilityChange);
-		window.addEventListener("beforeunload", onBeforeUnload);
-		return () => {
-			document.removeEventListener("visibilitychange", onVisibilityChange);
-			window.removeEventListener("beforeunload", onBeforeUnload);
-			clearInterval(interval);
-		};
-	}, [issueId]);
-
 	function toggleFullscreen() {
 		if (!document.fullscreenElement) {
 			document.documentElement.requestFullscreen().catch((err) => {
@@ -516,7 +445,6 @@ export function ComicReader({
 	}
 
 	function navigateBack() {
-		flushProgress();
 		window.location.href = offlineMode ? "/cache" : `/comic/${issueId}`;
 	}
 
@@ -869,7 +797,6 @@ export function ComicReader({
 						</div>
 						<a
 							href={nextIssueReadUrl}
-							onClick={() => flushProgress()}
 							class="shrink-0 bg-amber-500 px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-950 transition-colors hover:bg-amber-400"
 						>
 							Read next

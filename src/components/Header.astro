@@ -1,6 +1,7 @@
 ---
 import Icon from "@components/Icon/Icon.astro";
 import { SearchBar } from "@components/SearchBar/SearchBar";
+import { SyncStatus } from "@components/SyncStatus";
 ---
 
 <header
@@ -32,49 +33,7 @@ import { SearchBar } from "@components/SearchBar/SearchBar";
 		</nav>
 
 		<div class="flex items-center gap-1 sm:gap-2">
-			<a
-				href="/login"
-				data-sync-auth-required
-				hidden
-				class="group inline-flex h-12 shrink-0 items-center focus-visible:outline-none"
-			>
-				<span
-					class="inline-flex h-7 items-center border border-amber-500/50 bg-amber-500/10 px-2 text-[10px] font-bold uppercase tracking-widest text-amber-500 transition-colors group-hover:border-amber-400 group-hover:text-amber-400 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-amber-500"
-					>Sign in to sync</span
-				>
-			</a>
-			<span
-				data-outbox-pending-count
-				hidden
-				role="status"
-				aria-live="polite"
-				aria-atomic="true"
-				class="inline-flex h-7 min-w-7 items-center justify-center bg-amber-500 px-2 text-[10px] font-black tabular-nums text-slate-950 data-[state=failed]:bg-red-900 data-[state=failed]:text-red-200"
-				>0</span
-			>
-			<div
-				data-pwa-status
-				hidden
-				role="status"
-				aria-live="polite"
-				aria-atomic="true"
-				class="pwa-status mr-1 inline-flex h-7 shrink-0 items-center gap-1.5 border border-slate-700 bg-slate-800 px-2 text-[10px] font-bold uppercase tracking-widest text-slate-300 data-[status=offline]:border-amber-500/50 data-[status=offline]:bg-amber-500/10 data-[status=offline]:text-amber-400 data-[status=unavailable]:border-red-900/80 data-[status=unavailable]:bg-red-950 data-[status=unavailable]:text-red-300"
-			>
-				<span class="h-1.5 w-1.5 bg-current" aria-hidden="true"></span>
-				<span data-status-label="offline">Offline</span>
-				<span data-status-label="preparing">
-					<span class="sm:hidden">Saving</span>
-					<span class="hidden sm:inline">Preparing offline</span>
-				</span>
-				<span data-status-label="ready">
-					<span class="sm:hidden">Ready</span>
-					<span class="hidden sm:inline">Ready offline</span>
-				</span>
-				<span data-status-label="unavailable">
-					<span class="sm:hidden">Online</span>
-					<span class="hidden sm:inline">Online only</span>
-				</span>
-			</div>
+			<SyncStatus client:only="preact" />
 			<button
 				type="button"
 				id="header-search-btn"
@@ -103,39 +62,9 @@ import { SearchBar } from "@components/SearchBar/SearchBar";
 <SearchBar client:only="preact" />
 
 <script>
-import { initialisePendingActionCount } from "@lib/offline/library-sync";
-import { $syncAuthRequired } from "@stores/offline.store";
-
-function renderSyncAuthPrompt(required: boolean) {
-	for (const element of document.querySelectorAll<HTMLElement>(
-		"[data-sync-auth-required]",
-	)) {
-		element.hidden = !required;
-	}
-}
-
-initialisePendingActionCount();
-$syncAuthRequired.subscribe(renderSyncAuthPrompt);
-document.addEventListener("astro:page-load", () =>
-	renderSyncAuthPrompt($syncAuthRequired.get()),
-);
 document.addEventListener("click", (e) => {
 	if ((e.target as Element)?.closest("#header-search-btn")) {
 		window.dispatchEvent(new CustomEvent("open-search"));
 	}
 });
-document.addEventListener("astro:page-load", initialisePendingActionCount);
 </script>
-
-<style>
-.pwa-status [data-status-label] {
-	display: none;
-}
-
-.pwa-status[data-status="offline"] [data-status-label="offline"],
-.pwa-status[data-status="preparing"] [data-status-label="preparing"],
-.pwa-status[data-status="ready"] [data-status-label="ready"],
-.pwa-status[data-status="unavailable"] [data-status-label="unavailable"] {
-	display: inline;
-}
-</style>

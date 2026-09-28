@@ -30,7 +30,6 @@ const mockedResolveReaderStartPage = vi.mocked(resolveReaderStartPage);
 const mockedSaveReadingProgress = vi.mocked(saveReadingProgress);
 
 const ISSUE_ID = "abc";
-const PROGRESS_URL = `/api/comic/${ISSUE_ID}/progress`;
 
 // A 1×1 transparent PNG — big enough that the browser will happily set it as
 // an <img> src without complaining.
@@ -165,51 +164,15 @@ async function waitPastTapDelay() {
 	);
 }
 
-/**
- * Fire a synthetic visibilitychange that reports "hidden" without leaking the
- * property override into later tests — vi.spyOn is auto-restored.
- */
-function triggerTabHidden() {
-	vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
-	document.dispatchEvent(new Event("visibilitychange"));
-}
-
 beforeEach(() => {
-	// Default: sendBeacon succeeds. Individual tests can replace this spy.
-	vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
 	mockedResolveReaderStartPage.mockImplementation(
 		async (_issueId, pageNumber) => Math.max(1, pageNumber),
 	);
-	mockedSaveReadingProgress.mockImplementation(async (input) => {
-		const updatedAt = "2026-08-16T10:00:00.000Z";
-		const mutationId = `progress-${input.currentPage}`;
-		return {
-			queued: true,
-			progress: {
-				issueId: input.issueId,
-				currentPage: input.currentPage,
-				totalPages: input.totalPages,
-				updatedAt,
-				syncStatus: "pending",
-			},
-			mutation: {
-				id: mutationId,
-				dedupeKey: `progress:${input.issueId}`,
-				kind: "progress",
-				payload: {
-					issueId: input.issueId,
-					currentPage: input.currentPage,
-					totalPages: input.totalPages,
-					updatedAt,
-					mutationId,
-				},
-				createdAt: updatedAt,
-				updatedAt,
-				attempts: 0,
-				status: "pending",
-			},
-		};
-	});
+	mockedSaveReadingProgress.mockImplementation(async (input) => ({
+		...input,
+		updatedAt: "2026-08-16T10:00:00.000Z",
+		syncStatus: "pending",
+	}));
 });
 
 afterEach(() => {
@@ -593,62 +556,25 @@ describe("ComicReader", () => {
 			});
 		});
 
-		test("flushes progress via sendBeacon when the tab is hidden", async () => {
+		test("saves each page once", async () => {
 			setupHappyPath(3);
-			const beacon = vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
 
 			render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
 			await expect
 				.element(page.getByRole("img", { name: "Page 1" }))
 				.toBeInTheDocument();
-
-			// Move to page 2 so there's actually something to flush.
 			await userEvent.keyboard("{ArrowRight}");
 			await expect
 				.element(page.getByRole("img", { name: "Page 2" }))
 				.toBeInTheDocument();
-
-			triggerTabHidden();
 
 			await vi.waitFor(() => {
-				expect(beacon).toHaveBeenCalledWith(PROGRESS_URL, expect.any(Blob));
+				expect(
+					mockedSaveReadingProgress.mock.calls.map(
+						([input]) => input.currentPage,
+					),
+				).toEqual([1, 2]);
 			});
-			// Decode the body and assert the API contract.
-			const lastBeaconCall = beacon.mock.calls.at(-1);
-			if (!lastBeaconCall) throw new Error("Expected progress beacon call");
-			const [, blob] = lastBeaconCall;
-			if (!(blob instanceof Blob)) throw new Error("Expected beacon Blob body");
-			const body = JSON.parse(await blob.text());
-			expect(body).toEqual({
-				current_page: 2,
-				total_pages: 3,
-				updated_at: "2026-08-16T10:00:00.000Z",
-				mutation_id: "progress-2",
-			});
-		});
-
-		test("does not re-send progress for an unchanged page", async () => {
-			setupHappyPath(3);
-			const beacon = vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
-
-			render(<ComicReader issueId={ISSUE_ID} initialPage={1} />);
-			await expect
-				.element(page.getByRole("img", { name: "Page 1" }))
-				.toBeInTheDocument();
-
-			await userEvent.keyboard("{ArrowRight}");
-			await expect
-				.element(page.getByRole("img", { name: "Page 2" }))
-				.toBeInTheDocument();
-
-			triggerTabHidden();
-			await vi.waitFor(() => expect(beacon).toHaveBeenCalled());
-			const callsAfterFirstFlush = beacon.mock.calls.length;
-			expect(callsAfterFirstFlush).toBeGreaterThanOrEqual(1);
-
-			// A second flush with the same page should be deduped.
-			triggerTabHidden();
-			expect(beacon.mock.calls.length).toBe(callsAfterFirstFlush);
 		});
 	});
 });

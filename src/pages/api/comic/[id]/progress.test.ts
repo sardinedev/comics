@@ -7,13 +7,12 @@ const queryMocks = vi.hoisted(() => ({
 
 vi.mock("@data/elastic/queries", () => queryMocks);
 
-const { PATCH, POST, handleProgress } = await import("./progress");
+const { PATCH, handleProgress } = await import("./progress");
 
 const validBody = {
 	current_page: 12,
 	total_pages: 24,
 	updated_at: "2026-08-16T12:34:56.000Z",
-	mutation_id: "progress-device-a-123",
 };
 
 function request(body: unknown): Request {
@@ -51,8 +50,6 @@ describe("progress API validation", () => {
 		[{ ...validBody, current_page: 25 }, "cannot exceed"],
 		[{ ...validBody, updated_at: "2026-08-16" }, "updated_at"],
 		[{ ...validBody, updated_at: "not-a-date" }, "updated_at"],
-		[{ ...validBody, mutation_id: "" }, "mutation_id"],
-		[{ ...validBody, mutation_id: "x".repeat(201) }, "mutation_id"],
 	] as const)("rejects invalid progress fields", async (body, message) => {
 		const response = await handleProgress("issue-1", request(body));
 
@@ -87,7 +84,6 @@ describe("progress API writes", () => {
 			currentPage: 12,
 			totalPages: 24,
 			updatedAt: "2026-08-16T12:34:56.000Z",
-			mutationId: validBody.mutation_id,
 		});
 		expect(await response.json()).toEqual({
 			ok: true,
@@ -197,17 +193,14 @@ describe("progress API writes", () => {
 		consoleError.mockRestore();
 	});
 
-	test.each([
-		[PATCH, "PATCH"],
-		[POST, "POST"],
-	] as const)("supports %s route calls", async (route, method) => {
-		const response = await route({
+	test("supports PATCH route calls", async () => {
+		const response = await PATCH({
 			params: { id: "issue-1" },
 			request: new Request("http://localhost", {
-				method,
+				method: "PATCH",
 				body: JSON.stringify(validBody),
 			}),
-		} as unknown as Parameters<typeof route>[0]);
+		} as unknown as Parameters<typeof PATCH>[0]);
 
 		expect(response.status).toBe(200);
 	});

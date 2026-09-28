@@ -1,3 +1,5 @@
+import { $isOffline } from "@stores/offline.store";
+import type { ReadableAtom } from "nanostores";
 import { offlineComics } from "./database";
 import type { OfflineComicRecord } from "./types";
 
@@ -7,53 +9,13 @@ export type OfflineStatusSource = {
 	subscribe: (listener: (offline: boolean) => void) => () => void;
 };
 
-type NavigatorConnectivity = Pick<Navigator, "onLine">;
-
-type PwaStatusEventDetail = {
-	status?: "offline" | "preparing" | "ready" | "unavailable";
-};
-
-/**
- * Creates a connectivity adapter from browser and PWA lifecycle events.
- *
- * `navigator.onLine` remains the fallback because the PWA client may not have
- * emitted its first status event when this island hydrates.
- */
+/** Reads connectivity from the offline store the PWA client keeps current. */
 export function createOfflineStatusSource(
-	navigatorObject: NavigatorConnectivity = navigator,
-	eventTarget: EventTarget = window,
+	store: ReadableAtom<boolean> = $isOffline,
 ): OfflineStatusSource {
-	let pwaOffline: boolean | null = null;
-
 	return {
-		isOffline: () => pwaOffline ?? navigatorObject.onLine === false,
-		subscribe: (listener) => {
-			const onOnline = () => {
-				pwaOffline = false;
-				listener(false);
-			};
-			const onOffline = () => {
-				pwaOffline = true;
-				listener(true);
-			};
-			const onPwaStatus = (event: Event) => {
-				const status = (event as CustomEvent<PwaStatusEventDetail>).detail
-					?.status;
-				if (!status) return;
-				pwaOffline = status === "offline";
-				listener(pwaOffline);
-			};
-
-			eventTarget.addEventListener("online", onOnline);
-			eventTarget.addEventListener("offline", onOffline);
-			eventTarget.addEventListener("comics:pwa-status", onPwaStatus);
-
-			return () => {
-				eventTarget.removeEventListener("online", onOnline);
-				eventTarget.removeEventListener("offline", onOffline);
-				eventTarget.removeEventListener("comics:pwa-status", onPwaStatus);
-			};
-		},
+		isOffline: () => store.get(),
+		subscribe: (listener) => store.listen(listener),
 	};
 }
 

@@ -532,7 +532,6 @@ describe("updateReadingProgress", () => {
 			currentPage: 12,
 			totalPages: 24,
 			updatedAt: "2026-08-16T12:34:56.000Z",
-			mutationId: "mutation-1",
 		});
 
 		const { index, id, script } = updateRequest();
@@ -542,7 +541,6 @@ describe("updateReadingProgress", () => {
 			current_page: 12,
 			total_pages: 24,
 			updated_at: "2026-08-16T12:34:56.000Z",
-			mutation_id: "mutation-1",
 		});
 		// Stale guard: a timestamp that is not strictly newer than the stored one is a no-op.
 		expect(script.source).toMatch(
@@ -554,9 +552,6 @@ describe("updateReadingProgress", () => {
 		);
 		expect(script.source).toMatch(
 			/ctx\._source\.progress_updated_at = params\.updated_at;/,
-		);
-		expect(script.source).toMatch(
-			/ctx\._source\.progress_mutation_id = params\.mutation_id;/,
 		);
 		expect(script.source).toMatch(
 			/ctx\._source\.last_opened_at = params\.updated_at;/,
@@ -583,12 +578,33 @@ describe("updateReadingProgress", () => {
 				currentPage: 12,
 				totalPages: 24,
 				updatedAt: "2026-08-16T12:34:56.000Z",
-				mutationId: "mutation-1",
 			}),
 		).resolves.toEqual({
 			applied: true,
 			updatedAt: "2026-08-16T12:34:56.000Z",
 		});
+	});
+
+	test("caps a timestamp from a fast client clock at the server clock", async () => {
+		elasticState.update.mockResolvedValue({ result: "updated" });
+
+		await expect(
+			queries.updateReadingProgress(
+				"issue-2",
+				{
+					currentPage: 12,
+					totalPages: 24,
+					updatedAt: "2027-01-01T00:00:00.000Z",
+				},
+				new Date("2026-08-16T12:34:56.000Z"),
+			),
+		).resolves.toEqual({
+			applied: true,
+			updatedAt: "2026-08-16T12:34:56.000Z",
+		});
+		expect(updateRequest().script.params.updated_at).toBe(
+			"2026-08-16T12:34:56.000Z",
+		);
 	});
 
 	test("maps an ES 'noop' result to applied: false, reflecting a stale/duplicate write", async () => {
@@ -599,7 +615,6 @@ describe("updateReadingProgress", () => {
 				currentPage: 8,
 				totalPages: 24,
 				updatedAt: "2026-08-16T12:34:56.000Z",
-				mutationId: "mutation-replay",
 			}),
 		).resolves.toEqual({
 			applied: false,
