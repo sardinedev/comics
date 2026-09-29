@@ -1,6 +1,6 @@
 import { OFFLINE_COVER_CACHE_NAME } from "@lib/offline/cache-names";
 import type { OfflineComicRecord } from "@lib/offline/types";
-import { $syncAuthRequired } from "@stores/offline.store";
+import { $offline } from "@stores/offline.store";
 import { expiredSessionResponse } from "@util/mocks/expiredSession.mock";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -99,7 +99,7 @@ describe("comic cache utilities", () => {
 
 	afterEach(async () => {
 		fetchSpy.mockRestore();
-		$syncAuthRequired.set(false);
+		$offline.setKey("authRequired", false);
 		const cache = await caches.open(COMIC_CACHE_NAME);
 		await Promise.all(
 			[...cleanupIds].flatMap((issueId) => [
@@ -407,7 +407,7 @@ describe("comic cache utilities", () => {
 		await expect(
 			downloadIssueToCache(issueId, () => {}, metadataFor(issueId)),
 		).rejects.toThrow("session has expired");
-		expect($syncAuthRequired.get()).toBe(true);
+		expect($offline.get().authRequired).toBe(true);
 		expect(await isIssueCached(issueId)).toBe(false);
 	});
 

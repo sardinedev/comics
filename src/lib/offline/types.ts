@@ -33,7 +33,10 @@ export type OfflineComicRecord = {
 	nextIssue?: OfflineIssueReference | null;
 };
 
-/** Reading progress stored locally before, during, and after synchronization. */
+/**
+ * Reading progress stored locally. Records with `syncStatus: "pending"` are
+ * the sync queue; `failed` records were rejected by the server.
+ */
 export type OfflineProgressRecord = {
 	issueId: string;
 	currentPage: number;
@@ -41,49 +44,4 @@ export type OfflineProgressRecord = {
 	updatedAt: string;
 	syncStatus: "synced" | "pending" | "failed";
 	lastError?: string;
-};
-
-type OutboxRecordBase = {
-	/** Client-generated id used to make replay idempotent. */
-	id: string;
-	/** Stable key used to replace an older pending mutation for the same target. */
-	dedupeKey: string;
-	createdAt: string;
-	updatedAt: string;
-	attempts: number;
-	status: "pending" | "failed";
-	nextAttemptAt?: string;
-	lastError?: string;
-};
-
-/** A reading-progress write waiting to be replayed online. */
-export type ProgressOutboxRecord = OutboxRecordBase & {
-	kind: "progress";
-	payload: {
-		issueId: string;
-		currentPage: number;
-		totalPages: number;
-		updatedAt: string;
-		mutationId: string;
-	};
-};
-
-/** An add-to-library write waiting to be replayed online. */
-export type AddToLibraryOutboxRecord = OutboxRecordBase & {
-	kind: "add-to-library";
-	payload: {
-		seriesId: string;
-	};
-};
-
-/** A server mutation waiting for the next online foreground session. */
-export type OfflineOutboxRecord =
-	| ProgressOutboxRecord
-	| AddToLibraryOutboxRecord;
-
-/** A small piece of versioned application state used by offline orchestration. */
-export type OfflineStateRecord<T = unknown> = {
-	key: string;
-	value: T;
-	updatedAt: string;
 };

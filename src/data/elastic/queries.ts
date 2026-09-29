@@ -705,26 +705,33 @@ export async function searchLibrarySeries(
 	return { items, total, page: safePage, pageSize, totalPages };
 }
 
-/**
- * Updates reading progress for an issue.
- * Handles state transitions and ignores stale or duplicate client updates.
- */
 export type UpdateReadingProgressInput = {
 	currentPage: number;
 	totalPages: number;
 	updatedAt: string;
-	mutationId: string;
 };
 
 export type UpdateReadingProgressResult = {
 	applied: boolean;
+	/** The timestamp stored when applied. */
 	updatedAt: string;
 };
 
+/**
+ * Updates reading progress for an issue, last write wins by client timestamp.
+ * Handles state transitions and ignores stale or duplicate client updates.
+ * Timestamps are capped at the server clock so a device whose clock runs fast
+ * can't make its progress unbeatable.
+ */
 export async function updateReadingProgress(
 	issueId: string,
 	input: UpdateReadingProgressInput,
+	now = new Date(),
 ): Promise<UpdateReadingProgressResult> {
+	const updatedAt =
+		Date.parse(input.updatedAt) > now.getTime()
+			? now.toISOString()
+			: input.updatedAt;
 	const response = await elastic.update({
 		index: ISSUES_INDEX,
 		id: issueId,
@@ -736,7 +743,6 @@ export async function updateReadingProgress(
         }
         ctx._source.current_page = params.current_page;
 		ctx._source.progress_updated_at = params.updated_at;
-		ctx._source.progress_mutation_id = params.mutation_id;
         ctx._source.last_opened_at = params.updated_at;
         if (params.total_pages > 0 && params.current_page >= params.total_pages) {
           ctx._source.reading_state = 'read';
@@ -752,11 +758,10 @@ export async function updateReadingProgress(
 			params: {
 				current_page: input.currentPage,
 				total_pages: input.totalPages,
-				updated_at: input.updatedAt,
-				mutation_id: input.mutationId,
+				updated_at: updatedAt,
 			},
 		},
 	});
 
-	return { applied: response.result !== "noop", updatedAt: input.updatedAt };
+	return { applied: response.result !== "noop", updatedAt };
 }

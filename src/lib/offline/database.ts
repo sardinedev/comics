@@ -1,19 +1,15 @@
-import type {
-	OfflineComicRecord,
-	OfflineOutboxRecord,
-	OfflineProgressRecord,
-	OfflineStateRecord,
-} from "./types";
+import type { OfflineComicRecord, OfflineProgressRecord } from "./types";
 
 export const OFFLINE_DATABASE_NAME = "comics-offline";
-export const OFFLINE_DATABASE_VERSION = 2;
+export const OFFLINE_DATABASE_VERSION = 3;
 
 export const OFFLINE_STORE_NAMES = {
 	comics: "comics",
 	progress: "progress",
-	outbox: "outbox",
-	state: "offline-state",
 } as const;
+
+/** Stores from v2, when a generic outbox queued progress and library adds. */
+const REMOVED_STORE_NAMES = ["outbox", "offline-state"];
 
 export type OfflineStoreName =
 	(typeof OFFLINE_STORE_NAMES)[keyof typeof OFFLINE_STORE_NAMES];
@@ -63,24 +59,33 @@ function createV1Stores(database: IDBDatabase): void {
 	}
 }
 
-function createV2Stores(database: IDBDatabase): void {
-	if (!database.objectStoreNames.contains(OFFLINE_STORE_NAMES.outbox)) {
-		const outbox = database.createObjectStore(OFFLINE_STORE_NAMES.outbox, {
-			keyPath: "id",
-		});
-		outbox.createIndex("kind", "kind", { unique: false });
-		outbox.createIndex("createdAt", "createdAt", { unique: false });
-		outbox.createIndex("dedupeKey", "dedupeKey", { unique: true });
-	}
-
-	if (!database.objectStoreNames.contains(OFFLINE_STORE_NAMES.state)) {
-		database.createObjectStore(OFFLINE_STORE_NAMES.state, { keyPath: "key" });
+function removeV2Stores(database: IDBDatabase): void {
+	for (const name of REMOVED_STORE_NAMES) {
+		if (database.objectStoreNames.contains(name)) {
+			database.deleteObjectStore(name);
+		}
 	}
 }
 
-function migrateDatabase(database: IDBDatabase, oldVersion: number): void {
+function createV3Indexes(transaction: IDBTransaction): void {
+	const progress = transaction.objectStore(OFFLINE_STORE_NAMES.progress);
+	if (!progress.indexNames.contains("syncStatus")) {
+		progress.createIndex("syncStatus", "syncStatus", { unique: false });
+	}
+}
+
+function migrateDatabase(
+	database: IDBDatabase,
+	transaction: IDBTransaction,
+	oldVersion: number,
+): void {
 	if (oldVersion < 1) createV1Stores(database);
-	if (oldVersion < 2) createV2Stores(database);
+	if (oldVersion < 3) {
+		// Pending progress records carry their own sync status, so dropping the
+		// outbox loses no reading progress.
+		removeV2Stores(database);
+		createV3Indexes(transaction);
+	}
 }
 
 /**
@@ -97,7 +102,9 @@ export function openOfflineDatabase(): Promise<IDBDatabase> {
 		const request = indexedDB.open(databaseName, OFFLINE_DATABASE_VERSION);
 
 		request.onupgradeneeded = (event) => {
-			migrateDatabase(request.result, event.oldVersion);
+			// The versionchange transaction always exists during an upgrade.
+			const transaction = request.transaction as IDBTransaction;
+			migrateDatabase(request.result, transaction, event.oldVersion);
 		};
 		request.onerror = () => reject(request.error);
 		request.onsuccess = () => {
@@ -225,42 +232,46 @@ async function readAllFromIndex<T>(
 	return result;
 }
 
-async function putOutboxRecord(record: OfflineOutboxRecord): Promise<void> {
+async function countFromIndex(
+	storeName: OfflineStoreName,
+	indexName: string,
+	query: IDBValidKey | IDBKeyRange,
+): Promise<number> {
 	const database = await openOfflineDatabase();
-	const transaction = database.transaction(
-		OFFLINE_STORE_NAMES.outbox,
-		"readwrite",
-	);
-	const completed = transactionComplete(transaction);
-	const store = transaction.objectStore(OFFLINE_STORE_NAMES.outbox);
-	const existing = await requestResult<OfflineOutboxRecord | undefined>(
-		store.index("dedupeKey").get(record.dedupeKey),
-	);
-	if (existing && existing.id !== record.id) store.delete(existing.id);
-	store.put(record);
-	await completed;
+	const transaction = database.transaction(storeName, "readonly");
+	const [result] = await Promise.all([
+		requestResult(
+			transaction.objectStore(storeName).index(indexName).count(query),
+		),
+		transactionComplete(transaction),
+	]);
+	return result;
 }
 
-/** Compare and settle a mutation in one transaction, preserving newer writes. */
-async function updateOutboxIfCurrent(
-	expected: OfflineOutboxRecord,
-	replacement: OfflineOutboxRecord | null,
+/**
+ * Compare-and-set a progress record in one transaction: `next` replaces the
+ * stored record (or deletes it when null) only if `isCurrent` accepts it.
+ * Returns false, leaving the store untouched, when it doesn't.
+ */
+async function updateProgressIfCurrent(
+	issueId: string,
+	isCurrent: (current: OfflineProgressRecord) => boolean,
+	next: OfflineProgressRecord | null,
 ): Promise<boolean> {
 	const database = await openOfflineDatabase();
 	const transaction = database.transaction(
-		OFFLINE_STORE_NAMES.outbox,
+		OFFLINE_STORE_NAMES.progress,
 		"readwrite",
 	);
 	const completed = transactionComplete(transaction);
-	const store = transaction.objectStore(OFFLINE_STORE_NAMES.outbox);
-	const current = await requestResult<OfflineOutboxRecord | undefined>(
-		store.index("dedupeKey").get(expected.dedupeKey),
+	const store = transaction.objectStore(OFFLINE_STORE_NAMES.progress);
+	const current = await requestResult<OfflineProgressRecord | undefined>(
+		store.get(issueId),
 	);
-	const matches =
-		current?.id === expected.id && current.updatedAt === expected.updatedAt;
+	const matches = current !== undefined && isCurrent(current);
 	if (matches) {
-		if (replacement) store.put(replacement);
-		else store.delete(expected.id);
+		if (next) store.put(next);
+		else store.delete(issueId);
 	}
 	await completed;
 	return matches;
@@ -289,118 +300,19 @@ export const offlineProgress = {
 		readRecord<OfflineProgressRecord>(OFFLINE_STORE_NAMES.progress, issueId),
 	getAll: () =>
 		readAllRecords<OfflineProgressRecord>(OFFLINE_STORE_NAMES.progress),
+	getByStatus: (syncStatus: OfflineProgressRecord["syncStatus"]) =>
+		readAllFromIndex<OfflineProgressRecord>(
+			OFFLINE_STORE_NAMES.progress,
+			"syncStatus",
+			syncStatus,
+		),
+	countByStatus: (syncStatus: OfflineProgressRecord["syncStatus"]) =>
+		countFromIndex(OFFLINE_STORE_NAMES.progress, "syncStatus", syncStatus),
 	put: (record: OfflineProgressRecord) =>
 		putRecord(OFFLINE_STORE_NAMES.progress, record),
+	updateIfCurrent: updateProgressIfCurrent,
 	delete: (issueId: string) =>
 		deleteRecord(OFFLINE_STORE_NAMES.progress, issueId),
 	clear: () => clearStore(OFFLINE_STORE_NAMES.progress),
 	count: () => countRecords(OFFLINE_STORE_NAMES.progress),
 };
-
-export const offlineOutbox = {
-	get: (id: string) =>
-		readRecord<OfflineOutboxRecord>(OFFLINE_STORE_NAMES.outbox, id),
-	getAll: async () => {
-		const records = await readAllRecords<OfflineOutboxRecord>(
-			OFFLINE_STORE_NAMES.outbox,
-		);
-		return records.sort((left, right) =>
-			left.createdAt.localeCompare(right.createdAt),
-		);
-	},
-	getByKind: (kind: OfflineOutboxRecord["kind"]) =>
-		readAllFromIndex<OfflineOutboxRecord>(
-			OFFLINE_STORE_NAMES.outbox,
-			"kind",
-			kind,
-		),
-	getByDedupeKey: async (dedupeKey: string) => {
-		const database = await openOfflineDatabase();
-		const transaction = database.transaction(
-			OFFLINE_STORE_NAMES.outbox,
-			"readonly",
-		);
-		const [result] = await Promise.all([
-			requestResult<OfflineOutboxRecord | undefined>(
-				transaction
-					.objectStore(OFFLINE_STORE_NAMES.outbox)
-					.index("dedupeKey")
-					.get(dedupeKey),
-			),
-			transactionComplete(transaction),
-		]);
-		return result;
-	},
-	/** Add a mutation, replacing an older record with the same dedupe key. */
-	put: putOutboxRecord,
-	updateIfCurrent: updateOutboxIfCurrent,
-	delete: (id: string) => deleteRecord(OFFLINE_STORE_NAMES.outbox, id),
-	clear: () => clearStore(OFFLINE_STORE_NAMES.outbox),
-	count: () => countRecords(OFFLINE_STORE_NAMES.outbox),
-};
-
-export const offlineState = {
-	get: async <T = unknown>(key: string): Promise<T | undefined> => {
-		const record = await readRecord<OfflineStateRecord<T>>(
-			OFFLINE_STORE_NAMES.state,
-			key,
-		);
-		return record?.value;
-	},
-	getRecord: <T = unknown>(key: string) =>
-		readRecord<OfflineStateRecord<T>>(OFFLINE_STORE_NAMES.state, key),
-	set: <T>(key: string, value: T, updatedAt = new Date().toISOString()) =>
-		putRecord<OfflineStateRecord<T>>(OFFLINE_STORE_NAMES.state, {
-			key,
-			value,
-			updatedAt,
-		}),
-	delete: (key: string) => deleteRecord(OFFLINE_STORE_NAMES.state, key),
-	clear: () => clearStore(OFFLINE_STORE_NAMES.state),
-	count: () => countRecords(OFFLINE_STORE_NAMES.state),
-};
-
-/**
- * Atomically writes progress and its matching outbox mutation.
- *
- * Keeping these records in one transaction prevents a crash from leaving
- * locally visible progress that can never be synchronized.
- */
-export async function queueProgressUpdate(
-	progress: OfflineProgressRecord,
-	mutation: Extract<OfflineOutboxRecord, { kind: "progress" }>,
-): Promise<void> {
-	if (progress.issueId !== mutation.payload.issueId) {
-		throw new Error("Progress and outbox mutation must target the same issue");
-	}
-
-	if (
-		progress.currentPage !== mutation.payload.currentPage ||
-		progress.updatedAt !== mutation.payload.updatedAt ||
-		(progress.totalPages !== undefined &&
-			progress.totalPages !== mutation.payload.totalPages)
-	) {
-		throw new Error("Progress and outbox payload fields must match");
-	}
-
-	const database = await openOfflineDatabase();
-	const transaction = database.transaction(
-		[OFFLINE_STORE_NAMES.progress, OFFLINE_STORE_NAMES.outbox],
-		"readwrite",
-	);
-	const completed = transactionComplete(transaction);
-	const outbox = transaction.objectStore(OFFLINE_STORE_NAMES.outbox);
-	const existing = await requestResult<OfflineOutboxRecord | undefined>(
-		outbox.index("dedupeKey").get(mutation.dedupeKey),
-	);
-	if (existing && existing.id !== mutation.id) outbox.delete(existing.id);
-	try {
-		transaction.objectStore(OFFLINE_STORE_NAMES.progress).put(progress);
-		outbox.put(mutation);
-	} catch (error) {
-		transaction.abort();
-		await completed.catch(() => undefined);
-		throw error;
-	}
-	await completed;
-}

@@ -16,18 +16,11 @@ import {
 	OFFLINE_DATABASE_VERSION,
 	OFFLINE_STORE_NAMES,
 	offlineComics,
-	offlineOutbox,
 	offlineProgress,
-	offlineState,
 	openOfflineDatabase,
-	queueProgressUpdate,
 	setOfflineDatabaseNameForTesting,
 } from "./database";
-import type {
-	OfflineComicRecord,
-	OfflineOutboxRecord,
-	OfflineProgressRecord,
-} from "./types";
+import type { OfflineComicRecord, OfflineProgressRecord } from "./types";
 
 const comic: OfflineComicRecord = {
 	issueId: "issue-1",
@@ -44,25 +37,9 @@ const comic: OfflineComicRecord = {
 const progress: OfflineProgressRecord = {
 	issueId: comic.issueId,
 	currentPage: 8,
+	totalPages: 24,
 	updatedAt: "2026-08-16T11:00:00.000Z",
 	syncStatus: "pending",
-};
-
-const progressMutation: OfflineOutboxRecord = {
-	id: "mutation-1",
-	dedupeKey: `progress:${comic.issueId}`,
-	kind: "progress",
-	payload: {
-		issueId: comic.issueId,
-		currentPage: progress.currentPage,
-		totalPages: 24,
-		updatedAt: progress.updatedAt,
-		mutationId: "mutation-1",
-	},
-	createdAt: "2026-08-16T11:00:00.000Z",
-	updatedAt: "2026-08-16T11:00:00.000Z",
-	attempts: 0,
-	status: "pending",
 };
 
 const testRunId = crypto.randomUUID();
@@ -96,6 +73,54 @@ afterAll(async () => {
 	await setOfflineDatabaseNameForTesting(OFFLINE_DATABASE_NAME);
 });
 
+/** Builds a database as an older release left it, then closes it. */
+async function createLegacyDatabase(
+	version: number,
+	seed: { comics?: OfflineComicRecord[]; progress?: OfflineProgressRecord[] },
+): Promise<void> {
+	await new Promise<void>((resolve, reject) => {
+		const request = indexedDB.open(getOfflineDatabaseName(), version);
+		request.onupgradeneeded = () => {
+			const database = request.result;
+			const comicsStore = database.createObjectStore(
+				OFFLINE_STORE_NAMES.comics,
+				{ keyPath: "issueId" },
+			);
+			comicsStore.createIndex("seriesId", "seriesId", { unique: false });
+			comicsStore.createIndex("cachedAt", "cachedAt", { unique: false });
+			const progressStore = database.createObjectStore(
+				OFFLINE_STORE_NAMES.progress,
+				{ keyPath: "issueId" },
+			);
+			progressStore.createIndex("updatedAt", "updatedAt", { unique: false });
+			if (version >= 2) {
+				const outbox = database.createObjectStore("outbox", { keyPath: "id" });
+				outbox.createIndex("dedupeKey", "dedupeKey", { unique: true });
+				database.createObjectStore("offline-state", { keyPath: "key" });
+			}
+		};
+		request.onerror = () => reject(request.error);
+		request.onsuccess = () => {
+			const database = request.result;
+			const transaction = database.transaction(
+				[OFFLINE_STORE_NAMES.comics, OFFLINE_STORE_NAMES.progress],
+				"readwrite",
+			);
+			for (const record of seed.comics ?? []) {
+				transaction.objectStore(OFFLINE_STORE_NAMES.comics).put(record);
+			}
+			for (const record of seed.progress ?? []) {
+				transaction.objectStore(OFFLINE_STORE_NAMES.progress).put(record);
+			}
+			transaction.oncomplete = () => {
+				database.close();
+				resolve();
+			};
+			transaction.onerror = () => reject(transaction.error);
+		};
+	});
+}
+
 describe("offline database schema", () => {
 	test("creates every current store and index", async () => {
 		const database = await openOfflineDatabase();
@@ -103,13 +128,11 @@ describe("offline database schema", () => {
 		expect(database.version).toBe(OFFLINE_DATABASE_VERSION);
 		expect(Array.from(database.objectStoreNames)).toEqual([
 			OFFLINE_STORE_NAMES.comics,
-			OFFLINE_STORE_NAMES.state,
-			OFFLINE_STORE_NAMES.outbox,
 			OFFLINE_STORE_NAMES.progress,
 		]);
 
 		const transaction = database.transaction(
-			[OFFLINE_STORE_NAMES.comics, OFFLINE_STORE_NAMES.outbox],
+			[OFFLINE_STORE_NAMES.comics, OFFLINE_STORE_NAMES.progress],
 			"readonly",
 		);
 		const transactionDone = new Promise<void>((resolve, reject) => {
@@ -124,60 +147,32 @@ describe("offline database schema", () => {
 		).toEqual(["cachedAt", "seriesId"]);
 		expect(
 			Array.from(
-				transaction.objectStore(OFFLINE_STORE_NAMES.outbox).indexNames,
+				transaction.objectStore(OFFLINE_STORE_NAMES.progress).indexNames,
 			),
-		).toEqual(["createdAt", "dedupeKey", "kind"]);
+		).toEqual(["syncStatus", "updatedAt"]);
 		await transactionDone;
 	});
 
 	test("upgrades a version 1 database without losing records", async () => {
 		const legacyRecord = { ...comic, seriesName: "Preserved from v1" };
-		await new Promise<void>((resolve, reject) => {
-			const request = indexedDB.open(getOfflineDatabaseName(), 1);
-			request.onupgradeneeded = () => {
-				const comicsStore = request.result.createObjectStore(
-					OFFLINE_STORE_NAMES.comics,
-					{
-						keyPath: "issueId",
-					},
-				);
-				comicsStore.createIndex("seriesId", "seriesId", { unique: false });
-				comicsStore.createIndex("cachedAt", "cachedAt", { unique: false });
-				const progressStore = request.result.createObjectStore(
-					OFFLINE_STORE_NAMES.progress,
-					{
-						keyPath: "issueId",
-					},
-				);
-				progressStore.createIndex("updatedAt", "updatedAt", {
-					unique: false,
-				});
-			};
-			request.onerror = () => reject(request.error);
-			request.onsuccess = () => {
-				const database = request.result;
-				const transaction = database.transaction(
-					OFFLINE_STORE_NAMES.comics,
-					"readwrite",
-				);
-				transaction.objectStore(OFFLINE_STORE_NAMES.comics).put(legacyRecord);
-				transaction.oncomplete = () => {
-					database.close();
-					resolve();
-				};
-				transaction.onerror = () => reject(transaction.error);
-			};
-		});
+		await createLegacyDatabase(1, { comics: [legacyRecord] });
 
 		const database = await openOfflineDatabase();
 		expect(database.version).toBe(OFFLINE_DATABASE_VERSION);
-		expect(database.objectStoreNames.contains(OFFLINE_STORE_NAMES.outbox)).toBe(
-			true,
-		);
-		expect(database.objectStoreNames.contains(OFFLINE_STORE_NAMES.state)).toBe(
-			true,
-		);
+		expect(database.objectStoreNames.contains("outbox")).toBe(false);
 		expect(await offlineComics.get(comic.issueId)).toEqual(legacyRecord);
+	});
+
+	test("drops the version 2 outbox but keeps pending progress queued", async () => {
+		await createLegacyDatabase(2, { comics: [comic], progress: [progress] });
+
+		const database = await openOfflineDatabase();
+		expect(Array.from(database.objectStoreNames)).toEqual([
+			OFFLINE_STORE_NAMES.comics,
+			OFFLINE_STORE_NAMES.progress,
+		]);
+		expect(await offlineComics.get(comic.issueId)).toEqual(comic);
+		expect(await offlineProgress.getByStatus("pending")).toEqual([progress]);
 	});
 });
 
@@ -207,139 +202,71 @@ describe("typed offline repositories", () => {
 		expect(await offlineComics.getAll()).toEqual([]);
 	});
 
-	test("stores progress and arbitrary typed offline state", async () => {
-		await offlineProgress.put(progress);
-		expect(await offlineProgress.get(progress.issueId)).toEqual(progress);
+	test("stores progress and queries it by sync status", async () => {
+		const synced: OfflineProgressRecord = {
+			...progress,
+			issueId: "issue-2",
+			syncStatus: "synced",
+		};
+		const failed: OfflineProgressRecord = {
+			...progress,
+			issueId: "issue-3",
+			syncStatus: "failed",
+		};
+		for (const record of [progress, synced, failed]) {
+			await offlineProgress.put(record);
+		}
 
-		await offlineState.set("readiness", { ready: true }, progress.updatedAt);
-		expect(await offlineState.get<{ ready: boolean }>("readiness")).toEqual({
-			ready: true,
-		});
-		expect(await offlineState.getRecord("readiness")).toEqual({
-			key: "readiness",
-			value: { ready: true },
-			updatedAt: progress.updatedAt,
-		});
+		expect(await offlineProgress.get(progress.issueId)).toEqual(progress);
+		expect(await offlineProgress.getByStatus("pending")).toEqual([progress]);
+		expect(await offlineProgress.getByStatus("failed")).toEqual([failed]);
+		expect(await offlineProgress.countByStatus("synced")).toBe(1);
 
 		await offlineProgress.delete(progress.issueId);
-		await offlineState.delete("readiness");
-		expect(await offlineProgress.count()).toBe(0);
-		expect(await offlineState.count()).toBe(0);
+		expect(await offlineProgress.countByStatus("pending")).toBe(0);
+		expect(await offlineProgress.count()).toBe(2);
 	});
 
-	test("orders outbox records and replaces matching dedupe keys", async () => {
-		const libraryMutation: OfflineOutboxRecord = {
-			id: "mutation-2",
-			dedupeKey: "library:series-1",
-			kind: "add-to-library",
-			payload: { seriesId: "series-1" },
-			createdAt: "2026-08-16T10:00:00.000Z",
-			updatedAt: "2026-08-16T10:00:00.000Z",
-			attempts: 0,
-			status: "pending",
-		};
-		await offlineOutbox.put(progressMutation);
-		await offlineOutbox.put(libraryMutation);
+	test("replaces or deletes progress only when it is still current", async () => {
+		await offlineProgress.put(progress);
+		const synced = { ...progress, syncStatus: "synced" } as const;
 
-		expect((await offlineOutbox.getAll()).map(({ id }) => id)).toEqual([
-			"mutation-2",
-			"mutation-1",
-		]);
-		expect(await offlineOutbox.getByKind("progress")).toEqual([
-			progressMutation,
-		]);
-
-		const replacement = {
-			...progressMutation,
-			id: "mutation-3",
-			payload: { ...progressMutation.payload, currentPage: 12 },
-		};
-		await offlineOutbox.put(replacement);
-		expect(await offlineOutbox.get(progressMutation.id)).toBeUndefined();
-		expect(
-			await offlineOutbox.getByDedupeKey(progressMutation.dedupeKey),
-		).toEqual(replacement);
-		expect(await offlineOutbox.count()).toBe(2);
-	});
-
-	test.each([
-		{ currentPage: 9 },
-		{ updatedAt: "2026-08-16T12:00:00.000Z" },
-		{ totalPages: 99 },
-	])("rejects inconsistent progress fields %o", async (change) => {
 		await expect(
-			queueProgressUpdate(
-				{ ...progress, totalPages: 24, ...change },
-				progressMutation,
-			),
-		).rejects.toThrow("fields must match");
-		expect(await offlineProgress.count()).toBe(0);
-		expect(await offlineOutbox.count()).toBe(0);
-	});
-
-	test("rolls back an already queued progress write when outbox cloning fails", async () => {
-		await queueProgressUpdate(progress, progressMutation);
-		const invalid = {
-			...progressMutation,
-			payload: { ...progressMutation.payload, currentPage: 9 },
-			lastError: () => "not cloneable",
-		};
-		await expect(
-			queueProgressUpdate(
-				{ ...progress, currentPage: 9 },
-				invalid as unknown as typeof progressMutation,
-			),
-		).rejects.toThrow();
+			offlineProgress.updateIfCurrent(progress.issueId, () => false, synced),
+		).resolves.toBe(false);
 		expect(await offlineProgress.get(progress.issueId)).toEqual(progress);
-		expect(await offlineOutbox.get(progressMutation.id)).toEqual(
-			progressMutation,
-		);
+
+		await expect(
+			offlineProgress.updateIfCurrent(progress.issueId, () => true, synced),
+		).resolves.toBe(true);
+		expect(await offlineProgress.get(progress.issueId)).toEqual(synced);
+
+		await expect(
+			offlineProgress.updateIfCurrent(progress.issueId, () => true, null),
+		).resolves.toBe(true);
+		expect(await offlineProgress.get(progress.issueId)).toBeUndefined();
+
+		await expect(
+			offlineProgress.updateIfCurrent(progress.issueId, () => true, synced),
+		).resolves.toBe(false);
+		expect(await offlineProgress.count()).toBe(0);
 	});
 
-	test.each([
-		"retry",
-		"failure",
-		"success",
-	])("preserves a newer mutation when an old %s settles", async (outcome) => {
-		await offlineOutbox.put(progressMutation);
-		const newer = {
-			...progressMutation,
-			id: "newer",
-			payload: { ...progressMutation.payload, currentPage: 15 },
-			updatedAt: "2026-08-16T12:00:00.000Z",
-		};
-		// Enqueue the newer write before settlement, without waiting for its transaction.
-		const write = offlineOutbox.put(newer);
-		const settled = offlineOutbox.updateIfCurrent(
-			progressMutation,
-			outcome === "success"
-				? null
-				: {
-						...progressMutation,
-						attempts: 1,
-						status: outcome === "failure" ? "failed" : "pending",
-					},
+	test("preserves a newer save queued before an old one settles", async () => {
+		await offlineProgress.put(progress);
+		const newer = { ...progress, currentPage: 15 };
+
+		// Queue the newer write without waiting for its transaction.
+		const write = offlineProgress.put(newer);
+		const settled = offlineProgress.updateIfCurrent(
+			progress.issueId,
+			(current) => current.currentPage === progress.currentPage,
+			{ ...progress, syncStatus: "synced" },
 		);
 		await write;
+
 		expect(await settled).toBe(false);
-		expect(await offlineOutbox.getByDedupeKey(newer.dedupeKey)).toEqual(newer);
-	});
-
-	test("writes local progress and its outbox entry atomically", async () => {
-		await queueProgressUpdate(progress, progressMutation);
-		expect(await offlineProgress.get(progress.issueId)).toEqual(progress);
-		expect(await offlineOutbox.get(progressMutation.id)).toEqual(
-			progressMutation,
-		);
-
-		await expect(
-			queueProgressUpdate(progress, {
-				...progressMutation,
-				id: "wrong-target",
-				payload: { ...progressMutation.payload, issueId: "issue-2" },
-			}),
-		).rejects.toThrow("must target the same issue");
-		expect(await offlineOutbox.get("wrong-target")).toBeUndefined();
+		expect(await offlineProgress.get(progress.issueId)).toEqual(newer);
 	});
 });
 

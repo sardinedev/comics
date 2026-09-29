@@ -33,11 +33,10 @@ export async function handleProgress(
 		return json({ error: "Request body must be a JSON object" }, 400);
 	}
 
-	const { current_page, total_pages, updated_at, mutation_id } = body as {
+	const { current_page, total_pages, updated_at } = body as {
 		current_page?: number;
 		total_pages?: number;
 		updated_at?: unknown;
-		mutation_id?: unknown;
 	};
 
 	if (
@@ -65,20 +64,6 @@ export async function handleProgress(
 		return json({ error: "updated_at must be an ISO timestamp" }, 400);
 	}
 
-	if (
-		typeof mutation_id !== "string" ||
-		mutation_id.trim().length === 0 ||
-		mutation_id.length > 200
-	) {
-		return json(
-			{
-				error:
-					"mutation_id must be a non-empty string of at most 200 characters",
-			},
-			400,
-		);
-	}
-
 	const issue = await getIssue(id);
 	if (!issue) {
 		return json({ error: "Issue not found" }, 404);
@@ -89,7 +74,6 @@ export async function handleProgress(
 			currentPage: current_page,
 			totalPages: total_pages,
 			updatedAt: normalizedUpdatedAt,
-			mutationId: mutation_id,
 		});
 		let savedPage = current_page;
 		let savedUpdatedAt = result.updatedAt;
@@ -123,17 +107,7 @@ export async function handleProgress(
 	}
 }
 
-// PATCH for normal fetch calls
 export const PATCH: APIRoute = async ({ params, request }) => {
-	const { id } = params;
-	if (!id) {
-		return json({ error: "Missing issue ID" }, 400);
-	}
-	return handleProgress(id, request);
-};
-
-// POST for navigator.sendBeacon (which always sends POST)
-export const POST: APIRoute = async ({ params, request }) => {
 	const { id } = params;
 	if (!id) {
 		return json({ error: "Missing issue ID" }, 400);

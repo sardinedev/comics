@@ -1,18 +1,37 @@
 import { expiredSessionResponse } from "@util/mocks/expiredSession.mock";
-import { describe, expect, test, vi } from "vitest";
-import type { OutboxRepository } from "./outbox";
-import {
-	createProgressReplayEngine,
-	createProgressReplayHandler,
-	saveReadingProgress,
-} from "./progress-sync";
-import type {
-	OfflineOutboxRecord,
-	OfflineProgressRecord,
-	ProgressOutboxRecord,
-} from "./types";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import type { OfflineProgressRecord } from "./types";
 
-const progress: OfflineProgressRecord = {
+const records = vi.hoisted(() => new Map<string, OfflineProgressRecord>());
+
+vi.mock("./database", () => ({
+	isOfflineStorageSupported: () => true,
+	offlineProgress: {
+		getByStatus: async (status: OfflineProgressRecord["syncStatus"]) =>
+			[...records.values()].filter((record) => record.syncStatus === status),
+		countByStatus: async (status: OfflineProgressRecord["syncStatus"]) =>
+			[...records.values()].filter((record) => record.syncStatus === status)
+				.length,
+		put: async (record: OfflineProgressRecord) => {
+			records.set(record.issueId, record);
+		},
+		updateIfCurrent: async (
+			issueId: string,
+			isCurrent: (current: OfflineProgressRecord) => boolean,
+			next: OfflineProgressRecord | null,
+		) => {
+			const current = records.get(issueId);
+			if (!current || !isCurrent(current)) return false;
+			if (next) records.set(issueId, next);
+			else records.delete(issueId);
+			return true;
+		},
+	},
+}));
+
+const fetchMock = vi.fn<typeof fetch>();
+
+const pending: OfflineProgressRecord = {
 	issueId: "issue/1",
 	currentPage: 12,
 	totalPages: 24,
@@ -20,133 +39,74 @@ const progress: OfflineProgressRecord = {
 	syncStatus: "pending",
 };
 
-const mutation: ProgressOutboxRecord = {
-	id: "mutation-1",
-	dedupeKey: "progress:issue/1",
-	kind: "progress",
-	payload: {
-		issueId: "issue/1",
-		currentPage: 12,
-		totalPages: 24,
-		updatedAt: "2026-08-16T12:34:56.000Z",
-		mutationId: "mutation-1",
-	},
-	createdAt: "2026-08-16T12:34:56.000Z",
-	updatedAt: "2026-08-16T12:34:56.000Z",
-	attempts: 0,
-	status: "pending",
-};
+function savedResponse(currentPage: number, updatedAt: string): Response {
+	return Response.json({
+		ok: true,
+		applied: true,
+		stale: false,
+		current_page: currentPage,
+		updated_at: updatedAt,
+	});
+}
 
-class MemoryProgressRepository {
-	readonly records = new Map<string, OfflineProgressRecord>();
+/** Fresh module state (sync, backoff) and a fresh store for each test. */
+async function loadSync() {
+	vi.resetModules();
+	const { $offline } = await import("@stores/offline.store");
+	const sync = await import("./progress-sync");
+	return { $offline, ...sync };
+}
 
-	constructor(records: OfflineProgressRecord[] = []) {
-		for (const record of records) this.records.set(record.issueId, record);
-	}
-
-	async get(issueId: string): Promise<OfflineProgressRecord | undefined> {
-		return this.records.get(issueId);
-	}
-
-	async put(record: OfflineProgressRecord): Promise<void> {
-		this.records.set(record.issueId, record);
+/** Lets a background sync pass run to completion. */
+async function settle(): Promise<void> {
+	for (let turn = 0; turn < 10; turn++) {
+		await new Promise((resolve) => setImmediate(resolve));
 	}
 }
 
-class MemoryOutboxRepository implements OutboxRepository {
-	readonly records = new Map<string, OfflineOutboxRecord>();
+beforeEach(() => {
+	records.clear();
+	fetchMock.mockReset();
+	vi.stubGlobal("fetch", fetchMock);
+	vi.stubGlobal("navigator", { onLine: true });
+});
 
-	constructor(records: OfflineOutboxRecord[] = []) {
-		for (const record of records) this.records.set(record.id, record);
-	}
-
-	async updateIfCurrent(
-		expected: OfflineOutboxRecord,
-		replacement: OfflineOutboxRecord | null,
-	): Promise<boolean> {
-		const current = this.records.get(expected.id);
-		if (!current || current.updatedAt !== expected.updatedAt) return false;
-		if (replacement) this.records.set(expected.id, replacement);
-		else this.records.delete(expected.id);
-		return true;
-	}
-
-	async getAll(): Promise<OfflineOutboxRecord[]> {
-		return [...this.records.values()];
-	}
-
-	async getByDedupeKey(
-		dedupeKey: string,
-	): Promise<OfflineOutboxRecord | undefined> {
-		return [...this.records.values()].find(
-			(record) => record.dedupeKey === dedupeKey,
-		);
-	}
-
-	async put(record: OfflineOutboxRecord): Promise<void> {
-		this.records.set(record.id, record);
-	}
-
-	async delete(id: string): Promise<void> {
-		this.records.delete(id);
-	}
-}
+afterEach(() => {
+	vi.useRealTimers();
+	vi.unstubAllGlobals();
+});
 
 describe("saveReadingProgress", () => {
-	test("atomically queues normalized local progress and its mutation", async () => {
-		const queueUpdate = vi.fn();
+	test("saves pending progress and pushes it straight away", async () => {
+		const { saveReadingProgress } = await loadSync();
+		fetchMock.mockResolvedValue(savedResponse(8, "2026-08-16T12:34:56.000Z"));
 
-		const result = await saveReadingProgress(
-			{
-				issueId: "issue-1",
-				currentPage: 8,
-				totalPages: 20,
-				updatedAt: "2026-08-16T13:34:56+01:00",
-				mutationId: "mutation-fixed",
-			},
-			{
-				getProgress: async () => undefined,
-				queueUpdate,
-			},
+		const saved = await saveReadingProgress(
+			{ issueId: "issue/1", currentPage: 8, totalPages: 20 },
+			new Date("2026-08-16T13:34:56+01:00"),
 		);
 
-		expect(result).toMatchObject({
-			queued: true,
-			progress: {
-				issueId: "issue-1",
-				currentPage: 8,
-				totalPages: 20,
-				updatedAt: "2026-08-16T12:34:56.000Z",
-				syncStatus: "pending",
-			},
-			mutation: {
-				id: "mutation-fixed",
-				dedupeKey: "progress:issue-1",
-				payload: {
-					totalPages: 20,
-					mutationId: "mutation-fixed",
-				},
-			},
+		expect(saved).toEqual({
+			issueId: "issue/1",
+			currentPage: 8,
+			totalPages: 20,
+			updatedAt: "2026-08-16T12:34:56.000Z",
+			syncStatus: "pending",
 		});
-		expect(queueUpdate).toHaveBeenCalledWith(result.progress, result.mutation);
-	});
-
-	test("does not replace equal or newer local progress", async () => {
-		const queueUpdate = vi.fn();
-		const existing = { ...progress, updatedAt: "2026-08-16T13:00:00.000Z" };
-
-		await expect(
-			saveReadingProgress(
-				{
-					issueId: progress.issueId,
-					currentPage: 10,
-					totalPages: 24,
-					updatedAt: "2026-08-16T12:00:00.000Z",
-				},
-				{ getProgress: async () => existing, queueUpdate },
-			),
-		).resolves.toEqual({ queued: false, progress: existing });
-		expect(queueUpdate).not.toHaveBeenCalled();
+		await settle();
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/comic/issue%2F1/progress",
+			expect.objectContaining({
+				method: "PATCH",
+				keepalive: true,
+				body: JSON.stringify({
+					current_page: 8,
+					total_pages: 20,
+					updated_at: "2026-08-16T12:34:56.000Z",
+				}),
+			}),
+		);
+		expect(records.get("issue/1")?.syncStatus).toBe("synced");
 	});
 
 	test.each([
@@ -154,201 +114,204 @@ describe("saveReadingProgress", () => {
 		[{ issueId: "i", currentPage: 0, totalPages: 1 }, "currentPage"],
 		[{ issueId: "i", currentPage: 1, totalPages: 0 }, "totalPages"],
 		[{ issueId: "i", currentPage: 2, totalPages: 1 }, "cannot exceed"],
-	] as const)("rejects invalid local progress", async (input, message) => {
+	] as const)("rejects invalid progress", async (input, message) => {
+		const { saveReadingProgress } = await loadSync();
+
 		await expect(saveReadingProgress(input)).rejects.toThrow(message);
+		expect(records.size).toBe(0);
 	});
 });
 
-describe("createProgressReplayHandler", () => {
-	test("sends the timestamped API payload and marks matching progress synced", async () => {
-		const repository = new MemoryProgressRepository([progress]);
-		const fetcher = vi.fn(async () => new Response(null, { status: 200 }));
-		const handler = createProgressReplayHandler({
-			fetcher,
-			progressRepository: repository,
-		});
-
-		await handler(mutation);
-
-		expect(fetcher).toHaveBeenCalledWith(
-			"/api/comic/issue%2F1/progress",
-			expect.objectContaining({
-				method: "PATCH",
-				body: JSON.stringify({
-					current_page: 12,
-					total_pages: 24,
-					updated_at: progress.updatedAt,
-					mutation_id: mutation.id,
-				}),
+describe("syncPendingProgress", () => {
+	test("stores the server's newer progress from another device", async () => {
+		const { syncPendingProgress } = await loadSync();
+		records.set(pending.issueId, pending);
+		fetchMock.mockResolvedValue(
+			Response.json({
+				ok: true,
+				applied: false,
+				stale: true,
+				current_page: 19,
+				updated_at: "2026-08-16T13:00:00.000Z",
 			}),
 		);
-		expect(repository.records.get(progress.issueId)?.syncStatus).toBe("synced");
-	});
 
-	test("marks permanent failures but leaves retryable failures pending", async () => {
-		const repository = new MemoryProgressRepository([progress]);
-		const permanentHandler = createProgressReplayHandler({
-			fetcher: async () =>
-				new Response(null, { status: 422, statusText: "Invalid page" }),
-			progressRepository: repository,
-		});
-		await permanentHandler(mutation);
-		expect(repository.records.get(progress.issueId)).toMatchObject({
-			syncStatus: "failed",
-			lastError: "HTTP 422: Invalid page",
-		});
+		await syncPendingProgress();
 
-		await repository.put(progress);
-		const retryHandler = createProgressReplayHandler({
-			fetcher: async () => new Response(null, { status: 503 }),
-			progressRepository: repository,
-		});
-		await retryHandler(mutation);
-		expect(repository.records.get(progress.issueId)).toEqual(progress);
-	});
-
-	test("does not overwrite progress saved while a request was in flight", async () => {
-		const repository = new MemoryProgressRepository([
-			{ ...progress, updatedAt: "2026-08-16T13:00:00.000Z" },
-		]);
-		const handler = createProgressReplayHandler({
-			fetcher: async () => new Response(null, { status: 200 }),
-			progressRepository: repository,
-		});
-
-		await handler(mutation);
-
-		expect(repository.records.get(progress.issueId)?.syncStatus).toBe(
-			"pending",
-		);
-	});
-
-	test("replaces stale local progress with the authoritative server value", async () => {
-		const repository = new MemoryProgressRepository([progress]);
-		const handler = createProgressReplayHandler({
-			fetcher: async () =>
-				Response.json({
-					applied: false,
-					stale: true,
-					current_page: 19,
-					updated_at: "2026-08-16T13:00:00.000Z",
-				}),
-			progressRepository: repository,
-		});
-
-		await expect(handler(mutation)).resolves.toMatchObject({ status: 200 });
-		expect(repository.records.get(progress.issueId)).toEqual({
-			issueId: progress.issueId,
+		expect(records.get(pending.issueId)).toEqual({
+			issueId: pending.issueId,
 			currentPage: 19,
-			totalPages: progress.totalPages,
+			totalPages: pending.totalPages,
 			updatedAt: "2026-08-16T13:00:00.000Z",
 			syncStatus: "synced",
 		});
 	});
 
-	test("retries a malformed stale response instead of discarding local progress", async () => {
-		const repository = new MemoryProgressRepository([progress]);
-		const handler = createProgressReplayHandler({
-			fetcher: async () => Response.json({ stale: true }),
-			progressRepository: repository,
+	test("keeps a newer save made while the request was in flight", async () => {
+		const { syncPendingProgress } = await loadSync();
+		const newer = { ...pending, currentPage: 13 };
+		records.set(pending.issueId, pending);
+		fetchMock.mockImplementation(async () => {
+			// Same timestamp, different page: only an exact match may settle.
+			records.set(newer.issueId, newer);
+			return savedResponse(pending.currentPage, pending.updatedAt);
 		});
 
-		await expect(handler(mutation)).resolves.toMatchObject({ status: 502 });
-		expect(repository.records.get(progress.issueId)).toEqual(progress);
+		await syncPendingProgress();
+
+		expect(records.get(pending.issueId)).toEqual(newer);
+	});
+
+	test("marks rejected progress failed and counts it", async () => {
+		const { $offline, syncPendingProgress } = await loadSync();
+		records.set(pending.issueId, pending);
+		fetchMock.mockResolvedValue(new Response(null, { status: 422 }));
+
+		await syncPendingProgress();
+
+		expect(records.get(pending.issueId)).toMatchObject({
+			syncStatus: "failed",
+			lastError: "HTTP 422",
+		});
+		expect($offline.get()).toMatchObject({
+			pendingProgress: 0,
+			failedProgress: 1,
+		});
+	});
+
+	test.each([
+		401, 403, 408, 429, 503,
+	])("keeps progress pending after HTTP %i", async (status) => {
+		const { $offline, syncPendingProgress } = await loadSync();
+		records.set(pending.issueId, pending);
+		fetchMock.mockResolvedValue(new Response(null, { status }));
+
+		await syncPendingProgress();
+
+		expect(records.get(pending.issueId)).toEqual(pending);
+		expect($offline.get()).toMatchObject({
+			pendingProgress: 1,
+			authRequired: false,
+		});
+	});
+
+	test("retries a malformed success response", async () => {
+		const { syncPendingProgress } = await loadSync();
+		records.set(pending.issueId, pending);
+		fetchMock.mockResolvedValue(Response.json({ ok: true }));
+
+		await syncPendingProgress();
+
+		expect(records.get(pending.issueId)).toEqual(pending);
+	});
+
+	test("stops and asks to sign in when the session expired", async () => {
+		const { $offline, syncPendingProgress } = await loadSync();
+		const other = { ...pending, issueId: "issue-2" };
+		records.set(pending.issueId, pending);
+		records.set(other.issueId, other);
+		fetchMock.mockImplementation(async () => expiredSessionResponse());
+
+		await syncPendingProgress();
+
+		expect(fetchMock).toHaveBeenCalledOnce();
+		expect($offline.get().authRequired).toBe(true);
+		expect(records.get(pending.issueId)).toEqual(pending);
+		expect(records.get(other.issueId)).toEqual(other);
+	});
+
+	test("stops at the first network error", async () => {
+		const { syncPendingProgress } = await loadSync();
+		records.set(pending.issueId, pending);
+		records.set("issue-2", { ...pending, issueId: "issue-2" });
+		fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+
+		await syncPendingProgress();
+
+		expect(fetchMock).toHaveBeenCalledOnce();
+		expect(records.get(pending.issueId)).toEqual(pending);
+	});
+
+	test("does not push while the browser is offline", async () => {
+		const { syncPendingProgress } = await loadSync();
+		vi.stubGlobal("navigator", { onLine: false });
+		records.set(pending.issueId, pending);
+
+		await syncPendingProgress();
+
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	test("backs off between failed attempts and leaves saves to the retry", async () => {
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+		const { saveReadingProgress, syncPendingProgress } = await loadSync();
+		records.set(pending.issueId, pending);
+		fetchMock.mockImplementation(
+			async () => new Response(null, { status: 503 }),
+		);
+
+		await syncPendingProgress();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		await saveReadingProgress({
+			issueId: pending.issueId,
+			currentPage: 13,
+			totalPages: 24,
+		});
+		await settle();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		await vi.advanceTimersByTimeAsync(5_000);
+		await settle();
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+
+		await vi.advanceTimersByTimeAsync(9_999);
+		await settle();
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+
+		fetchMock.mockImplementation(async () =>
+			savedResponse(13, records.get(pending.issueId)?.updatedAt ?? ""),
+		);
+		await vi.advanceTimersByTimeAsync(1);
+		await settle();
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+		expect(records.get(pending.issueId)?.syncStatus).toBe("synced");
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	test("never rejects when storage fails, and retries later", async () => {
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+		const { syncPendingProgress } = await loadSync();
+		const { offlineProgress } = await import("./database");
+		vi.spyOn(offlineProgress, "getByStatus").mockRejectedValueOnce(
+			new Error("IndexedDB unavailable"),
+		);
+		vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+		await expect(syncPendingProgress()).resolves.toBeUndefined();
+
+		expect(vi.getTimerCount()).toBe(1);
 	});
 });
 
-describe("createProgressReplayEngine", () => {
-	test("uses generic retry policy for 5xx responses", async () => {
-		const outbox = new MemoryOutboxRepository([mutation]);
-		const progressRepository = new MemoryProgressRepository([progress]);
-		const engine = createProgressReplayEngine({
-			outboxRepository: outbox,
-			progressRepository,
-			fetcher: async () => new Response(null, { status: 503 }),
-			now: () => new Date("2026-08-16T14:00:00.000Z"),
-			retryDelayMs: () => 5_000,
+describe("discardFailedProgress", () => {
+	test("drops failed progress but keeps a newer pending save", async () => {
+		const { $offline, discardFailedProgress } = await loadSync();
+		records.set("issue-1", {
+			...pending,
+			issueId: "issue-1",
+			syncStatus: "failed",
 		});
+		records.set("issue-2", { ...pending, issueId: "issue-2" });
 
-		await expect(engine.replay()).resolves.toMatchObject({
-			retryScheduled: 1,
-		});
-		expect(outbox.records.get(mutation.id)).toMatchObject({
-			attempts: 1,
-			nextAttemptAt: "2026-08-16T14:00:05.000Z",
-		});
-		expect(progressRepository.records.get(progress.issueId)?.syncStatus).toBe(
-			"pending",
-		);
-	});
+		await discardFailedProgress("issue-1");
+		await discardFailedProgress("issue-2");
 
-	test("pauses rather than acknowledging a followed login redirect", async () => {
-		const response = new Response("<html>Log in</html>", {
-			headers: { "Content-Type": "text/html" },
+		expect(records.has("issue-1")).toBe(false);
+		expect(records.get("issue-2")).toMatchObject({ syncStatus: "pending" });
+		expect($offline.get()).toMatchObject({
+			pendingProgress: 1,
+			failedProgress: 0,
 		});
-		Object.defineProperties(response, {
-			redirected: { value: true },
-			url: { value: "https://comics.test/login" },
-		});
-		const outbox = new MemoryOutboxRepository([mutation]);
-		const progressRepository = new MemoryProgressRepository([progress]);
-		const engine = createProgressReplayEngine({
-			outboxRepository: outbox,
-			progressRepository,
-			fetcher: async () => response,
-		});
-		expect(await engine.replay()).toMatchObject({
-			authInvalid: true,
-			succeeded: 0,
-		});
-		expect(progressRepository.records.get(progress.issueId)).toEqual(progress);
-		expect(outbox.records.get(mutation.id)).toEqual(mutation);
-	});
-
-	test("pauses and stops on a confirmed auth-invalid response", async () => {
-		const laterMutation: ProgressOutboxRecord = {
-			...mutation,
-			id: "mutation-2",
-			dedupeKey: "progress:issue-2",
-			payload: { ...mutation.payload, issueId: "issue-2" },
-			createdAt: "2026-08-16T13:00:00.000Z",
-			updatedAt: "2026-08-16T13:00:00.000Z",
-		};
-		const outbox = new MemoryOutboxRepository([mutation, laterMutation]);
-		const fetcher = vi.fn(async () => expiredSessionResponse());
-		const engine = createProgressReplayEngine({
-			outboxRepository: outbox,
-			progressRepository: new MemoryProgressRepository([progress]),
-			fetcher,
-		});
-
-		await expect(engine.replay()).resolves.toMatchObject({
-			attempted: 1,
-			authInvalid: true,
-		});
-		expect(fetcher).toHaveBeenCalledOnce();
-		expect(outbox.records.size).toBe(2);
-	});
-
-	test("retries progress on a bare 403 without pausing sync", async () => {
-		const outbox = new MemoryOutboxRepository([mutation]);
-		const progressRepository = new MemoryProgressRepository([progress]);
-		const engine = createProgressReplayEngine({
-			outboxRepository: outbox,
-			progressRepository,
-			fetcher: async () => new Response(null, { status: 403 }),
-		});
-
-		await expect(engine.replay()).resolves.toMatchObject({
-			authInvalid: false,
-			retryScheduled: 1,
-		});
-		expect(outbox.records.get(mutation.id)).toMatchObject({
-			status: "pending",
-			attempts: 1,
-		});
-		expect(progressRepository.records.get(progress.issueId)?.syncStatus).toBe(
-			"pending",
-		);
 	});
 });

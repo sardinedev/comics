@@ -3,32 +3,15 @@ import {
 	isOfflineStorageSupported,
 	offlineComics,
 } from "@lib/offline/database";
-import {
-	initialiseLibrarySync,
-	replayAddToLibrary,
-} from "@lib/offline/library-sync";
-import {
-	createOutboxReplayEngine,
-	type OutboxReplayEngine,
-} from "@lib/offline/outbox";
-import { createProgressReplayHandler } from "@lib/offline/progress-sync";
+import { syncPendingProgress } from "@lib/offline/progress-sync";
 import { requestPersistentStorage } from "@lib/offline/storage";
-import {
-	derivePwaUiStatus,
-	type PwaUiStatus,
-	shouldActivateWaitingWorker,
-} from "./lifecycle";
-import { renderPwaStatusElements } from "./status";
+import { $offline } from "@stores/offline.store";
+import { shouldActivateWaitingWorker } from "./lifecycle";
 
 const UPDATE_PENDING_KEY = "comics-pwa:update-pending";
-const STATUS_EVENT = "comics:pwa-status";
 const MESSAGE_TIMEOUT_MS = 30_000;
-let outboxReplayEngine: OutboxReplayEngine | undefined;
-
-interface PwaStatusDetail {
-	ready: boolean;
-	status: PwaUiStatus;
-}
+let registration: ServiceWorkerRegistration | null = null;
+let started = false;
 
 interface WorkerReply {
 	ok?: boolean;
@@ -37,47 +20,12 @@ interface WorkerReply {
 	version?: string;
 }
 
-interface PwaController {
-	ready: boolean;
-	registration: ServiceWorkerRegistration | null;
-	started: boolean;
-	status: PwaUiStatus;
+function setShellReady(ready: boolean): void {
+	$offline.setKey("shellReady", ready);
 }
 
-declare global {
-	interface Window {
-		__comicsPwa?: PwaController;
-	}
-}
-
-function getController(): PwaController {
-	window.__comicsPwa ??= {
-		ready: false,
-		registration: null,
-		started: false,
-		status: derivePwaUiStatus({
-			online: navigator.onLine,
-			ready: false,
-			supported: "serviceWorker" in navigator,
-		}),
-	};
-	return window.__comicsPwa;
-}
-
-function renderStatus(controller: PwaController): void {
-	controller.status = derivePwaUiStatus({
-		online: navigator.onLine,
-		ready: controller.ready,
-		supported: "serviceWorker" in navigator,
-	});
-
-	renderPwaStatusElements(controller.status);
-
-	window.dispatchEvent(
-		new CustomEvent<PwaStatusDetail>(STATUS_EVENT, {
-			detail: { ready: controller.ready, status: controller.status },
-		}),
-	);
+function setOnline(): void {
+	$offline.setKey("online", navigator.onLine);
 }
 
 function workerFor(
@@ -106,38 +54,31 @@ function sendMessage(
 	});
 }
 
-async function refreshReadiness(controller: PwaController): Promise<void> {
-	const registration = controller.registration;
+async function refreshReadiness(): Promise<void> {
 	const worker = registration ? workerFor(registration) : null;
 	if (!worker) return;
 	try {
 		const result = await sendMessage(worker, { type: "GET_OFFLINE_STATUS" });
-		controller.ready =
-			result.type === "OFFLINE_STATUS" && result.ready === true;
+		setShellReady(result.type === "OFFLINE_STATUS" && result.ready === true);
 	} catch {
-		controller.ready = false;
+		setShellReady(false);
 	}
-	renderStatus(controller);
 }
 
-async function warmOfflineShell(controller: PwaController): Promise<void> {
-	const registration = controller.registration;
+async function warmOfflineShell(): Promise<void> {
 	const worker = registration ? workerFor(registration) : null;
 	if (!worker || !navigator.onLine) return;
 
 	try {
 		const result = await sendMessage(worker, { type: "WARM_OFFLINE" });
 		if (result.type === "WARM_RESULT" && result.ok === true) {
-			controller.ready = true;
-		} else {
-			await refreshReadiness(controller);
+			setShellReady(true);
 			return;
 		}
 	} catch {
-		await refreshReadiness(controller);
-		return;
+		// Fall back to asking whether an earlier warm-up already finished.
 	}
-	renderStatus(controller);
+	await refreshReadiness();
 }
 
 function observeUpdates(
@@ -176,24 +117,6 @@ function observeUpdates(
 	});
 }
 
-function replayOutboxWhenOnline(): void {
-	if (!navigator.onLine) return;
-	if (!outboxReplayEngine) {
-		outboxReplayEngine = createOutboxReplayEngine({
-			handlers: {
-				progress: createProgressReplayHandler(),
-				"add-to-library": replayAddToLibrary,
-			},
-		});
-		initialiseLibrarySync(outboxReplayEngine);
-	}
-	void outboxReplayEngine
-		.replay()
-		.catch((error) =>
-			console.warn("[pwa] Could not replay queued offline actions", error),
-		);
-}
-
 /** Covers comics downloaded before persistence was first requested. */
 async function persistExistingDownloads(): Promise<void> {
 	if (!isOfflineStorageSupported()) return;
@@ -219,34 +142,29 @@ function bindLogoutPurge(): void {
 	}
 }
 
-/** Logout-only purge of every downloaded comic, queued action and cached page. */
+/** Logout-only purge of every downloaded comic, saved progress and cached page. */
 export async function purgeOfflineContent(): Promise<void> {
-	const controller = getController();
-	controller.ready = false;
-	renderStatus(controller);
+	setShellReady(false);
 	await clearOfflineData();
 }
 
 export async function initialisePwa(): Promise<void> {
-	const controller = getController();
 	bindLogoutPurge();
-	renderStatus(controller);
-	if (controller.started) return;
-	controller.started = true;
+	if (started) return;
+	started = true;
 
-	window.addEventListener("offline", () => renderStatus(controller));
+	setOnline();
+	window.addEventListener("offline", setOnline);
 	window.addEventListener("online", () => {
-		void warmOfflineShell(controller);
-		replayOutboxWhenOnline();
+		setOnline();
+		void warmOfflineShell();
+		void syncPendingProgress();
 	});
 	document.addEventListener("visibilitychange", () => {
-		if (document.visibilityState === "visible") replayOutboxWhenOnline();
+		if (document.visibilityState === "visible") void syncPendingProgress();
 	});
-	document.addEventListener("astro:page-load", () => {
-		bindLogoutPurge();
-		renderStatus(controller);
-	});
-	replayOutboxWhenOnline();
+	document.addEventListener("astro:page-load", bindLogoutPurge);
+	void syncPendingProgress();
 	void persistExistingDownloads().catch((error) =>
 		console.warn("[pwa] Could not request persistent storage", error),
 	);
@@ -256,22 +174,21 @@ export async function initialisePwa(): Promise<void> {
 		localStorage.getItem(UPDATE_PENDING_KEY) === "true";
 
 	try {
-		const registration = await navigator.serviceWorker.register("/sw.js", {
+		const registered = await navigator.serviceWorker.register("/sw.js", {
 			scope: "/",
 			updateViaCache: "none",
 		});
-		controller.registration = registration;
+		registration = registered;
 		observeUpdates(
-			registration,
-			updateWasPendingAtLaunch || Boolean(registration.waiting),
+			registered,
+			updateWasPendingAtLaunch || Boolean(registered.waiting),
 		);
 
 		await navigator.serviceWorker.ready;
-		await refreshReadiness(controller);
-		if (navigator.onLine) await warmOfflineShell(controller);
+		await refreshReadiness();
+		if (navigator.onLine) await warmOfflineShell();
 	} catch (error) {
 		console.warn("[pwa] Service worker registration failed", error);
-		controller.ready = false;
-		renderStatus(controller);
+		setShellReady(false);
 	}
 }

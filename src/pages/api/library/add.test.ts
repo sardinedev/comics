@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 vi.mock("@data/mylar/mylar", () => ({ mylarAddSeries: vi.fn() }));
 
 import { mylarAddSeries } from "@data/mylar/mylar";
-import { POST, resetLibraryMutationLedgerForTesting } from "./add";
+import { POST } from "./add";
 
 const mockedMylarAddSeries = vi.mocked(mylarAddSeries);
 
@@ -21,7 +21,6 @@ async function post(body: unknown): Promise<Response> {
 
 beforeEach(() => {
 	vi.resetAllMocks();
-	resetLibraryMutationLedgerForTesting();
 	mockedMylarAddSeries.mockResolvedValue({
 		result: "success",
 		data: { comic: [], issues: [] },
@@ -33,7 +32,6 @@ describe("POST /api/library/add", () => {
 		[{}, "seriesId"],
 		[{ seriesId: "" }, "seriesId"],
 		[{ seriesId: 123 }, "seriesId"],
-		[{ seriesId: "series-1", mutationId: "" }, "mutationId"],
 	])("validates JSON identifiers", async (body, field) => {
 		const response = await post(body);
 		expect(response.status).toBe(400);
@@ -42,32 +40,15 @@ describe("POST /api/library/add", () => {
 		});
 	});
 
-	test("adds a series using the consolidated JSON contract", async () => {
-		const response = await post({
-			seriesId: "series-1",
-			mutationId: "library:series-1:mutation-1",
-		});
+	test("adds a series using the JSON contract", async () => {
+		const response = await post({ seriesId: "series-1" });
 
 		expect(response.status).toBe(200);
 		expect(mockedMylarAddSeries).toHaveBeenCalledWith("series-1");
 		expect(await response.json()).toMatchObject({
 			status: "accepted",
 			seriesId: "series-1",
-			mutationId: "library:series-1:mutation-1",
 		});
-	});
-
-	test("does not repeat a completed mutation id", async () => {
-		const body = {
-			seriesId: "series-1",
-			mutationId: "library:series-1:mutation-1",
-		};
-		expect((await post(body)).status).toBe(200);
-		const replay = await post(body);
-
-		expect(replay.status).toBe(200);
-		expect(await replay.json()).toMatchObject({ status: "already-processed" });
-		expect(mockedMylarAddSeries).toHaveBeenCalledTimes(1);
 	});
 
 	test("treats Mylar already-added responses as success", async () => {
