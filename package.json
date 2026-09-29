@@ -45,6 +45,6 @@
 		"tsx": "4.23.15",
 		"typescript": "6.0.3",
 		"vitest": "4.1.10",
-		"vitest-browser-preact": "1.0.0"
+		"vitest-browser-preact": "1.1.0"
 	}
 }
