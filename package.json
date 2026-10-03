@@ -31,7 +31,7 @@
 		"astro": "7.3.5",
 		"fflate": "^0.8.2",
 		"nanostores": "1.5.4",
-		"preact": "10.29.8",
+		"preact": "11.0.0",
 		"sharp": "^0.35.0",
 		"tailwindcss": "4.3.3",
 		"thumbhash": "^0.1.1"
