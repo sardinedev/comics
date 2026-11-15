@@ -179,21 +179,22 @@ describe("syncPendingProgress", () => {
 		});
 	});
 
-	test.each([
-		401, 403, 408, 429, 503,
-	])("keeps progress pending after HTTP %i", async (status) => {
-		const { $offline, syncPendingProgress } = await loadSync();
-		records.set(pending.issueId, pending);
-		fetchMock.mockResolvedValue(new Response(null, { status }));
+	test.each([401, 403, 408, 429, 503])(
+		"keeps progress pending after HTTP %i",
+		async (status) => {
+			const { $offline, syncPendingProgress } = await loadSync();
+			records.set(pending.issueId, pending);
+			fetchMock.mockResolvedValue(new Response(null, { status }));
 
-		await syncPendingProgress();
+			await syncPendingProgress();
 
-		expect(records.get(pending.issueId)).toEqual(pending);
-		expect($offline.get()).toMatchObject({
-			pendingProgress: 1,
-			authRequired: false,
-		});
-	});
+			expect(records.get(pending.issueId)).toEqual(pending);
+			expect($offline.get()).toMatchObject({
+				pendingProgress: 1,
+				authRequired: false,
+			});
+		},
+	);
 
 	test("retries a malformed success response", async () => {
 		const { syncPendingProgress } = await loadSync();

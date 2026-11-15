@@ -35,12 +35,14 @@ src/util/formatter.test.ts
 Mock data for external APIs (Mylar, Comic Vine) should be placed in `src/util/mocks/` for reuse across tests.
 
 Existing mocks:
+
 - `comicvineIssues.mock.ts`: Sample Comic Vine issue data
 - `comicvineVolume.mock.ts`: Sample Comic Vine volume data
 
 ## Current test coverage
 
 Test files in the codebase:
+
 - `src/data/comicvine/comicvine.test.ts`
 - `src/data/elastic/elastic.test.ts`
 - `src/util/formatter.test.ts`

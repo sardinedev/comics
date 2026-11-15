@@ -1,328 +1,329 @@
 ---
+
 version: alpha
 name: Sardines Reading Comics
 description: A dark editorial comics library interface built around cover art, sharp utility controls, and amber reading-state accents.
 colors:
-  primary: "#F59E0B"
-  primary-hover: "#FBBF24"
-  primary-strong: "#D97706"
-  on-primary: "#0F172A"
-  background: "#0F172A"
-  background-deep: "#020617"
-  reader-background: "#000000"
-  surface: "#0F172A"
-  surface-raised: "#1E293B"
-  surface-muted: "#334155"
-  border: "#1E293B"
-  border-strong: "#334155"
-  text-primary: "#FFFFFF"
-  text-secondary: "#CBD5E1"
-  text-control: "#94A3B8"
-  text-muted: "#64748B"
-  text-subtle: "#475569"
-  text-disabled: "#334155"
-  overlay: "#000000"
-  error: "#F87171"
-  error-surface: "#450A0A"
-  brand-warm: "#FDD575"
-  brand-coral: "#F77868"
-  brand-magenta: "#D22E8C"
+primary: "#F59E0B"
+primary-hover: "#FBBF24"
+primary-strong: "#D97706"
+on-primary: "#0F172A"
+background: "#0F172A"
+background-deep: "#020617"
+reader-background: "#000000"
+surface: "#0F172A"
+surface-raised: "#1E293B"
+surface-muted: "#334155"
+border: "#1E293B"
+border-strong: "#334155"
+text-primary: "#FFFFFF"
+text-secondary: "#CBD5E1"
+text-control: "#94A3B8"
+text-muted: "#64748B"
+text-subtle: "#475569"
+text-disabled: "#334155"
+overlay: "#000000"
+error: "#F87171"
+error-surface: "#450A0A"
+brand-warm: "#FDD575"
+brand-coral: "#F77868"
+brand-magenta: "#D22E8C"
 typography:
-  display-hero:
-    fontFamily: Newsreader
-    fontSize: 72px
-    fontWeight: 900
-    lineHeight: 0.95
-    letterSpacing: -0.025em
-  display-page:
-    fontFamily: Newsreader
-    fontSize: 48px
-    fontWeight: 900
-    lineHeight: 1.1
-    letterSpacing: -0.025em
-  headline-lg:
-    fontFamily: Newsreader
-    fontSize: 36px
-    fontWeight: 900
-    lineHeight: 1.15
-    letterSpacing: -0.025em
-  headline-md:
-    fontFamily: Newsreader
-    fontSize: 24px
-    fontWeight: 700
-    lineHeight: 1.2
-    letterSpacing: -0.025em
-  body-md:
-    fontFamily: Inter
-    fontSize: 16px
-    fontWeight: 400
-    lineHeight: 1.5
-    letterSpacing: 0em
-  body-sm:
-    fontFamily: Inter
-    fontSize: 14px
-    fontWeight: 400
-    lineHeight: 1.55
-    letterSpacing: 0em
-  body-sm-strong:
-    fontFamily: Inter
-    fontSize: 14px
-    fontWeight: 700
-    lineHeight: 1.25
-    letterSpacing: 0em
-  label-md:
-    fontFamily: Inter
-    fontSize: 12px
-    fontWeight: 700
-    lineHeight: 16px
-    letterSpacing: 0.1em
-  label-eyebrow:
-    fontFamily: Inter
-    fontSize: 12px
-    fontWeight: 700
-    lineHeight: 16px
-    letterSpacing: 0.3em
-  label-micro:
-    fontFamily: Inter
-    fontSize: 10px
-    fontWeight: 700
-    lineHeight: 14px
-    letterSpacing: 0.1em
-  badge:
-    fontFamily: Inter
-    fontSize: 9px
-    fontWeight: 900
-    lineHeight: 12px
-    letterSpacing: 0.1em
+display-hero:
+fontFamily: Newsreader
+fontSize: 72px
+fontWeight: 900
+lineHeight: 0.95
+letterSpacing: -0.025em
+display-page:
+fontFamily: Newsreader
+fontSize: 48px
+fontWeight: 900
+lineHeight: 1.1
+letterSpacing: -0.025em
+headline-lg:
+fontFamily: Newsreader
+fontSize: 36px
+fontWeight: 900
+lineHeight: 1.15
+letterSpacing: -0.025em
+headline-md:
+fontFamily: Newsreader
+fontSize: 24px
+fontWeight: 700
+lineHeight: 1.2
+letterSpacing: -0.025em
+body-md:
+fontFamily: Inter
+fontSize: 16px
+fontWeight: 400
+lineHeight: 1.5
+letterSpacing: 0em
+body-sm:
+fontFamily: Inter
+fontSize: 14px
+fontWeight: 400
+lineHeight: 1.55
+letterSpacing: 0em
+body-sm-strong:
+fontFamily: Inter
+fontSize: 14px
+fontWeight: 700
+lineHeight: 1.25
+letterSpacing: 0em
+label-md:
+fontFamily: Inter
+fontSize: 12px
+fontWeight: 700
+lineHeight: 16px
+letterSpacing: 0.1em
+label-eyebrow:
+fontFamily: Inter
+fontSize: 12px
+fontWeight: 700
+lineHeight: 16px
+letterSpacing: 0.3em
+label-micro:
+fontFamily: Inter
+fontSize: 10px
+fontWeight: 700
+lineHeight: 14px
+letterSpacing: 0.1em
+badge:
+fontFamily: Inter
+fontSize: 9px
+fontWeight: 900
+lineHeight: 12px
+letterSpacing: 0.1em
 rounded:
-  none: 0px
-  xs: 2px
-  sm: 4px
-  md: 6px
-  xl: 12px
-  full: 9999px
+none: 0px
+xs: 2px
+sm: 4px
+md: 6px
+xl: 12px
+full: 9999px
 spacing:
-  px: 1px
-  xs: 4px
-  sm: 8px
-  md: 12px
-  lg: 16px
-  xl: 24px
-  2xl: 32px
-  3xl: 40px
-  4xl: 48px
-  5xl: 64px
-  section: 64px
-  container-padding: 16px
-  container-max: 1600px
-  control-height: 48px
-  reader-control: 40px
-  cover-grid-gap-x: 16px
-  cover-grid-gap-y: 32px
-  cover-ratio-width: "2"
-  cover-ratio-height: "3"
+px: 1px
+xs: 4px
+sm: 8px
+md: 12px
+lg: 16px
+xl: 24px
+2xl: 32px
+3xl: 40px
+4xl: 48px
+5xl: 64px
+section: 64px
+container-padding: 16px
+container-max: 1600px
+control-height: 48px
+reader-control: 40px
+cover-grid-gap-x: 16px
+cover-grid-gap-y: 32px
+cover-ratio-width: "2"
+cover-ratio-height: "3"
 borders:
-  hairline: 1px
-  accent-rule: 2px
+hairline: 1px
+accent-rule: 2px
 shadows:
-  none: "none"
-  cover-raised: "0 25px 50px -12px #000000"
-  cover-stacked: "0 20px 25px -5px #000000"
-  cover-hover: "0 10px 15px -3px #F59E0B"
-  popover: "0 20px 25px -5px #000000"
-  dialog: "0 25px 50px -12px #000000"
+none: "none"
+cover-raised: "0 25px 50px -12px #000000"
+cover-stacked: "0 20px 25px -5px #000000"
+cover-hover: "0 10px 15px -3px #F59E0B"
+popover: "0 20px 25px -5px #000000"
+dialog: "0 25px 50px -12px #000000"
 elevation:
-  flat: "{shadows.none}"
-  cover: "{shadows.cover-raised}"
-  stacked-cover: "{shadows.cover-stacked}"
-  popover: "{shadows.popover}"
-  dialog: "{shadows.dialog}"
+flat: "{shadows.none}"
+cover: "{shadows.cover-raised}"
+stacked-cover: "{shadows.cover-stacked}"
+popover: "{shadows.popover}"
+dialog: "{shadows.dialog}"
 motion:
-  instant: "0ms"
-  fast: "150ms"
-  standard: "200ms"
-  image-hover: "300ms"
-  easing-standard: "ease-in-out"
-  cover-scale-hover: "1.02"
+instant: "0ms"
+fast: "150ms"
+standard: "200ms"
+image-hover: "300ms"
+easing-standard: "ease-in-out"
+cover-scale-hover: "1.02"
 opacity:
-  header-surface: 0.95
-  translucent-surface: 0.80
-  backdrop: 0.70
-  subtle-ring: 0.10
-  faint-ring: 0.05
-  accent-ring: 0.40
-  accent-wash: 0.10
-  hero-art-wash: 0.30
+header-surface: 0.95
+translucent-surface: 0.80
+backdrop: 0.70
+subtle-ring: 0.10
+faint-ring: 0.05
+accent-ring: 0.40
+accent-wash: 0.10
+hero-art-wash: 0.30
 components:
-  app-shell:
-    backgroundColor: "{colors.background}"
-    textColor: "{colors.text-primary}"
-    typography: "{typography.body-md}"
-  login-shell:
-    backgroundColor: "{colors.background-deep}"
-    textColor: "{colors.text-primary}"
-    typography: "{typography.body-md}"
-  header:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.text-secondary}"
-    height: 72px
-    padding: 16px
-  divider:
-    backgroundColor: "{colors.border}"
-    height: 1px
-  divider-strong:
-    backgroundColor: "{colors.border-strong}"
-    height: 1px
-  page-heading:
-    textColor: "{colors.text-primary}"
-    typography: "{typography.display-page}"
-  section-heading:
-    textColor: "{colors.text-primary}"
-    typography: "{typography.headline-md}"
-  eyebrow-label:
-    textColor: "{colors.primary}"
-    typography: "{typography.label-eyebrow}"
-    height: 16px
-  body-copy:
-    textColor: "{colors.text-secondary}"
-    typography: "{typography.body-sm}"
-  metadata:
-    textColor: "{colors.text-muted}"
-    typography: "{typography.label-md}"
-  metadata-subtle:
-    textColor: "{colors.text-subtle}"
-    typography: "{typography.label-micro}"
-  disabled-control:
-    textColor: "{colors.text-disabled}"
-    typography: "{typography.label-md}"
-    rounded: "{rounded.none}"
-    height: "{spacing.control-height}"
-    width: "{spacing.control-height}"
-  button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.label-md}"
-    rounded: "{rounded.none}"
-    height: "{spacing.control-height}"
-    padding: 20px
-  button-primary-hover:
-    backgroundColor: "{colors.primary-hover}"
-    textColor: "{colors.on-primary}"
-  button-primary-active:
-    backgroundColor: "{colors.primary-strong}"
-    textColor: "{colors.on-primary}"
-  button-secondary:
-    backgroundColor: "{colors.surface-raised}"
-    textColor: "{colors.text-secondary}"
-    typography: "{typography.label-md}"
-    rounded: "{rounded.none}"
-    height: "{spacing.control-height}"
-    padding: 12px
-  button-secondary-hover:
-    backgroundColor: "{colors.surface-raised}"
-    textColor: "{colors.primary}"
-  icon-button:
-    backgroundColor: "{colors.surface-raised}"
-    textColor: "{colors.text-control}"
-    rounded: "{rounded.none}"
-    height: "{spacing.control-height}"
-    width: "{spacing.control-height}"
-  input-field:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.text-primary}"
-    typography: "{typography.body-sm}"
-    rounded: "{rounded.sm}"
-    height: 40px
-    padding: 12px
-  search-dialog:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.text-primary}"
-    rounded: "{rounded.none}"
-    width: 576px
-  popover-panel:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.text-secondary}"
-    rounded: "{rounded.none}"
-    padding: 16px
-  cover-card:
-    backgroundColor: "{colors.surface-muted}"
-    textColor: "{colors.text-primary}"
-    rounded: "{rounded.xs}"
-    width: 210px
-    height: 320px
-  cover-title:
-    textColor: "{colors.text-primary}"
-    typography: "{typography.body-sm-strong}"
-  cover-meta:
-    textColor: "{colors.text-muted}"
-    typography: "{typography.label-md}"
-  badge-accent:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.badge}"
-    rounded: "{rounded.none}"
-    padding: 4px
-  badge-muted:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.text-secondary}"
-    typography: "{typography.badge}"
-    rounded: "{rounded.none}"
-    padding: 4px
-  active-chip:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.label-md}"
-    rounded: "{rounded.none}"
-    padding: 12px
-  inactive-chip:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.text-secondary}"
-    typography: "{typography.label-md}"
-    rounded: "{rounded.none}"
-    padding: 12px
-  pagination-current:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.label-md}"
-    rounded: "{rounded.none}"
-    height: "{spacing.control-height}"
-    width: "{spacing.control-height}"
-  progress-track:
-    backgroundColor: "{colors.surface-raised}"
-    rounded: "{rounded.none}"
-    height: 4px
-  progress-fill:
-    backgroundColor: "{colors.primary}"
-    rounded: "{rounded.none}"
-    height: 4px
-  reader-page:
-    backgroundColor: "{colors.reader-background}"
-    textColor: "{colors.text-primary}"
-  reader-hud:
-    backgroundColor: "{colors.overlay}"
-    textColor: "{colors.text-primary}"
-    typography: "{typography.body-sm-strong}"
-  error-banner:
-    backgroundColor: "{colors.error-surface}"
-    textColor: "{colors.error}"
-    typography: "{typography.body-sm}"
-    rounded: "{rounded.none}"
-    padding: 16px
-  brand-mark-warm:
-    backgroundColor: "{colors.brand-warm}"
-    rounded: "{rounded.none}"
-    width: 48px
-    height: 48px
-  brand-mark-coral:
-    backgroundColor: "{colors.brand-coral}"
-    rounded: "{rounded.none}"
-    width: 48px
-    height: 48px
-  brand-mark-magenta:
-    backgroundColor: "{colors.brand-magenta}"
-    rounded: "{rounded.none}"
-    width: 48px
-    height: 48px
+app-shell:
+backgroundColor: "{colors.background}"
+textColor: "{colors.text-primary}"
+typography: "{typography.body-md}"
+login-shell:
+backgroundColor: "{colors.background-deep}"
+textColor: "{colors.text-primary}"
+typography: "{typography.body-md}"
+header:
+backgroundColor: "{colors.surface}"
+textColor: "{colors.text-secondary}"
+height: 72px
+padding: 16px
+divider:
+backgroundColor: "{colors.border}"
+height: 1px
+divider-strong:
+backgroundColor: "{colors.border-strong}"
+height: 1px
+page-heading:
+textColor: "{colors.text-primary}"
+typography: "{typography.display-page}"
+section-heading:
+textColor: "{colors.text-primary}"
+typography: "{typography.headline-md}"
+eyebrow-label:
+textColor: "{colors.primary}"
+typography: "{typography.label-eyebrow}"
+height: 16px
+body-copy:
+textColor: "{colors.text-secondary}"
+typography: "{typography.body-sm}"
+metadata:
+textColor: "{colors.text-muted}"
+typography: "{typography.label-md}"
+metadata-subtle:
+textColor: "{colors.text-subtle}"
+typography: "{typography.label-micro}"
+disabled-control:
+textColor: "{colors.text-disabled}"
+typography: "{typography.label-md}"
+rounded: "{rounded.none}"
+height: "{spacing.control-height}"
+width: "{spacing.control-height}"
+button-primary:
+backgroundColor: "{colors.primary}"
+textColor: "{colors.on-primary}"
+typography: "{typography.label-md}"
+rounded: "{rounded.none}"
+height: "{spacing.control-height}"
+padding: 20px
+button-primary-hover:
+backgroundColor: "{colors.primary-hover}"
+textColor: "{colors.on-primary}"
+button-primary-active:
+backgroundColor: "{colors.primary-strong}"
+textColor: "{colors.on-primary}"
+button-secondary:
+backgroundColor: "{colors.surface-raised}"
+textColor: "{colors.text-secondary}"
+typography: "{typography.label-md}"
+rounded: "{rounded.none}"
+height: "{spacing.control-height}"
+padding: 12px
+button-secondary-hover:
+backgroundColor: "{colors.surface-raised}"
+textColor: "{colors.primary}"
+icon-button:
+backgroundColor: "{colors.surface-raised}"
+textColor: "{colors.text-control}"
+rounded: "{rounded.none}"
+height: "{spacing.control-height}"
+width: "{spacing.control-height}"
+input-field:
+backgroundColor: "{colors.surface}"
+textColor: "{colors.text-primary}"
+typography: "{typography.body-sm}"
+rounded: "{rounded.sm}"
+height: 40px
+padding: 12px
+search-dialog:
+backgroundColor: "{colors.surface}"
+textColor: "{colors.text-primary}"
+rounded: "{rounded.none}"
+width: 576px
+popover-panel:
+backgroundColor: "{colors.surface}"
+textColor: "{colors.text-secondary}"
+rounded: "{rounded.none}"
+padding: 16px
+cover-card:
+backgroundColor: "{colors.surface-muted}"
+textColor: "{colors.text-primary}"
+rounded: "{rounded.xs}"
+width: 210px
+height: 320px
+cover-title:
+textColor: "{colors.text-primary}"
+typography: "{typography.body-sm-strong}"
+cover-meta:
+textColor: "{colors.text-muted}"
+typography: "{typography.label-md}"
+badge-accent:
+backgroundColor: "{colors.primary}"
+textColor: "{colors.on-primary}"
+typography: "{typography.badge}"
+rounded: "{rounded.none}"
+padding: 4px
+badge-muted:
+backgroundColor: "{colors.surface}"
+textColor: "{colors.text-secondary}"
+typography: "{typography.badge}"
+rounded: "{rounded.none}"
+padding: 4px
+active-chip:
+backgroundColor: "{colors.primary}"
+textColor: "{colors.on-primary}"
+typography: "{typography.label-md}"
+rounded: "{rounded.none}"
+padding: 12px
+inactive-chip:
+backgroundColor: "{colors.surface}"
+textColor: "{colors.text-secondary}"
+typography: "{typography.label-md}"
+rounded: "{rounded.none}"
+padding: 12px
+pagination-current:
+backgroundColor: "{colors.primary}"
+textColor: "{colors.on-primary}"
+typography: "{typography.label-md}"
+rounded: "{rounded.none}"
+height: "{spacing.control-height}"
+width: "{spacing.control-height}"
+progress-track:
+backgroundColor: "{colors.surface-raised}"
+rounded: "{rounded.none}"
+height: 4px
+progress-fill:
+backgroundColor: "{colors.primary}"
+rounded: "{rounded.none}"
+height: 4px
+reader-page:
+backgroundColor: "{colors.reader-background}"
+textColor: "{colors.text-primary}"
+reader-hud:
+backgroundColor: "{colors.overlay}"
+textColor: "{colors.text-primary}"
+typography: "{typography.body-sm-strong}"
+error-banner:
+backgroundColor: "{colors.error-surface}"
+textColor: "{colors.error}"
+typography: "{typography.body-sm}"
+rounded: "{rounded.none}"
+padding: 16px
+brand-mark-warm:
+backgroundColor: "{colors.brand-warm}"
+rounded: "{rounded.none}"
+width: 48px
+height: 48px
+brand-mark-coral:
+backgroundColor: "{colors.brand-coral}"
+rounded: "{rounded.none}"
+width: 48px
+height: 48px
+brand-mark-magenta:
+backgroundColor: "{colors.brand-magenta}"
+rounded: "{rounded.none}"
+width: 48px
+height: 48px
 ---
 
 ## Overview

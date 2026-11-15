@@ -116,91 +116,91 @@ const hasResults = libraryResults.items.length > 0 || cvResults.length > 0;
 	</div>
 
 	{q && q.length < 2 && (
-      <p class="text-sm text-slate-500">
-        Query too short — enter at least 2 characters.
-      </p>
-    )}
+		<p class="text-sm text-slate-500">
+			Query too short — enter at least 2 characters.
+		</p>
+	)}
 
 	{q.length >= 2 && (
-      <>
-        <section
-          class="mb-6 flex items-center justify-between"
-          style="anchor-name: --util-anchor"
-        >
-          <p class="text-xs text-slate-500">
-            Page <span class="font-semibold text-slate-300">{page}</span> of{" "}
-            <span class="font-semibold text-slate-300">{totalPages || 1}</span>
-          </p>
-          <div class="flex items-center gap-2">
-            <FilterControls filterOptions={filterOptions} />
-            <SortControls />
-          </div>
-        </section>
+		<>
+			<section
+				class="mb-6 flex items-center justify-between"
+				style="anchor-name: --util-anchor"
+			>
+				<p class="text-xs text-slate-500">
+					Page <span class="font-semibold text-slate-300">{page}</span> of{" "}
+					<span class="font-semibold text-slate-300">{totalPages || 1}</span>
+				</p>
+				<div class="flex items-center gap-2">
+					<FilterControls filterOptions={filterOptions} />
+					<SortControls />
+				</div>
+			</section>
 
-        <ActiveFilters defaultSortLabel="Relevance" />
+			<ActiveFilters defaultSortLabel="Relevance" />
 
-        {!hasResults && (
-          <p class="text-sm text-slate-500">
-            No results for <span class="text-slate-300">"{q}"</span>.
-          </p>
-        )}
+			{!hasResults && (
+				<p class="text-sm text-slate-500">
+					No results for <span class="text-slate-300">"{q}"</span>.
+				</p>
+			)}
 
-        {libraryResults.items.length > 0 && (
-          <section class="mb-16">
-            <div class="mb-6 flex items-end justify-between border-b border-slate-800 pb-4">
-              <div>
-                <EyebrowLabel class="mb-1">Your library</EyebrowLabel>
-                <h2 class="text-2xl tracking-tight text-white">
-                  In your library
-                </h2>
-              </div>
-              <span class="text-xs font-bold uppercase tracking-widest text-slate-500">
-                {libraryResults.total} series
-              </span>
-            </div>
-            <CoverGrid>
-              {libraryResults.items.map((s) => (
-                <CoverLeaf
-                  type="series"
-                  id={s.series_id}
-                  name={s.series_name}
-                  year={s.series_year}
-                  cover={s.series_cover_url}
-                  thumbHash={s.series_cover_thumb_hash}
-                />
-              ))}
-            </CoverGrid>
-          </section>
-        )}
+			{libraryResults.items.length > 0 && (
+				<section class="mb-16">
+					<div class="mb-6 flex items-end justify-between border-b border-slate-800 pb-4">
+						<div>
+							<EyebrowLabel class="mb-1">Your library</EyebrowLabel>
+							<h2 class="text-2xl tracking-tight text-white">
+								In your library
+							</h2>
+						</div>
+						<span class="text-xs font-bold uppercase tracking-widest text-slate-500">
+							{libraryResults.total} series
+						</span>
+					</div>
+					<CoverGrid>
+						{libraryResults.items.map((s) => (
+							<CoverLeaf
+								type="series"
+								id={s.series_id}
+								name={s.series_name}
+								year={s.series_year}
+								cover={s.series_cover_url}
+								thumbHash={s.series_cover_thumb_hash}
+							/>
+						))}
+					</CoverGrid>
+				</section>
+			)}
 
-        {cvResults.length > 0 && (
-          <section class="mb-16">
-            <div class="mb-6 flex items-end justify-between border-b border-slate-800 pb-4">
-              <div>
-                <EyebrowLabel class="mb-1">ComicVine</EyebrowLabel>
-                <h2 class="text-2xl tracking-tight text-white">On ComicVine</h2>
-              </div>
-              <span class="text-xs font-bold uppercase tracking-widest text-slate-500">
-                {cvTotal} series
-              </span>
-            </div>
-            <CoverGrid>
-              {cvResults.map((v) => (
-                <CoverLeaf
-                  type="series"
-                  id={String(v.id)}
-                  name={v.name}
-                  year={v.start_year}
-                  cover={v.cover_url}
-                />
-              ))}
-            </CoverGrid>
-          </section>
-        )}
+			{cvResults.length > 0 && (
+				<section class="mb-16">
+					<div class="mb-6 flex items-end justify-between border-b border-slate-800 pb-4">
+						<div>
+							<EyebrowLabel class="mb-1">ComicVine</EyebrowLabel>
+							<h2 class="text-2xl tracking-tight text-white">On ComicVine</h2>
+						</div>
+						<span class="text-xs font-bold uppercase tracking-widest text-slate-500">
+							{cvTotal} series
+						</span>
+					</div>
+					<CoverGrid>
+						{cvResults.map((v) => (
+							<CoverLeaf
+								type="series"
+								id={String(v.id)}
+								name={v.name}
+								year={v.start_year}
+								cover={v.cover_url}
+							/>
+						))}
+					</CoverGrid>
+				</section>
+			)}
 
-        {totalPages > 1 && (
-          <PageNavigator numberOfPages={totalPages} currentPage={page} />
-        )}
-      </>
-    )}
+			{totalPages > 1 && (
+				<PageNavigator numberOfPages={totalPages} currentPage={page} />
+			)}
+		</>
+	)}
 </Layout>

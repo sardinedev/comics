@@ -60,14 +60,14 @@ const cacheMetadata: ComicCacheMetadataInput = {
 		initialPage={issue.current_page ?? 0}
 		initialProgressUpdatedAt={issue.progress_updated_at}
 		nextIssue={exactNextIssue
-      ? {
-          id: exactNextIssue.issue_id,
-          seriesName:
-            exactNextIssue.series_name ?? issue.series_name ?? "Next issue",
-          issueNumber: exactNextIssue.issue_number,
-          issueName: exactNextIssue.issue_name ?? undefined,
-        }
-      : undefined}
+			? {
+					id: exactNextIssue.issue_id,
+					seriesName:
+						exactNextIssue.series_name ?? issue.series_name ?? "Next issue",
+					issueNumber: exactNextIssue.issue_number,
+					issueName: exactNextIssue.issue_name ?? undefined,
+				}
+			: undefined}
 		hasUndownloadedNextIssue={Boolean(adjacency.nextIssue && !exactNextIssue)}
 		cacheMetadata={cacheMetadata}
 	/>

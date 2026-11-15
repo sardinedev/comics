@@ -2,8 +2,12 @@
 const { class: className } = Astro.props;
 ---
 
+<!-- biome-ignore lint/a11y/useHeadingContent: content is provided via the slot -->
 <h1
-	class:list={["text-4xl font-black leading-tight tracking-tight text-white md:text-5xl", className]}
+	class:list={[
+		"text-4xl font-black leading-tight tracking-tight text-white md:text-5xl",
+		className,
+	]}
 >
 	<slot />
 </h1>

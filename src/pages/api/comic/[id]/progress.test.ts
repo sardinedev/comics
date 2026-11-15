@@ -123,31 +123,34 @@ describe("progress API writes", () => {
 		{ issue_id: "issue-1" },
 		{ current_page: 19, progress_updated_at: "invalid" },
 		{ current_page: 0, progress_updated_at: validBody.updated_at },
-	])("returns a retryable error instead of rejected values when authoritative progress is unavailable: %j", async (authoritativeIssue) => {
-		queryMocks.getIssue
-			.mockResolvedValueOnce({ issue_id: "issue-1" })
-			.mockResolvedValueOnce(authoritativeIssue);
-		queryMocks.updateReadingProgress.mockResolvedValue({
-			applied: false,
-			updatedAt: validBody.updated_at,
-		});
-		const consoleError = vi
-			.spyOn(console, "error")
-			.mockImplementation(() => {});
-		try {
-			const response = await handleProgress("issue-1", request(validBody));
-			expect(response.status).toBe(500);
-			expect(await response.json()).toEqual({
-				error: "Failed to update progress",
+	])(
+		"returns a retryable error instead of rejected values when authoritative progress is unavailable: %j",
+		async (authoritativeIssue) => {
+			queryMocks.getIssue
+				.mockResolvedValueOnce({ issue_id: "issue-1" })
+				.mockResolvedValueOnce(authoritativeIssue);
+			queryMocks.updateReadingProgress.mockResolvedValue({
+				applied: false,
+				updatedAt: validBody.updated_at,
 			});
-			expect(consoleError).toHaveBeenCalledWith(
-				"Failed to update reading progress:",
-				expect.any(Error),
-			);
-		} finally {
-			consoleError.mockRestore();
-		}
-	});
+			const consoleError = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
+			try {
+				const response = await handleProgress("issue-1", request(validBody));
+				expect(response.status).toBe(500);
+				expect(await response.json()).toEqual({
+					error: "Failed to update progress",
+				});
+				expect(consoleError).toHaveBeenCalledWith(
+					"Failed to update reading progress:",
+					expect.any(Error),
+				);
+			} finally {
+				consoleError.mockRestore();
+			}
+		},
+	);
 
 	test("logs the underlying error when the authoritative lookup fails", async () => {
 		const failure = new Error("Elasticsearch unavailable");

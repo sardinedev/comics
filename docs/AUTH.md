@@ -56,13 +56,13 @@ src/
 
 The ATProto spec has a special exception for `http://localhost` client IDs that removes the requirement to serve a public `client-metadata.json` endpoint. This means you can develop locally without a tunnel.
 
-| | Development (`PUBLIC_URL` starts with `http://`) | Production (`https://`) |
-|---|---|---|
-| `client_id` | `http://localhost?redirect_uri=...` | `https://yourdomain.com/client-metadata.json` |
-| Client type | Public (no signing key) | Confidential (`private_key_jwt`) |
-| `token_endpoint_auth_method` | `none` | `private_key_jwt` |
-| Metadata served at `/client-metadata.json` | Not used by PDS | Fetched by PDS on every auth |
-| Signing key required | No | Yes (`ATPROTO_PRIVATE_KEY_JWK`) |
+|                                            | Development (`PUBLIC_URL` starts with `http://`) | Production (`https://`)                       |
+| ------------------------------------------ | ------------------------------------------------ | --------------------------------------------- |
+| `client_id`                                | `http://localhost?redirect_uri=...`              | `https://yourdomain.com/client-metadata.json` |
+| Client type                                | Public (no signing key)                          | Confidential (`private_key_jwt`)              |
+| `token_endpoint_auth_method`               | `none`                                           | `private_key_jwt`                             |
+| Metadata served at `/client-metadata.json` | Not used by PDS                                  | Fetched by PDS on every auth                  |
+| Signing key required                       | No                                               | Yes (`ATPROTO_PRIVATE_KEY_JWK`)               |
 
 **The `isLocalDev` check in `client.ts` is `!PUBLIC_URL.startsWith("https://")`** — everything non-HTTPS is treated as local dev for the OAuth client configuration.
 
@@ -81,12 +81,14 @@ Cookies store the DID as `{did}.{hmac_sig}` (base64url), signed with `AUTH_SESSI
 ## OAuth session storage (Elasticsearch)
 
 `@atproto/oauth-client-node` needs pluggable stores for:
+
 - **State** (`state:*`) — short-lived, created during authorize, deleted after callback
 - **Session** (`session:*`) — long-lived, holds access/refresh tokens for the ATProto session
 
 Both use `ElasticKeyedStore` backed by the `comics_oauth_store` index. Documents are prefixed (`state:key` vs `session:key`) to avoid collisions.
 
 > Note: There is no automatic TTL on these documents. State entries are cleaned up by the OAuth client after a successful callback. If an auth flow is abandoned mid-way, orphaned state entries may accumulate. This is harmless for a single-user app but could be manually cleaned up with:
+>
 > ```
 > POST comics_oauth_store/_delete_by_query
 > {
@@ -96,12 +98,12 @@ Both use `ElasticKeyedStore` backed by the `comics_oauth_store` index. Documents
 
 ## Environment variables
 
-| Variable | Required | Description |
-|---|---|---|
-| `PUBLIC_URL` | Yes | Full origin of the app, e.g. `https://comics.example.com` or `http://localhost:4321` |
-| `AUTH_ALLOWED_DID` | Yes | The single DID allowed to log in, e.g. `did:plc:abc123` |
-| `AUTH_SESSION_SECRET` | Yes (not required for `http://localhost` / `http://127.0.0.1`) | Random secret for HMAC cookie signing. Generate with: `openssl rand -hex 32` |
-| `ATPROTO_PRIVATE_KEY_JWK` | Prod only | ES256 private key JWK. Generate with: `node -e "import('@atproto/jwk-jose').then(({JoseKey})=>JoseKey.generate(['ES256']).then(k=>console.log(JSON.stringify(k.privateJwk))))"` |
+| Variable                  | Required                                                       | Description                                                                                                                                                                     |
+| ------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUBLIC_URL`              | Yes                                                            | Full origin of the app, e.g. `https://comics.example.com` or `http://localhost:4321`                                                                                            |
+| `AUTH_ALLOWED_DID`        | Yes                                                            | The single DID allowed to log in, e.g. `did:plc:abc123`                                                                                                                         |
+| `AUTH_SESSION_SECRET`     | Yes (not required for `http://localhost` / `http://127.0.0.1`) | Random secret for HMAC cookie signing. Generate with: `openssl rand -hex 32`                                                                                                    |
+| `ATPROTO_PRIVATE_KEY_JWK` | Prod only                                                      | ES256 private key JWK. Generate with: `node -e "import('@atproto/jwk-jose').then(({JoseKey})=>JoseKey.generate(['ES256']).then(k=>console.log(JSON.stringify(k.privateJwk))))"` |
 
 ## Finding your DID
 

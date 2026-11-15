@@ -50,24 +50,28 @@ for (const [key, display] of [
 			>Sorted by</span
 		>
 		{sortLabel ? (
-      <span class="text-xs font-bold uppercase tracking-widest text-amber-500">{sortLabel}</span>
-    ) : (
-      <span class="text-xs font-bold uppercase tracking-widest text-slate-400">{defaultSortLabel}</span>
-    )}
+			<span class="text-xs font-bold uppercase tracking-widest text-amber-500">
+				{sortLabel}
+			</span>
+		) : (
+			<span class="text-xs font-bold uppercase tracking-widest text-slate-400">
+				{defaultSortLabel}
+			</span>
+		)}
 	</div>
 
 	{activeFilters.length > 0 && (
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="text-xs uppercase tracking-widest text-slate-600">·</span>
-      {activeFilters.map(({ label, clearUrl }) => (
-        <a
-          href={clearUrl}
-          class="flex min-h-12 items-center gap-1 border border-amber-500/40 bg-amber-500/10 px-3 text-xs font-bold uppercase tracking-widest text-amber-500 transition-colors hover:bg-amber-500/20"
-        >
-          {label}
-          <span class="text-amber-600">&times;</span>
-        </a>
-      ))}
-    </div>
-  )}
+		<div class="flex flex-wrap items-center gap-2">
+			<span class="text-xs uppercase tracking-widest text-slate-600">·</span>
+			{activeFilters.map(({ label, clearUrl }) => (
+				<a
+					href={clearUrl}
+					class="flex min-h-12 items-center gap-1 border border-amber-500/40 bg-amber-500/10 px-3 text-xs font-bold uppercase tracking-widest text-amber-500 transition-colors hover:bg-amber-500/20"
+				>
+					{label}
+					<span class="text-amber-600">&times;</span>
+				</a>
+			))}
+		</div>
+	)}
 </div>

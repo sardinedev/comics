@@ -39,11 +39,13 @@ Always use these instead of relative imports crossing directory boundaries:
 **UI/design work:** Before changing pages, Astro components, Preact islands, Tailwind classes, CSS, layout, typography, colors, controls, or cover sizing, read `DESIGN.md` and follow it. If a change intentionally deviates from `DESIGN.md`, call that out in the response and explain why.
 
 **Components:**
+
 - `.astro` for static/server-rendered markup
 - `.tsx` (Preact) for interactive islands only
 - Complex components with assets go in a named subdirectory (`IssueGrid/IssueGrid.astro`); simple ones are flat in `src/components/`
 
 **Data layer:**
+
 - API clients in `src/data/` (Mylar, Comic Vine, Elasticsearch)
 - Utilities in `src/util/`
 - No ad-hoc fetches in components — call data helpers from pages/routes
@@ -51,6 +53,7 @@ Always use these instead of relative imports crossing directory boundaries:
 **API routes:** Return `new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } })`. Validate request bodies before use.
 
 **Env vars:** Always access via the `env()` helper — works in both Astro SSR and Node scripts:
+
 ```ts
 import { env } from "@lib/env";
 const value = env("VAR_NAME");

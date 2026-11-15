@@ -1,4 +1,3 @@
-
 # Data Sources
 
 This app pulls comic/series metadata from a mix of upstream APIs and stores (indexes) normalized issue documents in Elasticsearch for fast browsing.
@@ -22,6 +21,7 @@ Shared shapes live next to the clients:
 ### Mylar (self-hosted)
 
 **API docs**
+
 - https://github.com/mylar3/mylar3/wiki/API-Documentation (API documentation is sparse, it's best to read the source)
 - https://github.com/mylar3/mylar3/blob/master/mylar/api.py
 
@@ -62,6 +62,7 @@ Shared shapes live next to the clients:
 - `src/data/comicvine/comicvine.ts`
 
 **Rate limiting**
+
 - Support 200 requests per resource, per hour.
 
 **Images**
@@ -89,7 +90,6 @@ Shared shapes live next to the clients:
 - `src/data/elastic/elastic.ts`
 
 > Note: `src/env.d.ts` declares `ELASTIC_URL` and `ELASTIC_INDEX`, but the current implementation uses hard-coded values. The `ELASTIC_URL` is hard-coded in `src/data/elastic/elastic.ts` and the index name is defined in `src/data/elastic/models/issue.model.ts`. If you want these to be runtime-configurable, wire them through `import.meta.env`.
-
 
 ## Keeping this doc accurate over time
 
