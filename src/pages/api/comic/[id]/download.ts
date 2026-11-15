@@ -12,7 +12,17 @@ export const GET: APIRoute = async ({ params }) => {
 		});
 	}
 
-	const issue = await getIssue(id);
+	let issue: Awaited<ReturnType<typeof getIssue>>;
+	try {
+		issue = await getIssue(id);
+	} catch (error) {
+		console.error("Failed to load issue for download:", error);
+		return new Response(JSON.stringify({ error: "Failed to load issue" }), {
+			status: 503,
+			headers: { "Content-Type": "application/json" },
+		});
+	}
+
 	if (!issue) {
 		return new Response(JSON.stringify({ error: "Issue not found" }), {
 			status: 404,

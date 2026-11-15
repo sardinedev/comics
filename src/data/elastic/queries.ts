@@ -356,10 +356,7 @@ export async function getNewlyAddedIssues(): Promise<Issue[]> {
 /**
  * Fetches a single issue by its ID.
  */
-export async function getIssue(
-	issueId: string,
-	options: { throwOnError?: boolean } = {},
-): Promise<Issue | null> {
+export async function getIssue(issueId: string): Promise<Issue | null> {
 	try {
 		const response = await elastic.get<Issue>({
 			index: ISSUES_INDEX,
@@ -367,8 +364,19 @@ export async function getIssue(
 		});
 		return response._source ?? null;
 	} catch (error) {
-		if (options.throwOnError) throw error;
-		return null;
+		const meta = (error as { meta?: { statusCode?: number; body?: unknown } })
+			?.meta;
+		const body = meta?.body;
+		if (
+			meta?.statusCode === 404 &&
+			typeof body === "object" &&
+			body !== null &&
+			"found" in body &&
+			body.found === false
+		) {
+			return null;
+		}
+		throw error;
 	}
 }
 

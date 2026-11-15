@@ -68,6 +68,30 @@ describe("progress API validation", () => {
 		expect(response.status).toBe(404);
 		expect(queryMocks.updateReadingProgress).not.toHaveBeenCalled();
 	});
+
+	test("returns a retryable error when the issue lookup fails", async () => {
+		const failure = new Error("Elasticsearch unavailable");
+		queryMocks.getIssue.mockRejectedValue(failure);
+		const consoleError = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+
+		try {
+			const response = await handleProgress("issue-1", request(validBody));
+
+			expect(response.status).toBe(500);
+			expect(await response.json()).toEqual({
+				error: "Failed to update progress",
+			});
+			expect(queryMocks.updateReadingProgress).not.toHaveBeenCalled();
+			expect(consoleError).toHaveBeenCalledWith(
+				"Failed to update reading progress:",
+				failure,
+			);
+		} finally {
+			consoleError.mockRestore();
+		}
+	});
 });
 
 describe("progress API writes", () => {
@@ -170,9 +194,7 @@ describe("progress API writes", () => {
 			expect(await response.json()).toEqual({
 				error: "Failed to update progress",
 			});
-			expect(queryMocks.getIssue).toHaveBeenLastCalledWith("issue-1", {
-				throwOnError: true,
-			});
+			expect(queryMocks.getIssue).toHaveBeenLastCalledWith("issue-1");
 			expect(consoleError).toHaveBeenCalledWith(
 				"Failed to update reading progress:",
 				failure,

@@ -45,14 +45,27 @@ const nextIssue: Issue = {
 };
 
 describe("getIssue", () => {
-	test("preserves optional lookups while allowing strict callers to handle failures", async () => {
-		const failure = new Error("Elasticsearch unavailable");
-		elasticState.get.mockRejectedValueOnce(failure);
+	test("returns null only when Elasticsearch reports a missing document", async () => {
+		elasticState.get.mockRejectedValueOnce({
+			meta: { statusCode: 404, body: { found: false } },
+		});
+
 		await expect(queries.getIssue("issue-1")).resolves.toBeNull();
+	});
+
+	test.each([
+		new Error("Elasticsearch unavailable"),
+		{ meta: { statusCode: 503, body: { error: "unavailable" } } },
+		{
+			meta: {
+				statusCode: 404,
+				body: { error: { type: "index_not_found_exception" } },
+			},
+		},
+	])("propagates datastore failures: %j", async (failure) => {
 		elasticState.get.mockRejectedValueOnce(failure);
-		await expect(
-			queries.getIssue("issue-1", { throwOnError: true }),
-		).rejects.toBe(failure);
+
+		await expect(queries.getIssue("issue-1")).rejects.toBe(failure);
 	});
 });
 
