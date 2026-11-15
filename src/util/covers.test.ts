@@ -73,6 +73,7 @@ describe("configured covers directory", () => {
 					? coversDir
 					: path.relative(process.cwd(), coversDir);
 			vi.stubEnv("COVERS_DIR", configuredDir);
+			vi.resetModules();
 
 			const covers = await import("./covers");
 			const mylar = await import("@data/mylar/mylar");
