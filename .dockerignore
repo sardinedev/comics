@@ -5,3 +5,4 @@ dist
 .astro
 .github
 .env.local
+/data/covers
