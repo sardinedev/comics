@@ -250,7 +250,7 @@ backgroundColor: "{colors.surface-muted}"
 textColor: "{colors.text-primary}"
 rounded: "{rounded.xs}"
 width: 210px
-height: 320px
+height: 315px
 cover-title:
 textColor: "{colors.text-primary}"
 typography: "{typography.body-sm-strong}"
