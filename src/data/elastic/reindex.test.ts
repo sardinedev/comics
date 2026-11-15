@@ -208,7 +208,7 @@ describe("elasticReindex", () => {
 		const error = new Error("Create failed");
 		elasticState.indices.create.mockRejectedValue(error);
 		elasticState.indices.exists.mockResolvedValueOnce(true); // source exists
-		elasticState.indices.exists.mockResolvedValueOnce(false); // new index doesn't exist for cleanup
+		elasticState.indices.exists.mockResolvedValueOnce(true); // pre-existing destination
 
 		await expect(
 			reindex.elasticReindex("old-index", {
@@ -217,10 +217,38 @@ describe("elasticReindex", () => {
 			}),
 		).rejects.toThrow("Create failed");
 
-		// Should check if new index exists for cleanup
-		expect(elasticState.indices.exists).toHaveBeenCalledWith({
-			index: "old-index_v2",
+		// Pre-existing destination must not be deleted
+		expect(elasticState.indices.delete).not.toHaveBeenCalled();
+	});
+
+	it("should not delete destination when alias swap fails", async () => {
+		elasticState.indices.updateAliases.mockRejectedValue(
+			new Error("timeout"),
+		);
+
+		await expect(
+			reindex.elasticReindex("old-index", {
+				mappings: testMappings,
+				suffix: "v2",
+			}),
+		).rejects.toThrow("timeout");
+
+		expect(elasticState.indices.delete).not.toHaveBeenCalled();
+	});
+
+	it("should not delete destination when swap is not acknowledged", async () => {
+		elasticState.indices.updateAliases.mockResolvedValue({
+			acknowledged: false,
 		});
+
+		await expect(
+			reindex.elasticReindex("old-index", {
+				mappings: testMappings,
+				suffix: "v2",
+			}),
+		).rejects.toThrow("Failed to swap");
+
+		expect(elasticState.indices.delete).not.toHaveBeenCalled();
 	});
 
 	it("should clean up new index on failure during reindex", async () => {

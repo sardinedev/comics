@@ -52,6 +52,9 @@ export async function elasticReindex(
 	const indexSuffix = suffix ?? timestampMs.toString();
 	const newIndex = `${oldIndex}_${indexSuffix}`;
 
+	let destinationCreated = false;
+	let swapStarted = false;
+
 	try {
 		// Step 1: Validate source index exists
 		const sourceExists = await elasticIndexExists(oldIndex);
@@ -62,6 +65,7 @@ export async function elasticReindex(
 		// Step 2: Create new index with new mappings
 		console.info(`Creating new index ${newIndex} with updated mappings...`);
 		await elasticCreateIndex(newIndex, mappings, settings);
+		destinationCreated = true;
 
 		// Step 3: Copy all documents from old index to new index
 		console.info(`Reindexing from ${oldIndex} to ${newIndex}...`);
@@ -109,6 +113,7 @@ export async function elasticReindex(
 			console.info(`Created backup alias ${backupAlias} -> ${oldIndex}`);
 
 			// Now do the atomic swap (old index will still be accessible via backup alias)
+			swapStarted = true;
 			const aliasResponse = await elastic.indices.updateAliases({
 				actions: [
 					{ remove_index: { index: oldIndex } },
@@ -122,6 +127,7 @@ export async function elasticReindex(
 			console.info(`Old index accessible via ${backupAlias}`);
 		} else {
 			// Atomic delete + alias (both succeed or both fail)
+			swapStarted = true;
 			const aliasResponse = await elastic.indices.updateAliases({
 				actions: [
 					{ remove_index: { index: oldIndex } },
@@ -140,15 +146,20 @@ export async function elasticReindex(
 			`Error during reindex from ${oldIndex} to ${newIndex}:`,
 			error,
 		);
-		// Attempt cleanup of the new index if it was created
-		try {
-			const newExists = await elasticIndexExists(newIndex);
-			if (newExists) {
+		// Only delete a destination created by this invocation, and never once
+		// the swap has started: its outcome is ambiguous and the destination may
+		// already be the active index.
+		if (destinationCreated && !swapStarted) {
+			try {
 				console.info(`Cleaning up failed reindex: deleting ${newIndex}`);
 				await elasticDeleteIndex(newIndex);
+			} catch (cleanupError) {
+				console.error(`Error during cleanup:`, cleanupError);
 			}
-		} catch (cleanupError) {
-			console.error(`Error during cleanup:`, cleanupError);
+		} else if (swapStarted) {
+			console.warn(
+				`Swap outcome unknown; leaving ${newIndex} in place. Verify ${oldIndex} manually.`,
+			);
 		}
 		throw error instanceof Error
 			? error
