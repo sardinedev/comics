@@ -15,7 +15,7 @@ The app also talks to Comic Vine (public API) for weekly releases and as a fallb
 
 ## Persistent storage
 
-The app stores cover images locally in `data/covers/`. This directory must be persisted across container restarts.
+The app stores cover images in `COVERS_DIR` (default: `data/covers`, resolved relative to the app directory). In Docker, `COVERS_DIR` is `/app/data/covers`; this directory must be persisted across container replacements.
 
 ### Docker volume configuration
 
@@ -25,6 +25,8 @@ The `docker-compose.yml` includes a named volume for covers:
 volumes:
   - covers_data:/app/data/covers
 ```
+
+Keep the volume destination aligned with `COVERS_DIR` when using a custom path.
 
 ### TrueNAS / host path
 

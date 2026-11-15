@@ -6,7 +6,7 @@ import { unzip } from "fflate";
 import sharp from "sharp";
 import { rgbaToThumbHash } from "thumbhash";
 
-const COVERS_DIR = env("COVERS_DIR") ?? "data/covers";
+const COVERS_DIR = path.resolve(env("COVERS_DIR") ?? "data/covers");
 
 /**
  * Image file extensions to look for in CBZ archives.
@@ -19,7 +19,7 @@ const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
  * @returns Absolute file path
  */
 export function getCoverFilePath(issueId: string): string {
-	return path.join(process.cwd(), COVERS_DIR, `${issueId}.jpg`);
+	return path.join(COVERS_DIR, `${issueId}.jpg`);
 }
 
 /**
@@ -49,8 +49,7 @@ export async function coverExists(issueId: string): Promise<boolean> {
  * Ensures the covers directory exists.
  */
 async function ensureCoversDir(): Promise<void> {
-	const dir = path.join(process.cwd(), COVERS_DIR);
-	await fs.mkdir(dir, { recursive: true });
+	await fs.mkdir(COVERS_DIR, { recursive: true });
 }
 
 /**

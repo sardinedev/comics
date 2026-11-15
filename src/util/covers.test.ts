@@ -1,6 +1,13 @@
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import { zipSync } from "fflate";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { extractCoverFromCbz } from "./covers";
+
+vi.mock("@data/mylar/mylar", () => ({
+	mylarDownloadIssue: vi.fn(),
+}));
 
 // Minimal magic-number fixtures: JPG_BYTES starts with JPEG SOI (0xFF,0xD8),
 // PNG_BYTES starts with the PNG signature header (0x89, "PNG", CR, LF, SUB, LF).
@@ -13,6 +20,11 @@ const PNG_BYTES = new Uint8Array([
 function buildCbz(files: Record<string, Uint8Array>): Uint8Array {
 	return zipSync(files);
 }
+
+afterEach(() => {
+	vi.unstubAllEnvs();
+	vi.resetModules();
+});
 
 describe("extractCoverFromCbz", () => {
 	test("returns the first image alphabetically", async () => {
@@ -47,4 +59,52 @@ describe("extractCoverFromCbz", () => {
 			extractCoverFromCbz(new Uint8Array([1, 2, 3, 4])),
 		).resolves.toBeNull();
 	});
+});
+
+describe("configured covers directory", () => {
+	test.each(["relative", "absolute"])(
+		"reads and writes covers with a %s COVERS_DIR",
+		async (directoryType) => {
+			const coversDir = await fs.mkdtemp(
+				path.join(os.tmpdir(), "comics-covers-"),
+			);
+			const configuredDir =
+				directoryType === "absolute"
+					? coversDir
+					: path.relative(process.cwd(), coversDir);
+			vi.stubEnv("COVERS_DIR", configuredDir);
+
+			const covers = await import("./covers");
+			const mylar = await import("@data/mylar/mylar");
+			const cbz = buildCbz({ "001.jpg": JPG_BYTES });
+			vi.mocked(mylar.mylarDownloadIssue).mockResolvedValue(cbz);
+			vi.mocked(mylar.mylarDownloadIssue).mockClear();
+
+			expect(covers.getCoverFilePath("123")).toBe(
+				path.join(coversDir, "123.jpg"),
+			);
+			await expect(covers.coverExists("123")).resolves.toBe(false);
+			await expect(covers.readCover("123")).resolves.toBeNull();
+
+			await expect(
+				covers.extractCoverFromDownloadedIssue("123"),
+			).resolves.toEqual({
+				success: true,
+				url: "/covers/123.jpg",
+				source: "cbz",
+			});
+			await expect(covers.readCover("123")).resolves.toEqual(JPG_BYTES);
+			await expect(covers.coverExists("123")).resolves.toBe(true);
+
+			await expect(
+				covers.extractCoverFromDownloadedIssue("123"),
+			).resolves.toEqual({
+				success: true,
+				url: "/covers/123.jpg",
+				source: "cached",
+			});
+			expect(mylar.mylarDownloadIssue).toHaveBeenCalledTimes(1);
+			await fs.rm(coversDir, { recursive: true, force: true });
+		},
+	);
 });
