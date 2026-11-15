@@ -223,78 +223,76 @@ describe("comic cache utilities", () => {
 		expect(await isIssueCached(issueId)).toBe(true);
 	});
 
-	test.each([
-		"archive",
-		"metadata",
-		"cover",
-		"projection",
-	])("attempts every bundle deletion when %s cleanup fails", async (failedPart) => {
-		const issueId = trackIssueId(`delete-partial-${crypto.randomUUID()}`);
-		fetchSpy
-			.mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3])))
-			.mockResolvedValueOnce(new Response("cover"));
-		await downloadIssueToCache(
-			issueId,
-			() => {},
-			metadataFor(issueId, { coverUrl: "/covers/delete.jpg" }),
-		);
-		await retryCachedComicCover(issueId);
-		const keys = {
-			archive: getComicDownloadUrl(issueId),
-			metadata: getComicMetadataUrl(issueId),
-			cover: getCachedComicCoverUrl(issueId),
-		};
-		const cache = await caches.open(COMIC_CACHE_NAME);
-		const coverCache = await caches.open(OFFLINE_COVER_CACHE_NAME);
-		const cachePrototype = Object.getPrototypeOf(cache) as Cache;
-		const originalDelete = cachePrototype.delete;
-		const failure = new Error("storage deletion failed");
-		const cacheDeleteSpy = vi
-			.spyOn(cachePrototype, "delete")
-			.mockImplementation(function (this: Cache, request, options) {
-				const path = new URL(
-					request instanceof Request ? request.url : request.toString(),
-					location.origin,
-				).pathname;
-				if (
-					failedPart !== "projection" &&
-					path === keys[failedPart as keyof typeof keys]
-				)
-					return Promise.reject(failure);
-				return originalDelete.call(this, request, options);
-			});
-		const recordDeleteSpy = vi.spyOn(offlineComics, "delete");
-		if (failedPart === "projection")
-			recordDeleteSpy.mockRejectedValueOnce(failure);
-		try {
-			await expect(deleteCachedIssue(issueId)).rejects.toMatchObject({
-				errors: [failure],
-			});
+	test.each(["archive", "metadata", "cover", "projection"])(
+		"attempts every bundle deletion when %s cleanup fails",
+		async (failedPart) => {
+			const issueId = trackIssueId(`delete-partial-${crypto.randomUUID()}`);
+			fetchSpy
+				.mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3])))
+				.mockResolvedValueOnce(new Response("cover"));
+			await downloadIssueToCache(
+				issueId,
+				() => {},
+				metadataFor(issueId, { coverUrl: "/covers/delete.jpg" }),
+			);
+			await retryCachedComicCover(issueId);
+			const keys = {
+				archive: getComicDownloadUrl(issueId),
+				metadata: getComicMetadataUrl(issueId),
+				cover: getCachedComicCoverUrl(issueId),
+			};
+			const cache = await caches.open(COMIC_CACHE_NAME);
+			const coverCache = await caches.open(OFFLINE_COVER_CACHE_NAME);
+			const cachePrototype = Object.getPrototypeOf(cache) as Cache;
+			const originalDelete = cachePrototype.delete;
+			const failure = new Error("storage deletion failed");
+			const cacheDeleteSpy = vi
+				.spyOn(cachePrototype, "delete")
+				.mockImplementation(function (this: Cache, request, options) {
+					const path = new URL(
+						request instanceof Request ? request.url : request.toString(),
+						location.origin,
+					).pathname;
+					if (
+						failedPart !== "projection" &&
+						path === keys[failedPart as keyof typeof keys]
+					)
+						return Promise.reject(failure);
+					return originalDelete.call(this, request, options);
+				});
+			const recordDeleteSpy = vi.spyOn(offlineComics, "delete");
 			if (failedPart === "projection")
-				expect(recordDeleteSpy).toHaveBeenCalledWith(issueId);
-			else expect(recordDeleteSpy).not.toHaveBeenCalledWith(issueId);
-			for (const [part, key] of Object.entries(keys)) {
-				expect(cacheDeleteSpy).toHaveBeenCalledWith(key);
-				expect(
-					Boolean(await (part === "cover" ? coverCache : cache).match(key)),
-				).toBe(part === failedPart);
+				recordDeleteSpy.mockRejectedValueOnce(failure);
+			try {
+				await expect(deleteCachedIssue(issueId)).rejects.toMatchObject({
+					errors: [failure],
+				});
+				if (failedPart === "projection")
+					expect(recordDeleteSpy).toHaveBeenCalledWith(issueId);
+				else expect(recordDeleteSpy).not.toHaveBeenCalledWith(issueId);
+				for (const [part, key] of Object.entries(keys)) {
+					expect(cacheDeleteSpy).toHaveBeenCalledWith(key);
+					expect(
+						Boolean(await (part === "cover" ? coverCache : cache).match(key)),
+					).toBe(part === failedPart);
+				}
+				expect(await offlineComics.get(issueId)).toMatchObject({
+					deletionPending: true,
+				});
+				expect(await isIssueCached(issueId)).toBe(false);
+			} finally {
+				cacheDeleteSpy.mockRestore();
+				recordDeleteSpy.mockRestore();
 			}
-			expect(await offlineComics.get(issueId)).toMatchObject({
-				deletionPending: true,
-			});
-			expect(await isIssueCached(issueId)).toBe(false);
-		} finally {
-			cacheDeleteSpy.mockRestore();
-			recordDeleteSpy.mockRestore();
-		}
-		await deleteCachedIssue(issueId);
-		expect(await offlineComics.get(issueId)).toBeUndefined();
-		for (const [part, key] of Object.entries(keys)) {
-			expect(
-				await (part === "cover" ? coverCache : cache).match(key),
-			).toBeUndefined();
-		}
-	});
+			await deleteCachedIssue(issueId);
+			expect(await offlineComics.get(issueId)).toBeUndefined();
+			for (const [part, key] of Object.entries(keys)) {
+				expect(
+					await (part === "cover" ? coverCache : cache).match(key),
+				).toBeUndefined();
+			}
+		},
+	);
 
 	test("preserves the bundle when cleanup intent cannot be saved", async () => {
 		const issueId = trackIssueId(`cleanup-intent-${crypto.randomUUID()}`);
@@ -627,29 +625,28 @@ describe("comic cache utilities", () => {
 		).toBeUndefined();
 	});
 
-	test.each([
-		NaN,
-		Infinity,
-		-Infinity,
-	])("rejects non-finite issue and neighbor numbers: %s", async (issueNumber) => {
-		const issueId = trackIssueId(`invalid-number-${crypto.randomUUID()}`);
-		for (const overrides of [
-			{ issueNumber },
-			{ previousIssue: { issueId: "previous", issueNumber } },
-			{ nextIssue: { issueId: "next", issueNumber } },
-		]) {
-			await expect(
-				downloadIssueToCache(
-					issueId,
-					() => {},
-					metadataFor(issueId, overrides),
-				),
-			).rejects.toThrow("requires issue, series, and issue-number fields");
-		}
-		expect(fetchSpy).not.toHaveBeenCalled();
-		expect(await offlineComics.get(issueId)).toBeUndefined();
-		expect(await readCachedComicMetadata(issueId)).toBeNull();
-	});
+	test.each([NaN, Infinity, -Infinity])(
+		"rejects non-finite issue and neighbor numbers: %s",
+		async (issueNumber) => {
+			const issueId = trackIssueId(`invalid-number-${crypto.randomUUID()}`);
+			for (const overrides of [
+				{ issueNumber },
+				{ previousIssue: { issueId: "previous", issueNumber } },
+				{ nextIssue: { issueId: "next", issueNumber } },
+			]) {
+				await expect(
+					downloadIssueToCache(
+						issueId,
+						() => {},
+						metadataFor(issueId, overrides),
+					),
+				).rejects.toThrow("requires issue, series, and issue-number fields");
+			}
+			expect(fetchSpy).not.toHaveBeenCalled();
+			expect(await offlineComics.get(issueId)).toBeUndefined();
+			expect(await readCachedComicMetadata(issueId)).toBeNull();
+		},
+	);
 
 	test("rejects invalid required metadata before fetching or writing", async () => {
 		const issueId = trackIssueId(`invalid-${crypto.randomUUID()}`);

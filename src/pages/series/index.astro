@@ -51,13 +51,13 @@ const [series, filterOptions] = await Promise.all([
 		<FilterControls slot="toolbar" filterOptions={filterOptions} />
 
 		{series.items.map((s) => (
-      <CoverLeaf
-        id={s.series_id}
-        cover={s.series_cover_url}
-        name={s.series_name}
-        year={s.series_year}
-        type="series"
-      />
-    ))}
+			<CoverLeaf
+				id={s.series_id}
+				cover={s.series_cover_url}
+				name={s.series_name}
+				year={s.series_year}
+				type="series"
+			/>
+		))}
 	</IssueGrid>
 </Layout>

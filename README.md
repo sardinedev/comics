@@ -5,6 +5,7 @@ An Astro server-side rendered (SSR) application for browsing and managing a pers
 ## Overview
 
 This app helps you:
+
 - Browse your personal comics library
 - Track series and issues from Mylar
 - View weekly new releases from Comic Vine
@@ -23,14 +24,14 @@ This app helps you:
 
 All commands are run from the root of the project:
 
-| Command              | Action                                      |
-| :------------------- | :------------------------------------------ |
-| `npm install`        | Install dependencies                        |
-| `npm run dev`        | Start dev server at `localhost:4321`        |
-| `npm run build`      | Build production site to `./dist/`          |
-| `npm run preview`    | Preview build locally before deploying      |
-| `npm run type:check` | Run Astro type checking                     |
-| `npx vitest run`     | Run tests                                   |
+| Command              | Action                                 |
+| :------------------- | :------------------------------------- |
+| `npm install`        | Install dependencies                   |
+| `npm run dev`        | Start dev server at `localhost:4321`   |
+| `npm run build`      | Build production site to `./dist/`     |
+| `npm run preview`    | Preview build locally before deploying |
+| `npm run type:check` | Run Astro type checking                |
+| `npx vitest run`     | Run tests                              |
 
 ## Project Structure
 

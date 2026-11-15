@@ -38,6 +38,7 @@ Validate request bodies before use.
 ## Env vars
 
 Declared in `src/env.d.ts`. Use the `env()` helper from `src/lib/env.ts` to access them:
+
 ```ts
 import { env } from "@lib/env";
 const value = env("VAR_NAME");

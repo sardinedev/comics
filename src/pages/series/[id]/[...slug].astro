@@ -115,9 +115,9 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
 <Layout title={name}>
 	<Breadcrumbs
 		crumbs={[
-      { title: "Series", url: "/series" },
-      { title: name, url: `/series/${id}` },
-    ]}
+			{ title: "Series", url: "/series" },
+			{ title: name, url: `/series/${id}` },
+		]}
 	/>
 	<!-- Series header -->
 	<div class="relative -mx-4 -mt-4 mb-10 border-b border-slate-800">
@@ -130,47 +130,47 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
 			>
 				<!-- Issue #2 / fallback behind -->
 				{cover2 ? (
-            <div class="absolute left-6 top-3 h-[220px] w-[148px] rotate-6 overflow-hidden rounded-sm shadow-xl ring-1 ring-white/10">
-              <Image
-                src={new URL(cover2, Astro.url).toString()}
-                alt={`${name} #2`}
-                widths={[183, 275, 366]}
-                sizes="(max-width: 640px) 183px, 210px"
-                quality="mid"
-                format="avif"
-                width={148}
-                height={220}
-                class="h-full w-full object-cover"
-              />
-            </div>
-          ) : (
-            <div class="absolute left-6 top-3 h-[220px] w-[148px] rotate-6 rounded-sm bg-slate-700 opacity-50 shadow-xl" />
-          )}
+					<div class="absolute left-6 top-3 h-[220px] w-[148px] rotate-6 overflow-hidden rounded-sm shadow-xl ring-1 ring-white/10">
+						<Image
+							src={new URL(cover2, Astro.url).toString()}
+							alt={`${name} #2`}
+							widths={[183, 275, 366]}
+							sizes="(max-width: 640px) 183px, 210px"
+							quality="mid"
+							format="avif"
+							width={148}
+							height={220}
+							class="h-full w-full object-cover"
+						/>
+					</div>
+				) : (
+					<div class="absolute left-6 top-3 h-[220px] w-[148px] rotate-6 rounded-sm bg-slate-700 opacity-50 shadow-xl" />
+				)}
 				<!-- Issue #1 / series cover in front -->
 				<div
 					class="absolute inset-y-0 left-0 w-[148px] overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/10"
 				>
 					{cover1 ? (
-              <Image
-                src={new URL(cover1, Astro.url).toString()}
-                alt={`${name} #2`}
-                widths={[183, 275, 366]}
-                sizes="(max-width: 640px) 183px, 210px"
-                quality="mid"
-                format="avif"
-                width={148}
-                height={220}
-                class="h-full w-full object-cover"
-              />
-            ) : (
-              <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
-                <Icon
-                  name="image-placeholder"
-                  class="h-12 w-12"
-                  color="rgb(71 85 105)"
-                />
-              </div>
-            )}
+						<Image
+							src={new URL(cover1, Astro.url).toString()}
+							alt={`${name} #2`}
+							widths={[183, 275, 366]}
+							sizes="(max-width: 640px) 183px, 210px"
+							quality="mid"
+							format="avif"
+							width={148}
+							height={220}
+							class="h-full w-full object-cover"
+						/>
+					) : (
+						<div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
+							<Icon
+								name="image-placeholder"
+								class="h-12 w-12"
+								color="rgb(71 85 105)"
+							/>
+						</div>
+					)}
 				</div>
 			</div>
 
@@ -179,73 +179,69 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
 				<div class="flex items-start justify-between gap-4">
 					<PageHeading class="min-w-0 flex-1">{name}</PageHeading>
 					{series && downloadedIssues.length > 0 && (
-              <BulkDownload
-                client:only="preact"
-                issues={bulkDownloadIssues}
-                downloadedIssues={downloadedIssues}
-              />
-            )}
+						<BulkDownload
+							client:only="preact"
+							issues={bulkDownloadIssues}
+							downloadedIssues={downloadedIssues}
+						/>
+					)}
 				</div>
 				<div class="flex flex-wrap items-center gap-4 text-sm text-slate-400">
 					{publisher && (
-              <a
-                href={`/series?publisher=${encodeURIComponent(publisher)}&page=1`}
-                class="hover:text-amber-500 transition-colors"
-              >
-                {publisher}
-              </a>
-            )}
+						<a
+							href={`/series?publisher=${encodeURIComponent(publisher)}&page=1`}
+							class="hover:text-amber-500 transition-colors"
+						>
+							{publisher}
+						</a>
+					)}
 					{year && (
-              <>
-                <span class="text-slate-700">·</span>
-                <a
-                  href={`/series?year=${year}&page=1`}
-                  class="hover:text-amber-500 transition-colors"
-                >
-                  {year}
-                </a>
-              </>
-            )}
+						<>
+							<span class="text-slate-700">·</span>
+							<a
+								href={`/series?year=${year}&page=1`}
+								class="hover:text-amber-500 transition-colors"
+							>
+								{year}
+							</a>
+						</>
+					)}
 					{totalIssues && (
-              <>
-                <span class="text-slate-700">·</span>
-                <span>{totalIssues} issues</span>
-              </>
-            )}
+						<>
+							<span class="text-slate-700">·</span>
+							<span>{totalIssues} issues</span>
+						</>
+					)}
 					{readingCount > 0 && (
-              <>
-                <span class="text-slate-700">·</span>
-                <span>
-                  <span class="font-semibold text-amber-500">
-                    {readingCount}
-                  </span>{" "}
-                  in progress
-                </span>
-              </>
-            )}
+						<>
+							<span class="text-slate-700">·</span>
+							<span>
+								<span class="font-semibold text-amber-500">{readingCount}</span>{" "}
+								in progress
+							</span>
+						</>
+					)}
 					{readCount > 0 && (
-              <>
-                <span class="text-slate-700">·</span>
-                <span>Read</span>
-                <span>
-                  <span class="font-semibold text-amber-500">{readCount}</span>{" "}
-                  / {total}
-                </span>
-              </>
-            )}
+						<>
+							<span class="text-slate-700">·</span>
+							<span>Read</span>
+							<span>
+								<span class="font-semibold text-amber-500">{readCount}</span> /{" "}
+								{total}
+							</span>
+						</>
+					)}
 					{cvVolume && (
-              <>
-                <span class="text-slate-700">·</span>
-                <span class="text-xs font-bold uppercase tracking-widest text-slate-600">
-                  Not in library
-                </span>
-              </>
-            )}
+						<>
+							<span class="text-slate-700">·</span>
+							<span class="text-xs font-bold uppercase tracking-widest text-slate-600">
+								Not in library
+							</span>
+						</>
+					)}
 				</div>
 
-				{cvVolume && (
-					<AddToLibrary client:only="preact" seriesId={id} />
-          )}
+				{cvVolume && <AddToLibrary client:only="preact" seriesId={id} />}
 
 				<div class="h-1 mt-2 w-full overflow-hidden bg-slate-800">
 					<div class="h-full bg-amber-500" style={`width: ${readPct}%`}></div>
@@ -255,57 +251,55 @@ const cover2 = issues[1]?.issue_cover_url ?? null;
 	</div>
 	<!-- Elastic: full issue grid with reading state -->
 	{issues.length > 0 && (
-      <CoverGrid>
-        {issues.map((issue) => (
-          <CoverLeaf
-            type="Issue"
-            id={issue.issue_id}
-            cover={issue.issue_cover_url}
-            number={issue.issue_number}
-            issueName={issue.issue_name}
-            issueDate={issue.issue_date?.slice(0, 7)}
-            badge={
-              issue.reading_state === "read"
-                ? "read"
-                : issue.reading_state === "reading"
-                  ? "reading"
-                  : issue.download_status !== "Downloaded"
-                    ? "wanted"
-                    : undefined
-            }
-            progress={
-              issue.current_page && issue.issue_page_count
-                ? Math.round(
-                    (issue.current_page / issue.issue_page_count) * 100,
-                  )
-                : undefined
-            }
-            thumbHash={issue.issue_cover_thumb_hash}
-          />
-        ))}
-      </CoverGrid>
-    )}
+		<CoverGrid>
+			{issues.map((issue) => (
+				<CoverLeaf
+					type="Issue"
+					id={issue.issue_id}
+					cover={issue.issue_cover_url}
+					number={issue.issue_number}
+					issueName={issue.issue_name}
+					issueDate={issue.issue_date?.slice(0, 7)}
+					badge={
+						issue.reading_state === "read"
+							? "read"
+							: issue.reading_state === "reading"
+								? "reading"
+								: issue.download_status !== "Downloaded"
+									? "wanted"
+									: undefined
+					}
+					progress={
+						issue.current_page && issue.issue_page_count
+							? Math.round((issue.current_page / issue.issue_page_count) * 100)
+							: undefined
+					}
+					thumbHash={issue.issue_cover_thumb_hash}
+				/>
+			))}
+		</CoverGrid>
+	)}
 
 	<!-- ComicVine fallback: same issue grid with real covers -->
 	{cvVolume && cvPageIssues && cvPageIssues.length > 0 && (
-      <CoverGrid>
-        {cvPageIssues.map((issue) => (
-          <CoverLeaf
-            type="Issue"
-            id={String(issue.id)}
-            cover={issue.image?.medium_url}
-            number={issue.issue_number}
-            issueName={issue.name}
-            issueDate={issue.cover_date?.slice(0, 7)}
-          />
-        ))}
-      </CoverGrid>
-    )}
+		<CoverGrid>
+			{cvPageIssues.map((issue) => (
+				<CoverLeaf
+					type="Issue"
+					id={String(issue.id)}
+					cover={issue.image?.medium_url}
+					number={issue.issue_number}
+					issueName={issue.name}
+					issueDate={issue.cover_date?.slice(0, 7)}
+				/>
+			))}
+		</CoverGrid>
+	)}
 
 	{issues.length > 0 && (
-      <PageNavigator numberOfPages={totalPages} currentPage={currentPage} />
-    )}
+		<PageNavigator numberOfPages={totalPages} currentPage={currentPage} />
+	)}
 	{cvVolume && cvTotalPages > 1 && (
-      <PageNavigator numberOfPages={cvTotalPages} currentPage={currentPage} />
-    )}
+		<PageNavigator numberOfPages={cvTotalPages} currentPage={currentPage} />
+	)}
 </Layout>

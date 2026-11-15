@@ -5,7 +5,11 @@ const svgPath = `/icons/${name}.svg`;
 ---
 
 <div
-	style={{ mask: `url(${svgPath}) no-repeat center`, backgroundColor: color ?? "white", maskSize: "contain" }}
+	style={{
+		mask: `url(${svgPath}) no-repeat center`,
+		backgroundColor: color ?? "white",
+		maskSize: "contain",
+	}}
 	class={`aspect-square ${className ?? "w-6 h-6"}`}
 	{...rest}
 ></div>

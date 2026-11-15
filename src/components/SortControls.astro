@@ -43,19 +43,19 @@ function sortUrl(value: string) {
 		class="flex w-full flex-col border-t-2 border-amber-500 bg-slate-900 shadow-xl shadow-black/40"
 	>
 		{options.map((opt, i) => (
-      <li class:list={[{ "border-t border-slate-800": i > 0 }]}>
-        <a
-          href={sortUrl(opt.value)}
-          class:list={[
-            "flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-slate-800 hover:text-amber-500",
-            currentSort === opt.value ? "text-amber-500" : "text-slate-400",
-          ]}
-        >
-          <Icon name={opt.icon} class="h-4 w-4" color="currentColor" />
-          {opt.label}
-        </a>
-      </li>
-    ))}
+			<li class:list={[{ "border-t border-slate-800": i > 0 }]}>
+				<a
+					href={sortUrl(opt.value)}
+					class:list={[
+						"flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-slate-800 hover:text-amber-500",
+						currentSort === opt.value ? "text-amber-500" : "text-slate-400",
+					]}
+				>
+					<Icon name={opt.icon} class="h-4 w-4" color="currentColor" />
+					{opt.label}
+				</a>
+			</li>
+		))}
 	</menu>
 </div>
 

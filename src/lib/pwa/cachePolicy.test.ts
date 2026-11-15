@@ -45,14 +45,12 @@ describe("service-worker document policy", () => {
 		expect(policy.getDocumentFallbackPath("/series/123")).toBe("/series/123");
 	});
 
-	it.each([
-		"/",
-		"/new",
-		"/series/123/name",
-		"/search?q=batman",
-	])("allows app document %s", (pathname) => {
-		expect(policy.isExcludedDocumentPath(pathname)).toBe(false);
-	});
+	it.each(["/", "/new", "/series/123/name", "/search?q=batman"])(
+		"allows app document %s",
+		(pathname) => {
+			expect(policy.isExcludedDocumentPath(pathname)).toBe(false);
+		},
+	);
 
 	it.each([
 		"/login",

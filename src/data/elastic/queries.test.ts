@@ -176,24 +176,25 @@ describe("canonical series pagination", () => {
 		);
 	});
 
-	test.each([
-		1000, 1001,
-	])("finds neighbors across the page boundary for issue %i", async (issueNumber) => {
-		const hits = seriesHits(1002);
-		elasticState.search
-			.mockResolvedValueOnce({ hits: { hits: hits.slice(0, 1000) } })
-			.mockResolvedValueOnce({ hits: { hits: hits.slice(1000) } });
-		const result = await queries.getAdjacentSeriesIssueReferences({
-			issue_id: `issue-${issueNumber}`,
-			series_id: "series-1",
-		});
-		expect(result).toMatchObject({
-			previousIssue: {
-				issue_id: `issue-${String(issueNumber - 1).padStart(4, "0")}`,
-			},
-			nextIssue: { issue_id: `issue-${issueNumber + 1}` },
-		});
-	});
+	test.each([1000, 1001])(
+		"finds neighbors across the page boundary for issue %i",
+		async (issueNumber) => {
+			const hits = seriesHits(1002);
+			elasticState.search
+				.mockResolvedValueOnce({ hits: { hits: hits.slice(0, 1000) } })
+				.mockResolvedValueOnce({ hits: { hits: hits.slice(1000) } });
+			const result = await queries.getAdjacentSeriesIssueReferences({
+				issue_id: `issue-${issueNumber}`,
+				series_id: "series-1",
+			});
+			expect(result).toMatchObject({
+				previousIssue: {
+					issue_id: `issue-${String(issueNumber - 1).padStart(4, "0")}`,
+				},
+				nextIssue: { issue_id: `issue-${issueNumber + 1}` },
+			});
+		},
+	);
 
 	test("uses the complete sort tuple when issue number and date are tied", async () => {
 		const hits = seriesHits(1001).map((hit) => ({

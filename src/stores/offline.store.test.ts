@@ -18,11 +18,12 @@ describe("flagIfSessionExpired", () => {
 		expect($offline.get().authRequired).toBe(false);
 	});
 
-	test.each([
-		401, 403, 503,
-	])("leaves the prompt alone on a bare %s", (status) => {
-		flagIfSessionExpired(expiredSessionResponse());
-		expect(flagIfSessionExpired(new Response(null, { status }))).toBe(false);
-		expect($offline.get().authRequired).toBe(true);
-	});
+	test.each([401, 403, 503])(
+		"leaves the prompt alone on a bare %s",
+		(status) => {
+			flagIfSessionExpired(expiredSessionResponse());
+			expect(flagIfSessionExpired(new Response(null, { status }))).toBe(false);
+			expect($offline.get().authRequired).toBe(true);
+		},
+	);
 });
