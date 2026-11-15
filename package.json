@@ -3,7 +3,7 @@
 	"type": "module",
 	"version": "0.0.1",
 	"engines": {
-		"node": "24.22.3"
+		"node": "26.13.1"
 	},
 	"scripts": {
 		"dev": "astro dev --host",
