@@ -12,7 +12,15 @@ const { id } = Astro.params;
 
 if (!id) return Astro.redirect("/series");
 
-const issue = await getIssue(id);
+let issue: Awaited<ReturnType<typeof getIssue>>;
+try {
+	issue = await getIssue(id);
+} catch (error) {
+	console.error("Failed to load issue for reading:", error);
+	return new Response("Issue details are temporarily unavailable", {
+		status: 503,
+	});
+}
 
 if (!issue) return Astro.redirect("/series");
 if (issue.download_status !== "Downloaded")

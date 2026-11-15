@@ -64,12 +64,12 @@ export async function handleProgress(
 		return json({ error: "updated_at must be an ISO timestamp" }, 400);
 	}
 
-	const issue = await getIssue(id);
-	if (!issue) {
-		return json({ error: "Issue not found" }, 404);
-	}
-
 	try {
+		const issue = await getIssue(id);
+		if (!issue) {
+			return json({ error: "Issue not found" }, 404);
+		}
+
 		const result = await updateReadingProgress(id, {
 			currentPage: current_page,
 			totalPages: total_pages,
@@ -78,7 +78,7 @@ export async function handleProgress(
 		let savedPage = current_page;
 		let savedUpdatedAt = result.updatedAt;
 		if (!result.applied) {
-			const authoritativeIssue = await getIssue(id, { throwOnError: true });
+			const authoritativeIssue = await getIssue(id);
 			const authoritativeUpdatedAt = parseIsoTimestamp(
 				authoritativeIssue?.progress_updated_at,
 			);
