@@ -19,7 +19,7 @@
 		"lint": "biome check"
 	},
 	"dependencies": {
-		"@astrojs/node": "11.1.13",
+		"@astrojs/node": "11.1.14",
 		"@astrojs/preact": "6.1.6",
 		"@atproto/jwk-jose": "^0.2.0",
 		"@atproto/oauth-client-node": "^0.5.0",
@@ -28,7 +28,7 @@
 		"@nanostores/preact": "1.1.1",
 		"@preact/signals": "2.11.4",
 		"@tailwindcss/vite": "4.3.3",
-		"astro": "7.4.12",
+		"astro": "7.4.13",
 		"fflate": "^0.8.2",
 		"nanostores": "1.5.5",
 		"preact": "11.2.0",
