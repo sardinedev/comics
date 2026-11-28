@@ -39,7 +39,7 @@
 	"devDependencies": {
 		"@astrojs/check": "0.9.12",
 		"@biomejs/biome": "2.6.8",
-		"@vitest/browser-playwright": "4.1.10",
+		"@vitest/browser-playwright": "5.1.2",
 		"esbuild": "0.28.2",
 		"playwright": "1.65.0",
 		"tsx": "4.23.15",
